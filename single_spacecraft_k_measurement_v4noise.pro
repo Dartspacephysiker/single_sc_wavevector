@@ -160,7 +160,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_V4NOISE
   ;; Second example: Continuum of k components following some complicated function of omega
   ;; Third example : Same as second example, except noise added
 
-  example   = 1
+  example   = 3
 
   ;;setup file management, filenames for selected output mode
   OUTPUT_SETUP,output_mode,plotDir,example,saveDir
