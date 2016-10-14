@@ -154,7 +154,7 @@ END
 
 PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
 
-  saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/'
+  saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
   saveFile = 'Chaston_et_al_2006--B_and_J.sav'
 
   PRINT,"Restoring " + saveFile + ' ...'
@@ -384,10 +384,24 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PARSE_SAVEFILE=parse_saveFile, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-   PLOT_POSFREQ=plot_posFreq
+   PLOT_POSFREQ=plot_posFreq, $
+   SAVE_PS=save_ps, $
+   BONUS_SUFF=bonus_suff, $
+   DOUBLE_CALC=double_calc, $
+   HANNING=hanning
   ;;select output mode,
   ;;set output_mode =0 for screen, 1 for printer, 2 for postscript file
-  output_mode = 2
+
+  CASE 1 OF
+     KEYWORD_SET(save_ps): BEGIN
+        output_mode = 2
+     END
+     ELSE: BEGIN
+        output_mode = 0
+     END
+  ENDCASE
+  ;; output_mode = 0
+
   ;;select one of three examples
   ;; First example : A few discrete k components
   ;; Second example: Continuum of k components following some complicated function of omega
@@ -407,9 +421,18 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      unitFactor = 1 ;Don't adjust k in this case
   ENDELSE
 
+
   IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
      suff += '--kPerp'
   ENDIF
+
+  IF KEYWORD_SET(hanning    ) THEN BEGIN
+     PRINT,"You shouldn't apply a window to correlation functions ..."
+     WAIT,2
+     suff += '--hanning'
+  ENDIF
+  IF KEYWORD_SET(double_calc) THEN suff += '--double_arithmetic'
+  IF KEYWORD_SET(bonus_suff ) THEN suff += bonus_suff
 
   example = 1
 
@@ -682,17 +705,40 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   JxB_zcomponent_corr  = CORRELATION(Jx,By,T) - CORRELATION(Jy,Bx,T)
 
   ;; Fourier transform of <B_vec(t) dot B_vec(t+tau)>
-  BB_FFT               = FFT(BBautocorr)
+  CASE 1 OF
+     KEYWORD_SET(hanning): BEGIN
+        hWindow              = HANNING(N_ELEMENTS(BBautocorr),/DOUBLE)
+        BB_FFT               = FFT(BBautocorr*hWindow)
+     END
+     ELSE: BEGIN
+        BB_FFT               = FFT(BBautocorr)
+     END
+  ENDCASE
 
   ;; Fourier transform of components of <B_vec(t) dot B_vec(t+tau)>
-  JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr)
-  JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr)
-  JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr)
+  CASE 1 OF
+     KEYWORD_SET(hanning): BEGIN
+        hWindow              = HANNING(N_ELEMENTS(JxB_xcomponent_corr),/DOUBLE)
+        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr*hWindow)
+        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr*hWindow)
+        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr*hWindow)
+     END
+     ELSE: BEGIN
+        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr)
+        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr)
+        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr)
+     END
+  ENDCASE
 
   ;; calculate k components, put 0.001 in denom to avoid dividing zero by zero
-  ikx                  = -JxB_xcomponent_FFT/(BB_FFT+.001)
-  iky                  = -JxB_ycomponent_FFT/(BB_FFT+.001)
-  ikz                  = -JxB_zcomponent_FFT/(BB_FFT+.001)
+  ;; ikx                  = -JxB_xcomponent_FFT/(BB_FFT+.001)
+  ;; iky                  = -JxB_ycomponent_FFT/(BB_FFT+.001)
+  ;; ikz                  = -JxB_zcomponent_FFT/(BB_FFT+.001)
+
+  IF KEYWORD_SET(double_calc) THEN nonZ = DOUBLE(1.e-10) ELSE nonZ = .001
+  ikx                  = -JxB_xcomponent_FFT/(BB_FFT+nonZ)
+  iky                  = -JxB_ycomponent_FFT/(BB_FFT+nonZ)
+  ikz                  = -JxB_zcomponent_FFT/(BB_FFT+nonZ)
 
   ;;extract imaginary part
   kx                   = IMAGINARY(ikx)
@@ -781,36 +827,127 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        YRANGE=[-kz_ysize,kz_ysize]
   IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
 
+  IF KEYWORD_SET(save_ps) THEN BEGIN
+     CONCLUDE_OUTPUT,output_mode
+  ENDIF
+
+  ;;Show Hanning windowed?
+  IF KEYWORD_SET(hanning) THEN BEGIN
+
+     IF ~KEYWORD_SET(save_ps) THEN BEGIN
+        WINDOW,3,XSIZE=700,YSIZE=800
+     ENDIF
+
+     ;; !P.MULTI  = [0, columns, rows, 0, 0]
+     !P.MULTI[0]  = 0
+
+     PLOT,freq[inds],kx[inds], $
+          YTITLE='x component', $
+          XTITLE='FFT argument', $
+          CHARSIZE=cs, $
+          YRANGE=[-kx_ysize,kx_ysize]
+     IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
+
+     PLOT,freq[inds],ky[inds], $
+          YTITLE='y component', $
+          XTITLE='FFT argument', $
+          CHARSIZE=cs, $
+          YRANGE=[-ky_ysize,ky_ysize]
+     IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
+
+     PLOT,freq[inds],kz[inds], $
+          YTITLE='z component', $
+          XTITLE='FFT argument', $
+          CHARSIZE=cs, $
+          YRANGE=[-kz_ysize,kz_ysize]
+     IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
 
 
-  bro = PLOT(freq[inds],kP[inds], $
-             XTITLE='Frequency (Hz)', $
-             YTITLE='|k!Dperp!N (m$^{-1}$)')
 
-  smInd = 10
-  smkP = SMOOTH(kP[inds],smInd)
-  bro = PLOT(freq[inds],smkP, $
-             XTITLE='Frequency (Hz)', $
-             YTITLE='|k!Dperp!N (m$^{-1}$)', $
-             COLOR='RED', $
-             /OVERPLOT)
+  ENDIF
 
-  ;;Kperp angle plot
-  kPAngle = ATAN(ky,kx)*!RADEG
-  ;; kPAngle = ATAN(SMOOTH(ky,smInd),SMOOTH(kx,smInd))*!RADEG
+  ;;Old or new style?
+  IF KEYWORD_SET(oo_plots) THEN BEGIN
+     window = WINDOW(DIMENSIONS=[700,800])
 
-  bro = PLOT(freq[inds],kPAngle[inds], $
-             XTITLE='Frequency (Hz)', $
-             ;; XTITLE='T since' + TIME_TO_STR(TArr[0]) + '(s)', $
-             YTITLE='|$\theta$(k!Dperp!N)')
+     bro = PLOT(freq[inds],kP[inds], $
+                ;; XTITLE='Frequency (Hz)', $
+                YTITLE='|k!Dperp!N (m$^{-1}$)', $
+                CURRENT=window, $
+                LAYOUT=[1,2,1])
 
-  smkPAngle = SMOOTH(kPAngle[inds],smInd)
-  bro = PLOT(freq[inds],smkPAngle, $
-             XTITLE='Frequency (Hz)', $
-             YTITLE='|$\theta$(k!Dperp!N)', $
-             COLOR='RED', $
-             /OVERPLOT)
+     ;; bro.axes
 
+     smInd = 10
+     smkP = SMOOTH(kP[inds],smInd)
+     bro = PLOT(freq[inds],smkP, $
+                ;; XTITLE='Frequency (Hz)', $
+                YTITLE='|k!Dperp!N (m$^{-1}$)', $
+                COLOR='RED', $
+                /OVERPLOT, $
+                CURRENT=window)
+
+     ;;Kperp angle plot
+     kPAngle = ATAN(ky,kx)*!RADEG
+     ;; kPAngle = ATAN(SMOOTH(ky,smInd),SMOOTH(kx,smInd))*!RADEG
+
+     bro = PLOT(freq[inds],kPAngle[inds], $
+                XTITLE='Frequency (Hz)', $
+                ;; XTITLE='T since' + TIME_TO_STR(TArr[0]) + '(s)', $
+                YTITLE='|$\theta$(k!Dperp!N)', $
+                CURRENT=window, $
+                LAYOUT=[1,2,2])
+
+     smkPAngle = SMOOTH(kPAngle[inds],smInd)
+     bro = PLOT(freq[inds],smkPAngle, $
+                XTITLE='Frequency (Hz)', $
+                YTITLE='|$\theta$(k!Dperp!N)', $
+                COLOR='RED', $
+                /OVERPLOT)
+  ENDIF ELSE BEGIN
+     
+     IF KEYWORD_SET(save_ps) THEN BEGIN
+        OUTPUT_SETUP,output_mode,plotDir,suff+'--page2',saveDir
+     ENDIF
+
+     columns = 1
+     rows    = 2
+     !P.MULTI  = [0, columns, rows, 0, 0]
+     ;; !P.MULTI[0]  = 0
+
+     IF ~KEYWORD_SET(save_ps) THEN BEGIN
+        WINDOW,2,XSIZE=700,YSIZE=800
+     ENDIF
+
+      PLOT,freq[inds],kP[inds], $
+           XTITLE='Frequency (Hz)', $
+           YTITLE='!8k!Dperp!N (m!U-1!N)'
+
+      smInd = 10
+      smkP = SMOOTH(kP[inds],smInd)
+
+      OPLOT,freq[inds],smkP, $
+            COLOR=250
+
+     ;;Kperp angle plot
+     kPAngle = ATAN(ky,kx)*!RADEG
+
+
+     PLOT,freq[inds],kPAngle[inds], $
+          XTITLE='Frequency (Hz)', $
+          YTITLE='!8|' +CGGREEK('theta',PS=save_ps) + '!Dk!Dperp!N)'
+          ;; YTITLE='|$\theta$(k!Dperp!N)'
+
+     smkPAngle = SMOOTH(kPAngle[inds],smInd)
+     OPLOT,freq[inds],smkPAngle, $
+           COLOR=250
+
+     IF KEYWORD_SET(save_ps) THEN BEGIN
+        CONCLUDE_OUTPUT,output_mode
+     ENDIF
+
+
+  ENDELSE
   ;; print to screen, printer, or file depending on mode=0,1,2
-  CONCLUDE_OUTPUT,output_mode
+  ;; CONCLUDE_OUTPUT,output_mode
 END
