@@ -152,7 +152,196 @@ PRO ADD_NOISE,Bx,By,Bz,Jx,Jy,Jz,T
 
 END
 
-PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
+PRO  SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                   EXAMPLE=example
+
+  T         = 200               ; number of elements in time domain vectors
+  TArr      = INDGEN(T)
+  sPeriod   = 1
+
+  ;; k_vector : first argument is for frequency, second is for Cartesian coordinate
+  kvec      = FLTARR(T/2+1,3)
+
+  omega     = INDGEN(T/2+1)*2*!Pi/T
+
+  ;;setup k vectors for either example 1 or 2
+                                ;first example
+  IF example EQ 1 THEN BEGIN
+     kx      = FLTARR(T/2+1)
+     ky      = kx
+     kz      = kx
+
+     kx[10]  = -2
+     ky[50]  = 8
+     kz[70]  = 5
+  ENDIF
+
+  ;; second and third examples, continuum of k components
+  ;;constructed using arbitrary complicated function
+  IF example EQ 2 OR example EQ 3 THEN BEGIN
+
+     ;; pick some arbitrary function for magnitude for k
+     kmag    = SQRT(omega)
+
+     ;;choose azimuthal spherical coordinate angle of unit k vector
+     phi     = 2*!pi*INDGEN(T/2+1)/T
+
+     ;;choose polar spherical coordinate angle of unit k vector
+     theta   = !pi*INDGEN(T/2+1)/T
+
+     ;; construct Cartesian unit vectors for k
+     x_unit  = SIN(theta)*COS(phi)
+     y_unit  = SIN(theta)*SIN(phi)
+     z_unit  = COS(phi)
+
+     ;;define components of k vector
+     kx      = kmag*x_unit
+     ky      = kmag*y_unit
+     kz      = kmag*z_unit
+
+  ENDIF
+
+  ;;plot k vectors that have been set up
+  IF example EQ 1 THEN BEGIN
+     ysize  = 10
+  ENDIF
+  IF example EQ 2 or example EQ 3 THEN BEGIN
+     ysize  = 2
+  ENDIF
+
+  PLOT,kx,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dx!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
+  PLOT,ky,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dy!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
+  PLOT,kz,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dz!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
+
+  ;;store k components in a vector for use later
+  FOR i=0,T/2 DO BEGIN
+     kvec[i,0]= kx[i]
+     kvec[i,1]= ky[i]
+     kvec[i,2]= kz[i]
+  ENDFOR
+
+  ;; set up k vector
+  ;; define A vector potential cosine component
+  ;; first argument is frequency, second is Cartesian component
+  Avec_cos = FLTARR(T/2+1,3)    ; define A vector cos component (vector potential)
+  Avec_sin = FLTARR(T/2+1,3)    ; define A vector sine component (vector potential)
+
+  ;; seed for random number generator,
+  ;; get different random number each time randomu is called
+  seed = 2001L
+
+  ;; make coefficients of vector potential random,
+  ;;Avec_cos[i,0] means
+  ;; coefficient of the x component with cosine time dependence for frequency i
+  ;;make all vector potential components random numbers
+  FOR I=0,T/2 DO BEGIN
+     Avec_cos[i,0]  = RANDOMU(seed)
+     Avec_sin[i,0]  = RANDOMU(seed)
+     Avec_cos[i,1]  = RANDOMU(seed)
+     Avec_sin[i,1]  = RANDOMU(seed)
+     Avec_cos[i,2]  = RANDOMU(seed)
+     Avec_sin[i,2]  = RANDOMU(seed)
+  ENDFOR
+
+  ;; B vector for a single frequency, args are frequency, Cartesian direction, time
+  Bvec = FLTARR(T/2+1,3,T)
+  Jvec = Bvec
+  FOR TT=0,T-1 DO BEGIN         ;for each time
+     FOR i=0,T/2 DO BEGIN       ;for each frequency component
+
+        ;; temp A cosine component
+        Avectemp_cos = [Avec_cos[i,0], Avec_cos[i,1], Avec_cos[i,2] ]
+
+        ;; temp A sin e component
+        Avectemp_sin = [Avec_sin[i,0], Avec_sin[i,1], Avec_sin[i,2] ]
+
+        ;; tempo k vector
+        kvectemp = [kvec[i,0], kvec[i,1], kvec[i,2] ]
+
+        ;; k vector cross product with A cosine
+        kcross_Acos = CROSSP(kvectemp,Avectemp_cos)
+
+        ;; k vector cross product with A sine
+        kcross_Asin = CROSSP(kvectemp,Avectemp_sin)
+
+        ;; put in time dependence to get total B at a single time for freq i
+        Bvec[i,0,tt] = -kcross_Acos[0]*SIN(-omega[i]*tt) $
+                       + kcross_Asin[0]*COS(-omega[i]*tt)
+
+        Bvec[i,1,tt] = -kcross_Acos[1]*SIN(-omega[i]*tt)$
+                       + kcross_Asin[1]*COS(-omega[i]*tt)
+
+        Bvec[i,2,tt] = -kcross_Acos[2]*SIN(-omega[i]*tt) $
+                       + kcross_Asin[2]*COS(-omega[i]*tt)
+
+        ;; k cross (k cross A) need for current
+        kcrosskcross_Acos = CROSSP(kvectemp,kcross_Acos)
+        kcrosskcross_Asin = CROSSP(kvectemp,kcross_Asin)
+
+        ;;calculate current at a single time for freq i
+        Jvec[i,0,tt] = -kcrosskcross_Acos[0]* $
+                       COS(-omega[i]*tt)-kcrosskcross_Asin[0]*SIN(-omega[i]*tt)
+
+        Jvec[i,1,tt] = -kcrosskcross_Acos[1]* $
+                       COS(-omega[i]*tt)-kcrosskcross_Asin[1]*SIN(-omega[i]*tt)
+
+        Jvec[i,2,tt] = -kcrosskcross_Acos[2]* $
+                       COS(-omega[i]*tt)-kcrosskcross_Asin[2]*SIN(-omega[i]*tt)
+     ENDFOR
+  ENDFOR
+
+  Bx = FLTARR(T)
+  By = Bx
+  Bz = Bx
+  Jx = Bx
+  Jy = Bx
+  Jz = Bx
+
+  ;; define dimensions of B and J components
+  FOR TT=0,T-1 DO BEGIN         ; TT is time
+     FOR i=0,T/2 DO BEGIN       ; sum up contributions from each frequency
+        Bx[TT] = Bx[TT] +Bvec[i,0,TT]
+        By[TT] = By[TT] +Bvec[i,1,TT]
+        Bz[TT] = Bz[TT] +Bvec[i,2,TT]
+        Jx[TT] = Jx[TT] +Jvec[i,0,TT]
+        Jy[TT] = Jy[TT] +Jvec[i,1,TT]
+
+        Jz[TT] = Jz[TT] +Jvec[i,2,TT]
+     ENDFOR                     ;
+  ENDFOR
+
+  ;;create noise if example EQ 3
+  IF example EQ 3 THEN add_noise, Bx,By,Bz,Jx,Jy,Jz,T
+
+  ;;Write data to file
+  ;; so that code can be easily modified to input data from other sources
+  B_J_file = 'Bx_By_Bz_Jx_Jy_Jz.dat'
+
+  filename = saveDir+B_J_file
+
+  ;;write data to file
+  OPENW,1,filename
+  PRINT, 'opening ', filename
+
+  PRINTF,1,example,T,FORMAT='(I5,1x,I5,1x)'
+  PRINTF,1,Bx
+  PRINTF,1,By
+  PRINTF,1,Bz
+  PRINTF,1,Jx
+  PRINTF,1,Jy
+  PRINTF,1,Jz
+  CLOSE,1
+  PRINT,'closing ',filename
+
+END
+
+
+PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                    USE_J_TIME_SERIES=use_J_time_series, $
+                    SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+                    STREAKNUM=streakNum, $
+                    OUT_STREAKNUM=longestInd
+
 
   saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
   saveFile = 'Chaston_et_al_2006--B_and_J.sav'
@@ -165,8 +354,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
 
   unitFactor  = (10.D)^(jUnitFactor)/(10.D)^(bUnitFactor)
 
-  ;; saveVar  = 'dB_fac_v'
-  saveVar  = 'dB_fac_V'
+  saveVar  = 'dB_fac'
+  ;; saveVar  = 'dB_fac_V'
 
   ;;Align time series
 
@@ -174,12 +363,12 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
      'DB_FAC_V': BEGIN
         ;;   From UCLA_MAG_DESPIN: "Field-aligned velocity-based coordinates defined as:    "
         ;;x (ind 0)-along track ((BxV)xB),
-        ;;y (ind 1)-cross track (BxV), 
+        ;;y (ind 1)-cross track (BxV),
         ;;z (ind 2)-along B" (I added "ind" marks)
         dB = dB_fac_v
      END
      'DB_FAC': BEGIN
-        ;;  Field-aligned coordinates defined as: 
+        ;;  Field-aligned coordinates defined as:
         ;;   z-along B, y-east (BxR), x-nominally out
         dB = dB_fac
      END
@@ -198,31 +387,93 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
   eESA_sRate = 1./(Je_z.x[1:-1]-Je_z.x[0:-2])
   iESA_sRate = 1./(Ji_z.x[1:-1]-Ji_z.x[0:-2])
 
-  this       = VALUE_CLOSEST2(je_z.x,db.x)
-  PRINT,ABS(je_z.x[this]-db.x)
+  ;; this       = VALUE_CLOSEST2(je_z.x,db.x)
+  ;; PRINT,ABS(je_z.x[this]-db.x)
 
-  this       = VALUE_CLOSEST2(ji_z.x,db.x)
-  PRINT,ABS(ji_z.x[this]-db.x)
+  ;; this       = VALUE_CLOSEST2(ji_z.x,db.x)
+  ;; PRINT,ABS(ji_z.x[this]-db.x)
 
 
-  frame_of_ref = 2
+  ;;Using j or mag time series?
+  CASE 1 OF
+     KEYWORD_SET(use_J_time_series): BEGIN
+        frame_of_ref = 2
+     END
+     ;; (KEYWORD_SET(use_mag_time_series): BEGIN
+     ELSE: BEGIN
+        frame_of_ref = 1
+     END
+  ENDCASE
   CASE frame_of_ref OF
      1: BEGIN
-        FA_FIELDS_COMBINE,{time:dB.x,comp1:dB.y[*,0]}, $
-                          {time:Je_z.x,comp1:Je_z.y}, $
-                          RESULT=Je_z_interp, $
-                          ;; /INTERP, $
-                          /SPLINE, $
-                          DELT_T=1.5, $
-                          /TALK
 
-        FA_FIELDS_COMBINE,{time:dB.x,comp1:dB.y[*,0]}, $
-                          {time:Ji_z.x,comp1:Ji_z.y}, $
-                          RESULT=Ji_z_interp, $
-                          ;; /INTERP, $
-                          /SPLINE, $
-                          DELT_T=1.5, $
-                          /TALK
+        IF KEYWORD_SET(smooth_J_dat) THEN BEGIN
+
+           GET_DOUBLE_STREAKS__NTH_DECIMAL_PLACE,je_z.x,-2,NPTS=100, $
+                                                 GAP_TIME=0.3, $
+                                                 START_I=strt_i, $
+                                                 STOP_I=stop_i, $
+                                                 STREAKLENS=streakLens, $
+                                                 T_STREAKLENS=tStreakLens, $
+                                                 /PRINT_START_STOP_TIMES
+
+           bro = ROUND_TO_NTH_DECIMAL_PLACE(db.x[1:-1]-db.x[0:-2],-5)
+           bro = bro[WHERE(ABS(bro) LT 1)]
+           distFreq = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
+                                REVERSE_INDICES=ri, $
+                                LOCATIONS=locs)
+           junk = MAX(distFreq,ind)
+           sPeriod = DOUBLE(locs[ind])
+           even_TS = MAKE_EVENLY_SPACED_TIME_SERIES(START_T=db.x[0], $
+                                                    STOP_T=db.x[-1], $
+                                                    DELTA_T=sPeriod)
+
+
+           je_z_interp = MAKE_ARRAY(N_ELEMENTS(even_TS),VALUE=!VALUES.F_NaN)
+           ji_z_interp = MAKE_ARRAY(N_ELEMENTS(even_TS),VALUE=!VALUES.F_NaN)
+           jeFin = FINITE(je_z.y)
+           jiFin = FINITE(ji_z.y)
+           PRINT,"Smoothing Je and Ji ..."
+           FOR k=0,N_ELEMENTS(even_TS)-1 DO BEGIN
+              tmpCheck = WHERE((ABS(je_z.x-even_TS[k]) LE sPeriod) AND jeFin,nCheck)
+              PRINT,nCheck
+              IF nCheck GT 0 THEN BEGIN
+                 je_z_interp[k] = MEAN(je_z.y[tmpCheck])
+              ENDIF
+
+              tmpCheck = WHERE((ABS(ji_z.x-even_TS[k]) LE sPeriod) AND jiFin,nCheck)
+              IF nCheck GT 0 THEN BEGIN
+                 ji_z_interp[k] = MEAN(ji_z.y[tmpCheck])
+              ENDIF
+           ENDFOR
+           PRINT,'Bro'
+
+        ENDIF ELSE BEGIN
+
+           bro = ROUND_TO_NTH_DECIMAL_PLACE(db.x[1:-1]-db.x[0:-2],-5)
+           bro = bro[WHERE(ABS(bro) LT 1)]
+           distFreq = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
+                                REVERSE_INDICES=ri, $
+                                LOCATIONS=locs)
+           junk = MAX(distFreq,ind)
+           sPeriod = DOUBLE(locs[ind])
+
+           FA_FIELDS_COMBINE,{time:dB.x,comp1:dB.y[*,0]}, $
+                             {time:Je_z.x,comp1:Je_z.y}, $
+                             RESULT=Je_z_interp, $
+                             ;; /INTERP, $
+                             /SPLINE, $
+                             DELT_T=1.5, $
+                             /TALK
+
+           FA_FIELDS_COMBINE,{time:dB.x,comp1:dB.y[*,0]}, $
+                             {time:Ji_z.x,comp1:Ji_z.y}, $
+                             RESULT=Ji_z_interp, $
+                             ;; /INTERP, $
+                             /SPLINE, $
+                             DELT_T=1.5, $
+                             /TALK
+        ENDELSE
      END
      2: BEGIN
         bro = ROUND_TO_NTH_DECIMAL_PLACE(ji_z.x[1:-1]-ji_z.x[0:-2],-5)
@@ -277,6 +528,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
                           /SPLINE, $
                           DELT_T=1.5, $
                           /TALK
+
      END
   ENDCASE
 
@@ -303,6 +555,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
   good_i       = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
   GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
   long         = MAX(streakLens,longestInd)
+  IF N_ELEMENTS(streakNum) GT 0 THEN longestInd = streakNum
   good_i       = (good_i[strt_ii[longestInd]:stop_ii[longestInd]])
 
   ;;END METHOD MADNESS
@@ -329,8 +582,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
   jFactor = mu_0
 
 
-  Jx = FLTARR(T) * jFactor
-  Jy = FLTARR(T) * jFactor
+  Jx = MAKE_ARRAY(T,VALUE=0.) * jFactor
+  Jy = MAKE_ARRAY(T,VALUE=0.) * jFactor
 
   Jz = (2.*Ji_z_improv + (-1.)*Je_z_improv) * jFactor ;-1 for electrons because ... you know ...
 
@@ -384,13 +637,25 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PARSE_SAVEFILE=parse_saveFile, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+   PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
+   PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
    PLOT_POSFREQ=plot_posFreq, $
    SAVE_PS=save_ps, $
    BONUS_SUFF=bonus_suff, $
    DOUBLE_CALC=double_calc, $
-   HANNING=hanning
+   HANNING=hanning, $
+   USE_J_TIME_SERIES=use_J_time_series, $
+   SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+   STREAKNUM=streakNum
+
+   
   ;;select output mode,
   ;;set output_mode =0 for screen, 1 for printer, 2 for postscript file
+
+  COMPILE_OPT idl2
+
+  ;;N points to smooth k components with
+  smInd = 5
 
   CASE 1 OF
      KEYWORD_SET(save_ps): BEGIN
@@ -411,7 +676,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   suff = 'TEST'
   IF KEYWORD_SET(parse_saveFile) THEN BEGIN
-     CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar
+     CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                     USE_J_TIME_SERIES=use_J_time_series, $
+                     SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+                     STREAKNUM=streakNum, $
+                     OUT_STREAKNUM=streakInd
 
      sRate = 1./(TArr[1:-1]-TArr[0:-2])
 
@@ -421,6 +690,20 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      unitFactor = 1 ;Don't adjust k in this case
   ENDELSE
 
+  IF N_ELEMENTS(streakInd) GT 0 THEN BEGIN
+     suff += '--streak_' + STRCOMPRESS(streakInd,/REMOVE_ALL)
+  ENDIF
+
+  ;;Aligned to mag or j time series?
+  IF KEYWORD_SET(use_J_time_series) THEN BEGIN
+     suff += '--jz_ts'
+  ENDIF ELSE BEGIN
+     suff += '--mag_ts'
+  ENDELSE
+
+  IF KEYWORD_SET(smooth_J_dat) THEN BEGIN
+     suff += '--sm_je'
+  ENDIF
 
   IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
      suff += '--kPerp'
@@ -453,185 +736,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ;; cs        = 1.8
 
   IF KEYWORD_SET(example_mode) THEN BEGIN
-
-     T         = 200            ; number of elements in time domain vectors
-     TArr      = INDGEN(T)
-     sPeriod   = 1
-
-     ;; k_vector : first argument is for frequency, second is for Cartesian coordinate
-     kvec      = FLTARR(T/2+1,3)
-
-     omega     = INDGEN(T/2+1)*2*!Pi/T
-
-     ;;setup k vectors for either example 1 or 2
-                                ;first example
-     IF example EQ 1 THEN BEGIN
-        kx      = FLTARR(T/2+1)
-        ky      = kx
-        kz      = kx
-
-        kx[10]  = -2
-        ky[50]  = 8
-        kz[70]  = 5
-     ENDIF
-
-     ;; second and third examples, continuum of k components
-     ;;constructed using arbitrary complicated function
-     IF example EQ 2 OR example EQ 3 THEN BEGIN
-
-        ;; pick some arbitrary function for magnitude for k
-        kmag    = SQRT(omega)
-
-        ;;choose azimuthal spherical coordinate angle of unit k vector
-        phi     = 2*!pi*INDGEN(T/2+1)/T
-
-        ;;choose polar spherical coordinate angle of unit k vector
-        theta   = !pi*INDGEN(T/2+1)/T
-
-        ;; construct Cartesian unit vectors for k
-        x_unit  = SIN(theta)*COS(phi)
-        y_unit  = SIN(theta)*SIN(phi)
-        z_unit  = COS(phi)
-
-        ;;define components of k vector
-        kx      = kmag*x_unit
-        ky      = kmag*y_unit
-        kz      = kmag*z_unit
-
-     ENDIF
-
-     ;;plot k vectors that have been set up
-     IF example EQ 1 THEN BEGIN
-        ysize  = 10
-     ENDIF
-     IF example EQ 2 or example EQ 3 THEN BEGIN
-        ysize  = 2
-     ENDIF
-
-     PLOT,kx,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dx!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
-     PLOT,ky,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dy!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
-     PLOT,kz,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dz!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
-
-     ;;store k components in a vector for use later
-     FOR i=0,T/2 DO BEGIN
-        kvec[i,0]= kx[i]
-        kvec[i,1]= ky[i]
-        kvec[i,2]= kz[i]
-     ENDFOR
-
-     ;; set up k vector
-     ;; define A vector potential cosine component
-     ;; first argument is frequency, second is Cartesian component
-     Avec_cos = FLTARR(T/2+1,3) ; define A vector cos component (vector potential)
-     Avec_sin = FLTARR(T/2+1,3) ; define A vector sine component (vector potential)
-
-     ;; seed for random number generator,
-     ;; get different random number each time randomu is called
-     seed = 2001L
-
-     ;; make coefficients of vector potential random,
-     ;;Avec_cos[i,0] means
-     ;; coefficient of the x component with cosine time dependence for frequency i
-     ;;make all vector potential components random numbers
-     FOR I=0,T/2 DO BEGIN
-        Avec_cos[i,0]  = RANDOMU(seed)
-        Avec_sin[i,0]  = RANDOMU(seed)
-        Avec_cos[i,1]  = RANDOMU(seed)
-        Avec_sin[i,1]  = RANDOMU(seed)
-        Avec_cos[i,2]  = RANDOMU(seed)
-        Avec_sin[i,2]  = RANDOMU(seed)
-     ENDFOR
-
-     ;; B vector for a single frequency, args are frequency, Cartesian direction, time
-     Bvec = FLTARR(T/2+1,3,T)
-     Jvec = Bvec
-     FOR TT=0,T-1 DO BEGIN      ;for each time
-        FOR i=0,T/2 DO BEGIN    ;for each frequency component
-
-           ;; temp A cosine component
-           Avectemp_cos = [Avec_cos[i,0], Avec_cos[i,1], Avec_cos[i,2] ]
-
-           ;; temp A sin e component
-           Avectemp_sin = [Avec_sin[i,0], Avec_sin[i,1], Avec_sin[i,2] ]
-
-           ;; tempo k vector
-           kvectemp = [kvec[i,0], kvec[i,1], kvec[i,2] ]
-
-           ;; k vector cross product with A cosine
-           kcross_Acos = CROSSP(kvectemp,Avectemp_cos)
-
-           ;; k vector cross product with A sine
-           kcross_Asin = CROSSP(kvectemp,Avectemp_sin)
-
-           ;; put in time dependence to get total B at a single time for freq i
-           Bvec[i,0,tt] = -kcross_Acos[0]*SIN(-omega[i]*tt) $
-                          + kcross_Asin[0]*COS(-omega[i]*tt)
-
-           Bvec[i,1,tt] = -kcross_Acos[1]*SIN(-omega[i]*tt)$
-                          + kcross_Asin[1]*COS(-omega[i]*tt)
-
-           Bvec[i,2,tt] = -kcross_Acos[2]*SIN(-omega[i]*tt) $
-                          + kcross_Asin[2]*COS(-omega[i]*tt)
-
-           ;; k cross (k cross A) need for current
-           kcrosskcross_Acos = CROSSP(kvectemp,kcross_Acos)
-           kcrosskcross_Asin = CROSSP(kvectemp,kcross_Asin)
-
-           ;;calculate current at a single time for freq i
-           Jvec[i,0,tt] = -kcrosskcross_Acos[0]* $
-                          COS(-omega[i]*tt)-kcrosskcross_Asin[0]*SIN(-omega[i]*tt)
-
-           Jvec[i,1,tt] = -kcrosskcross_Acos[1]* $
-                          COS(-omega[i]*tt)-kcrosskcross_Asin[1]*SIN(-omega[i]*tt)
-
-           Jvec[i,2,tt] = -kcrosskcross_Acos[2]* $
-                          COS(-omega[i]*tt)-kcrosskcross_Asin[2]*SIN(-omega[i]*tt)
-        ENDFOR
-     ENDFOR
-
-     Bx = FLTARR(T)
-     By = Bx
-     Bz = Bx
-     Jx = Bx
-     Jy = Bx
-     Jz = Bx
-
-     ;; define dimensions of B and J components
-     FOR TT=0,T-1 DO BEGIN      ; TT is time
-        FOR i=0,T/2 DO BEGIN    ; sum up contributions from each frequency
-           Bx[TT] = Bx[TT] +Bvec[i,0,TT]
-           By[TT] = By[TT] +Bvec[i,1,TT]
-           Bz[TT] = Bz[TT] +Bvec[i,2,TT]
-           Jx[TT] = Jx[TT] +Jvec[i,0,TT]
-           Jy[TT] = Jy[TT] +Jvec[i,1,TT]
-
-           Jz[TT] = Jz[TT] +Jvec[i,2,TT]
-        ENDFOR                  ;
-     ENDFOR
-
-     ;;create noise if example EQ 3
-     IF example EQ 3 THEN add_noise, Bx,By,Bz,Jx,Jy,Jz,T
-
-     ;;Write data to file
-     ;; so that code can be easily modified to input data from other sources
-     B_J_file = 'Bx_By_Bz_Jx_Jy_Jz.dat'
-
-     filename = saveDir+B_J_file
-     
-     ;;write data to file
-     OPENW,1,filename
-     PRINT, 'opening ', filename
-
-     PRINTF,1,example,T,FORMAT='(I5,1x,I5,1x)'
-     PRINTF,1,Bx
-     PRINTF,1,By
-     PRINTF,1,Bz
-     PRINTF,1,Jx
-     PRINTF,1,Jy
-     PRINTF,1,Jz
-     CLOSE,1
-     PRINT,'closing ',filename
-
+     SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                   EXAMPLE=example
   ENDIF
 
   ;;read data from file
@@ -764,7 +870,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   X = FINDGEN((T - 1)/2) + 1
   is_T_even = (T MOD 2) EQ 0
   IF (is_T_even) THEN BEGIN
-     freq = [0.0, X, T/2, -T/2 + X]/(T*sPeriod) 
+     freq = [0.0, X, T/2, -T/2 + X]/(T*sPeriod)
   ENDIF ELSE BEGIN
      freq = [0.0, X, -(T/2 + 1) + X]/(T*sPeriod)
   ENDELSE
@@ -802,30 +908,61 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         inds = WHERE(freq GT 0.0)
      END
      ELSE: BEGIN
-        inds = INDGEN(N_ELEMENTS(freq))        
+        inds = INDGEN(N_ELEMENTS(freq))
      END
   ENDCASE
 
   PLOT,freq[inds],kx[inds], $
-       YTITLE='x component', $
-       XTITLE='FFT argument', $
+       YTITLE='k!Dx!N (m!U-1!N)', $
+       XTITLE='', $
        CHARSIZE=cs, $
        YRANGE=[-kx_ysize,kx_ysize]
   IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
+  IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+     OPLOT,freq[inds],SMOOTH(kx[inds],smInd),COLOR=250
+  ENDIF
 
   PLOT,freq[inds],ky[inds], $
-       YTITLE='y component', $
-       XTITLE='FFT argument', $
+       YTITLE='k!Dy!N (m!U-1!N)', $
+       XTITLE='Frequency (Hz)', $
        CHARSIZE=cs, $
        YRANGE=[-ky_ysize,ky_ysize]
   IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
+  IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+     OPLOT,freq[inds],SMOOTH(ky[inds],smInd),COLOR=250
+  ENDIF
 
-  PLOT,freq[inds],kz[inds], $
-       YTITLE='z component', $
-       XTITLE='FFT argument', $
-       CHARSIZE=cs, $
-       YRANGE=[-kz_ysize,kz_ysize]
-  IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
+  IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
+     
+     ;; smoothKx = SMOOTH(kx[inds],smInd)
+     ;; smoothKy = SMOOTH(ky[inds],smInd)
+
+     ;; smoothKx = kx[inds]
+     ;; smoothKy = ky[inds]
+
+     smoothKx = kx
+     smoothKy = ky
+
+     ;;Now kx vs ky
+     bound = MAX(ABS([smoothKx,smoothKy]))
+     PLOT,smoothKx,smoothKy, $
+          XTITLE='k!Dx!N', $
+          YTITLE='k!Dy!N', $
+          PSYM=2, $
+          YRANGE=[-bound,bound], $
+          XRANGE=[-bound,bound]
+  ENDIF ELSE BEGIN
+
+     PLOT,freq[inds],kz[inds], $
+          YTITLE='k!Dz!N (m!U-1!N)', $
+          XTITLE='', $
+          CHARSIZE=cs, $
+          YRANGE=[-kz_ysize,kz_ysize]
+     IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
+     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+        OPLOT,freq[inds],SMOOTH(kz[inds],smInd),COLOR=250
+     ENDIF
+  ENDELSE
 
   IF KEYWORD_SET(save_ps) THEN BEGIN
      CONCLUDE_OUTPUT,output_mode
@@ -878,7 +1015,6 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      ;; bro.axes
 
-     smInd = 10
      smkP = SMOOTH(kP[inds],smInd)
      bro = PLOT(freq[inds],smkP, $
                 ;; XTITLE='Frequency (Hz)', $
@@ -905,7 +1041,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                 COLOR='RED', $
                 /OVERPLOT)
   ENDIF ELSE BEGIN
-     
+
      IF KEYWORD_SET(save_ps) THEN BEGIN
         OUTPUT_SETUP,output_mode,plotDir,suff+'--page2',saveDir
      ENDIF
@@ -923,7 +1059,6 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            XTITLE='Frequency (Hz)', $
            YTITLE='!8k!Dperp!N (m!U-1!N)'
 
-      smInd = 10
       smkP = SMOOTH(kP[inds],smInd)
 
       OPLOT,freq[inds],smkP, $
@@ -948,6 +1083,36 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
 
   ENDELSE
+
+  IF have_Efield THEN BEGIN
+     CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex,Ey,Ez,kx,ky,kz,freq,inds
+  ENDIF
   ;; print to screen, printer, or file depending on mode=0,1,2
   ;; CONCLUDE_OUTPUT,output_mode
+END
+
+PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex,Ey,Ez,kx,ky,kz,freq,inds
+
+  ;; kxEtotal     = 0
+  ;; norm         = 0              ; check that avg k x E =0
+  ;; FOR TT=0,T-1 DO BEGIN         ; integrate over time
+  ;;    kvectemp  = [kx[TT], ky[TT], kz[TT]]
+  ;;    Evectemp  = [Ex[TT], Ey[TT], Ez[TT]]
+  ;;    kxEtotal  = kxEtotal+CROSSP(kvectemp,Evectemp)
+
+  ;;    ;; norm for denominator
+  ;;    norm      = norm + SQRT(kx[TT]^2+ ky[TT]^2+ kz[TT]^2)*SQRT(Ex[TT]^2+ Ey[TT]^2+ Ez[TT]^2)
+  ;; ENDFOR
+  
+  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
+  FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
+     
+  ENDFOR
+
+  PRINT,'norm = ',norm
+  avgkxEtotal = kxEtotal/T
+  PRINT, 'avgkxEtotal/norm = ',avgkxEtotal/norm ; small (supposed to be zero)
+
+  omegaB      = 
+
 END
