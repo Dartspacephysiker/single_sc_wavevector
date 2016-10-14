@@ -387,7 +387,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PLOT_POSFREQ=plot_posFreq
   ;;select output mode,
   ;;set output_mode =0 for screen, 1 for printer, 2 for postscript file
-  output_mode = 0
+  output_mode = 2
   ;;select one of three examples
   ;; First example : A few discrete k components
   ;; Second example: Continuum of k components following some complicated function of omega
@@ -406,6 +406,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDIF ELSE BEGIN
      unitFactor = 1 ;Don't adjust k in this case
   ENDELSE
+
+  IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
+     suff += '--kPerp'
+  ENDIF
 
   example = 1
 
@@ -752,7 +756,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         inds = WHERE(freq GT 0.0)
      END
      ELSE: BEGIN
-        inds = INDGEN(freq)        
+        inds = INDGEN(N_ELEMENTS(freq))        
      END
   ENDCASE
 
