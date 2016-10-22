@@ -335,16 +335,20 @@ PRO  SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
 END
 
-
 PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                    SAVFILE_T1=s_t1, $
+                    SAVFILE_T2=s_t2, $
+                    USE_TIMEBAR_TIME=use_timeBar_time, $
                     USE_J_TIME_SERIES=use_J_time_series, $
                     SMOOTH_J_DAT_TO_B=smooth_J_dat, $
                     STREAKNUM=streakNum, $
-                    OUT_STREAKNUM=longestInd
+                    OUT_STREAKNUM=longestInd, $
+                    USE_DB_FAC=use_dB_fac
 
 
   saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
   saveFile = 'Chaston_et_al_2006--B_and_J.sav'
+  saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents.sav'
 
   PRINT,"Restoring " + saveFile + ' ...'
   RESTORE,saveDir+saveFile
@@ -354,7 +358,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
   unitFactor  = (10.D)^(jUnitFactor)/(10.D)^(bUnitFactor)
 
-  saveVar  = 'dB_fac'
+  saveVar  = 'dB_fac_V'
+  IF KEYWORD_SET(use_dB_fac) THEN saveVar = 'dB_fac'
   ;; saveVar  = 'dB_fac_V'
 
   ;;Align time series
@@ -374,8 +379,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      END
   ENDCASE
 
-  TArr = dB.x
-  T    = N_ELEMENTS(TArr)
+  ;; TArr = dB.x
   ;; bFactor = 1.e-9 ;Get 'em out of nT
   ;; bFactor = 1.e3
   bFactor = 1.
@@ -409,14 +413,6 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         IF KEYWORD_SET(smooth_J_dat) THEN BEGIN
 
-           GET_DOUBLE_STREAKS__NTH_DECIMAL_PLACE,je_z.x,-2,NPTS=100, $
-                                                 GAP_TIME=0.3, $
-                                                 START_I=strt_i, $
-                                                 STOP_I=stop_i, $
-                                                 STREAKLENS=streakLens, $
-                                                 T_STREAKLENS=tStreakLens, $
-                                                 /PRINT_START_STOP_TIMES
-
            bro = ROUND_TO_NTH_DECIMAL_PLACE(db.x[1:-1]-db.x[0:-2],-5)
            bro = bro[WHERE(ABS(bro) LT 1)]
            distFreq = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
@@ -428,25 +424,41 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                                                     STOP_T=db.x[-1], $
                                                     DELTA_T=sPeriod)
 
-
            je_z_interp = MAKE_ARRAY(N_ELEMENTS(even_TS),VALUE=!VALUES.F_NaN)
            ji_z_interp = MAKE_ARRAY(N_ELEMENTS(even_TS),VALUE=!VALUES.F_NaN)
-           jeFin = FINITE(je_z.y)
-           jiFin = FINITE(ji_z.y)
-           PRINT,"Smoothing Je and Ji ..."
-           FOR k=0,N_ELEMENTS(even_TS)-1 DO BEGIN
-              tmpCheck = WHERE((ABS(je_z.x-even_TS[k]) LE sPeriod) AND jeFin,nCheck)
-              PRINT,nCheck
-              IF nCheck GT 0 THEN BEGIN
-                 je_z_interp[k] = MEAN(je_z.y[tmpCheck])
-              ENDIF
 
-              tmpCheck = WHERE((ABS(ji_z.x-even_TS[k]) LE sPeriod) AND jiFin,nCheck)
-              IF nCheck GT 0 THEN BEGIN
-                 ji_z_interp[k] = MEAN(ji_z.y[tmpCheck])
-              ENDIF
-           ENDFOR
-           PRINT,'Bro'
+           ;;The new way to smooth
+           je_z_interp = SMOOTH(je_z.y,3,/NaN)
+           ji_z_interp = SMOOTH(ji_z.y,3,/NaN)
+
+           je_z_interp = DATA_CUT({x:je_z.x,y:je_z_interp},db.x)
+           ji_z_interp = DATA_CUT({x:ji_z.x,y:ji_z_interp},db.x)
+
+           ;;The old way
+           ;; GET_DOUBLE_STREAKS__NTH_DECIMAL_PLACE,je_z.x,-2,NPTS=100, $
+           ;;                                       GAP_TIME=0.3, $
+           ;;                                       START_I=strt_i, $
+           ;;                                       STOP_I=stop_i, $
+           ;;                                       STREAKLENS=streakLens, $
+           ;;                                       T_STREAKLENS=tStreakLens, $
+           ;;                                       /PRINT_START_STOP_TIMES
+
+           ;; jeFin = FINITE(je_z.y)
+           ;; jiFin = FINITE(ji_z.y)
+           ;; PRINT,"Smoothing Je and Ji ..."
+           ;; FOR k=0,N_ELEMENTS(even_TS)-1 DO BEGIN
+           ;;    tmpCheck = WHERE((ABS(je_z.x-even_TS[k]) LE sPeriod) AND jeFin,nCheck)
+           ;;    PRINT,nCheck
+           ;;    IF nCheck GT 0 THEN BEGIN
+           ;;       je_z_interp[k] = MEAN(je_z.y[tmpCheck])
+           ;;    ENDIF
+
+           ;;    tmpCheck = WHERE((ABS(ji_z.x-even_TS[k]) LE sPeriod) AND jiFin,nCheck)
+           ;;    IF nCheck GT 0 THEN BEGIN
+           ;;       ji_z_interp[k] = MEAN(ji_z.y[tmpCheck])
+           ;;    ENDIF
+           ;; ENDFOR
+           ;; PRINT,'Bro'
 
         ENDIF ELSE BEGIN
 
@@ -457,6 +469,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                                 LOCATIONS=locs)
            junk = MAX(distFreq,ind)
            sPeriod = DOUBLE(locs[ind])
+           even_TS = db.x
 
            FA_FIELDS_COMBINE,{time:dB.x,comp1:dB.y[*,0]}, $
                              {time:Je_z.x,comp1:Je_z.y}, $
@@ -487,7 +500,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                                                  STOP_T=ji_z.x[-1], $
                                                  DELTA_T=sPeriod)
 
-        even_TS = even_TS[60:-60]
+        ;; even_TS = even_TS[60:-60]
 
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
                           {time:dB.x,comp1:Bx}, $
@@ -529,6 +542,10 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                           DELT_T=1.5, $
                           /TALK
 
+        Bx = Bx_interp
+        By = By_interp
+        Bz = Bz_interp
+
      END
   ENDCASE
 
@@ -552,11 +569,48 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   je_z_improv  = je_z_interp
   ji_z_improv  = ji_z_interp
 
-  good_i       = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
-  GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
-  long         = MAX(streakLens,longestInd)
-  IF N_ELEMENTS(streakNum) GT 0 THEN longestInd = streakNum
-  good_i       = (good_i[strt_ii[longestInd]:stop_ii[longestInd]])
+  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+     timesBarStr = ['1998-05-04/06:44:46','1998-05-04/06:44:56']
+     s_t1        = STR_TO_TIME(timesBarStr[0])
+     s_t2        = STR_TO_TIME(timesBarStr[1])
+  ENDIF
+
+  CASE 1 OF
+     ;; KEYWORD_SET(use_timeBar_time): BEGIN
+     (KEYWORD_SET(s_t1) AND KEYWORD_SET(s_t2)): BEGIN
+        good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
+                            (even_TS GE s_t1) AND (even_TS LE s_t2),nGood)
+        GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
+
+     END
+     KEYWORD_SET(s_t1): BEGIN
+        good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
+                            (even_TS GE s_t1),nGood)
+        GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
+
+     END
+     KEYWORD_SET(s_t2): BEGIN
+        good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
+                            (even_TS LE s_t2),nGood)
+        GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
+     END
+     ELSE: BEGIN
+        good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
+        GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
+
+        ;;Did user provide a streak?
+        IF N_ELEMENTS(streakNum) GT 0 THEN longestInd = streakNum
+
+     END
+  ENDCASE
+
+  IF N_ELEMENTS(streakLens) GT 0 THEN BEGIN
+     long     = MAX(streakLens,longestInd)
+  ENDIF ELSE BEGIN
+     longestInd = 0
+  ENDELSE
+
+  good_i      = (good_i[strt_ii[longestInd]:stop_ii[longestInd]])
 
   ;;END METHOD MADNESS
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -564,7 +618,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   T            = good_i[-1]-good_i[0]+1
   PRINT,'N good: ',STRCOMPRESS(T,/RE)
 
-  TArr        = Tarr[good_i]
+  TArr        = even_TS[good_i]
+  T           = N_ELEMENTS(TArr)
   Ji_z_improv = Ji_z_improv[good_i]
   Je_z_improv = Je_z_improv[good_i]
 
@@ -585,7 +640,9 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   Jx = MAKE_ARRAY(T,VALUE=0.) * jFactor
   Jy = MAKE_ARRAY(T,VALUE=0.) * jFactor
 
-  Jz = (2.*Ji_z_improv + (-1.)*Je_z_improv) * jFactor ;-1 for electrons because ... you know ...
+  Jz = (Ji_z_improv + Je_z_improv) * jFactor
+  ;; Jz = (2.*Ji_z_improv + (-1.)*Je_z_improv) * jFactor ;-1 for electrons because ... you know ...
+
 
   ;; Jz = ( (-1.)*Je_z_improv) * jFactor ;-1 for electrons because ... you know ...
 
@@ -635,18 +692,26 @@ END
 
 PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PARSE_SAVEFILE=parse_saveFile, $
+   SAVFILE_T1=s_t1, $
+   SAVFILE_T2=s_t2, $
+   USE_TIMEBAR_TIME=use_timeBar_time, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
    PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
+   PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
    PLOT_POSFREQ=plot_posFreq, $
+   FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
    SAVE_PS=save_ps, $
    BONUS_SUFF=bonus_suff, $
    DOUBLE_CALC=double_calc, $
    HANNING=hanning, $
    USE_J_TIME_SERIES=use_J_time_series, $
    SMOOTH_J_DAT_TO_B=smooth_J_dat, $
-   STREAKNUM=streakNum
+   OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
+   USE_DB_FAC=use_dB_fac, $
+   STREAKNUM=streakNum, $
+   PUBLICATION_SETTINGS=pubSettings
 
    
   ;;select output mode,
@@ -655,7 +720,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   COMPILE_OPT idl2
 
   ;;N points to smooth k components with
-  smInd = 5
+  smInd   = 8
+  dbSmInd = 15
+  edge_truncate = 1
+  edge_mirror   = 0
+  edge_wrap     = 0
 
   CASE 1 OF
      KEYWORD_SET(save_ps): BEGIN
@@ -677,10 +746,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   suff = 'TEST'
   IF KEYWORD_SET(parse_saveFile) THEN BEGIN
      CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                     SAVFILE_T1=s_t1, $
+                     SAVFILE_T2=s_t2, $
+                     USE_TIMEBAR_TIME=use_timeBar_time, $
                      USE_J_TIME_SERIES=use_J_time_series, $
                      SMOOTH_J_DAT_TO_B=smooth_J_dat, $
                      STREAKNUM=streakNum, $
-                     OUT_STREAKNUM=streakInd
+                     OUT_STREAKNUM=streakInd, $
+                     USE_DB_FAC=use_dB_fac
 
      sRate = 1./(TArr[1:-1]-TArr[0:-2])
 
@@ -734,6 +807,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ;; zero frequency will not be used
 
   ;; cs        = 1.8
+  IF KEYWORD_SET(pubSettings) THEN BEGIN
+     cs = 1.8
+  ENDIF
 
   IF KEYWORD_SET(example_mode) THEN BEGIN
      SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
@@ -757,34 +833,6 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      CLOSE,1
      PRINT,'closing ',filename
   ENDIF
-
-  muLetter = '!4' + String('154'O) + '!X'
-  PLOT,TArr-TArr[0],Bx, $
-       XTITLE='t', $
-       YTITLE='!8B!Dx!N (nT)', $
-       CHARSIZE=cs
-  PLOT,TArr-TArr[0],By, $
-       XTITLE='t since' + TIME_TO_STR(TArr[0]) + '(s)', $
-       YTITLE='!8B!Dy!N', $
-       CHARSIZE=cs
-  PLOT,TArr-TArr[0],Bz, $
-       XTITLE='t', $
-       YTITLE='!8B!Dz!N', $
-       CHARSIZE=cs
-
-  PLOT,TArr-TArr[0],Jx, $
-       XTITLE='t', $
-       YTITLE='!4l!3!D0 !N!8J!Dx!N', $
-       CHARSIZE=cs
-  PLOT,TArr-TArr[0],Jy, $
-       XTITLE='t since' + TIME_TO_STR(TArr[0]) + '(s)', $
-       YTITLE='!4l!3!D0 !N!8J!Dy!N (!4l!N!8T/m)', $
-       CHARSIZE=cs
-  PLOT,TArr-TArr[0],Jz, $
-       XTITLE='t', $
-       YTITLE='!4l!3!D0 !N!8J!Dz!N', $
-       CHARSIZE=cs
-
 
   JxBtotal     = 0
   norm         = 0              ; check that avg J x B =0
@@ -903,12 +951,67 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      kP = kP[tmp]
   ENDIF
 
+  muLetter = '!4' + String('154'O) + '!X'
+  PLOT,TArr-TArr[0],Bx, $
+       XTITLE='t', $
+       YTITLE='!8B!Dx!N', $
+       CHARSIZE=cs
+  PLOT,TArr-TArr[0],By, $
+       XTITLE='t since' + TIME_TO_STR(TArr[0]) + '(s)', $
+       YTITLE='!8B!Dy!N (nT)', $
+       CHARSIZE=cs
+  PLOT,TArr-TArr[0],Bz, $
+       XTITLE='t', $
+       YTITLE='!8B!Dz!N', $
+       CHARSIZE=cs
+
+  PLOT,TArr-TArr[0],Jx, $
+       XTITLE='t', $
+       YTITLE='!4l!3!D0 !N!8J!Dx!N', $
+       CHARSIZE=cs
+  PLOT,TArr-TArr[0],Jy, $
+       XTITLE='t since' + TIME_TO_STR(TArr[0]) + '(s)', $
+       YTITLE='!4l!3!D0 !N!8J!Dy!N (!4l!N!8T/m)', $
+       CHARSIZE=cs
+  PLOT,TArr-TArr[0],Jz, $
+       XTITLE='t', $
+       YTITLE='!4l!3!D0 !N!8J!Dz!N', $
+       CHARSIZE=cs
+
   CASE 1 OF
      KEYWORD_SET(plot_posFreq): BEGIN
-        inds = WHERE(freq GT 0.0)
+        inds = WHERE(freq GT 0.0 AND freq LE 4.0)
+     END
+     KEYWORD_SET(fold_negFreq): BEGIN
+        indNeg = [0:(where(freq EQ 0.00)-1)] 
+        ;; indPos = ([where(freq EQ 0.00,/NULL):N_ELEMENTS(freq)-1])[0:(N_ELEMENTS(indNeg)-1)]
+        indPos = ([(where(freq GT 0.00))[0]:(N_ELEMENTS(freq)-1)])[0:(N_ELEMENTS(indNeg)-1)]
+
+        this = plot(kx[indpos]) 
+        this = plot((-1.)*REVERSE(kx[indneg]),/OVERPLOT,COLOR='RED') 
+
+        divFactor = 2.
+        kx   = (kx[indPos]-REVERSE(kx[indNeg])) / divFactor 
+
+        this = plot(kx,/OVERPLOT,COLOR='BLUE')
+
+        ky   = (ky[indPos]-REVERSE(ky[indNeg])) / divFactor 
+        kz   = (kz[indPos]-REVERSE(kz[indNeg])) / divFactor
+        freq = freq[indPos]
+        ;; inds = WHERE(freq GT 0.0)
+
+        IF freq[0] EQ 0.00 THEN BEGIN
+           freq = freq[1:-1]
+           kx = kx[1:-1]
+           ky = ky[1:-1]
+           kz = kz[1:-1]
+        ENDIF
+
+        inds = INDGEN(N_ELEMENTS(freq))
      END
      ELSE: BEGIN
-        inds = INDGEN(N_ELEMENTS(freq))
+        ;; inds = INDGEN(N_ELEMENTS(freq))
+        inds = WHERE(ABS(freq) LE 4.0)
      END
   ENDCASE
 
@@ -918,8 +1021,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        CHARSIZE=cs, $
        YRANGE=[-kx_ysize,kx_ysize]
   IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
-  IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-     OPLOT,freq[inds],SMOOTH(kx[inds],smInd),COLOR=250
+  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
+     OPLOT,freq[inds],SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx[inds]) : kx[inds]),smInd, $
+                              EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
+  ENDIF
+
+  IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
+     OPLOT,freq[inds],SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx[inds]) : kx[inds]),dbSmInd, $
+                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
   ENDIF
 
   PLOT,freq[inds],ky[inds], $
@@ -928,8 +1037,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        CHARSIZE=cs, $
        YRANGE=[-ky_ysize,ky_ysize]
   IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
-  IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-     OPLOT,freq[inds],SMOOTH(ky[inds],smInd),COLOR=250
+  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
+     OPLOT,freq[inds],SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky[inds]) : ky[inds]),smInd, $
+                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
+  ENDIF
+
+  IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
+     OPLOT,freq[inds],SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky[inds]) : ky[inds]),dbSmInd, $
+                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
   ENDIF
 
   IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
@@ -946,11 +1061,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ;;Now kx vs ky
      bound = MAX(ABS([smoothKx,smoothKy]))
      PLOT,smoothKx,smoothKy, $
-          XTITLE='k!Dx!N', $
-          YTITLE='k!Dy!N', $
+          XTITLE='k!Dx!N  (m!U-1!N)', $
+          YTITLE='k!Dy!N  (m!U-1!N)', $
           PSYM=2, $
           YRANGE=[-bound,bound], $
-          XRANGE=[-bound,bound]
+          XRANGE=[-bound,bound], $
+          CHARSIZE=cs
+
   ENDIF ELSE BEGIN
 
      PLOT,freq[inds],kz[inds], $
@@ -960,8 +1077,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           YRANGE=[-kz_ysize,kz_ysize]
      IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
      IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-        OPLOT,freq[inds],SMOOTH(kz[inds],smInd),COLOR=250
+        OPLOT,freq[inds],SMOOTH(kz[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
      ENDIF
+
+     IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
+        OPLOT,freq[inds],SMOOTH(kz[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
+     ENDIF
+
   ENDELSE
 
   IF KEYWORD_SET(save_ps) THEN BEGIN
@@ -1015,7 +1137,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      ;; bro.axes
 
-     smkP = SMOOTH(kP[inds],smInd)
+     smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
      bro = PLOT(freq[inds],smkP, $
                 ;; XTITLE='Frequency (Hz)', $
                 YTITLE='|k!Dperp!N (m$^{-1}$)', $
@@ -1034,7 +1156,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                 CURRENT=window, $
                 LAYOUT=[1,2,2])
 
-     smkPAngle = SMOOTH(kPAngle[inds],smInd)
+     smkPAngle = SMOOTH(kPAngle[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
      bro = PLOT(freq[inds],smkPAngle, $
                 XTITLE='Frequency (Hz)', $
                 YTITLE='|$\theta$(k!Dperp!N)', $
@@ -1046,36 +1168,71 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         OUTPUT_SETUP,output_mode,plotDir,suff+'--page2',saveDir
      ENDIF
 
-     columns = 1
-     rows    = 2
+     columns = 2
+     rows    = 1
      !P.MULTI  = [0, columns, rows, 0, 0]
      ;; !P.MULTI[0]  = 0
 
      IF ~KEYWORD_SET(save_ps) THEN BEGIN
-        WINDOW,2,XSIZE=700,YSIZE=800
+        IF columns EQ 1 THEN BEGIN
+           WINDOW,2,XSIZE=700,YSIZE=800
+        ENDIF ELSE BEGIN
+           WINDOW,2,XSIZE=1200,YSIZE=600
+        ENDELSE
      ENDIF
 
       PLOT,freq[inds],kP[inds], $
            XTITLE='Frequency (Hz)', $
-           YTITLE='!8k!Dperp!N (m!U-1!N)'
+           YRANGE=[1e-5,1e-2], $
+           XLOG=1, $
+           YLOG=1, $
+           YTITLE='!8k!Dperp!N (m!U-1!N)', $
+           ;; XTICKFORMAT="(A1)", $
+           CHARSIZE=cs
 
-      smkP = SMOOTH(kP[inds],smInd)
-
+      smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
       OPLOT,freq[inds],smkP, $
             COLOR=250
+
+      IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
+         dbSmkP = SMOOTH(kP[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+         OPLOT,freq[inds],dbSmkP, $
+               COLOR=90
+      ENDIF
+
+      overplot_k_turbulence = 1
+      IF KEYWORD_SET(overplot_k_turbulence) THEN BEGIN
+         ;; kDoppl = (freq[inds]^(1.7)/10000)
+         kxTemp = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
+                          ABS(kx) : kx), $
+                         smInd, $
+                         EDGE_TRUNCATE=edge_truncate, $
+                         EDGE_MIRROR=edge_mirror, $
+                         EDGE_WRAP=edge_wrap)
+         wDoppl = kxTemp*(7000)
+         OPLOT,wDoppl[inds],kxTemp[inds], $
+               COLOR=70
+      ENDIF
 
      ;;Kperp angle plot
      kPAngle = ATAN(ky,kx)*!RADEG
 
 
-     PLOT,freq[inds],kPAngle[inds], $
+     PLOT,freq[inds],(kPAngle[inds] + 360) MOD 360, $
           XTITLE='Frequency (Hz)', $
-          YTITLE='!8|' +CGGREEK('theta',PS=save_ps) + '!Dk!Dperp!N)'
+          YTITLE='!8|' +CGGREEK('theta',PS=save_ps) + '!Dk!Dperp!N)', $
+          CHARSIZE=cs
           ;; YTITLE='|$\theta$(k!Dperp!N)'
 
-     smkPAngle = SMOOTH(kPAngle[inds],smInd)
+     smkPAngle = SMOOTH((kPAngle[inds] + 360) MOD 360,smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
      OPLOT,freq[inds],smkPAngle, $
            COLOR=250
+
+     IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
+        dbSmkPAngle = SMOOTH(kPAngle[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+        OPLOT,freq[inds],dbSmkPAngle, $
+              COLOR=90
+     ENDIF
 
      IF KEYWORD_SET(save_ps) THEN BEGIN
         CONCLUDE_OUTPUT,output_mode
@@ -1084,35 +1241,35 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   ENDELSE
 
-  IF have_Efield THEN BEGIN
+  IF KEYWORD_SET(have_Efield) THEN BEGIN
      CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex,Ey,Ez,kx,ky,kz,freq,inds
   ENDIF
   ;; print to screen, printer, or file depending on mode=0,1,2
   ;; CONCLUDE_OUTPUT,output_mode
 END
 
-PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex,Ey,Ez,kx,ky,kz,freq,inds
+;; PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex,Ey,Ez,kx,ky,kz,freq,inds
 
-  ;; kxEtotal     = 0
-  ;; norm         = 0              ; check that avg k x E =0
-  ;; FOR TT=0,T-1 DO BEGIN         ; integrate over time
-  ;;    kvectemp  = [kx[TT], ky[TT], kz[TT]]
-  ;;    Evectemp  = [Ex[TT], Ey[TT], Ez[TT]]
-  ;;    kxEtotal  = kxEtotal+CROSSP(kvectemp,Evectemp)
+;;   ;; kxEtotal     = 0
+;;   ;; norm         = 0              ; check that avg k x E =0
+;;   ;; FOR TT=0,T-1 DO BEGIN         ; integrate over time
+;;   ;;    kvectemp  = [kx[TT], ky[TT], kz[TT]]
+;;   ;;    Evectemp  = [Ex[TT], Ey[TT], Ez[TT]]
+;;   ;;    kxEtotal  = kxEtotal+CROSSP(kvectemp,Evectemp)
 
-  ;;    ;; norm for denominator
-  ;;    norm      = norm + SQRT(kx[TT]^2+ ky[TT]^2+ kz[TT]^2)*SQRT(Ex[TT]^2+ Ey[TT]^2+ Ez[TT]^2)
-  ;; ENDFOR
+;;   ;;    ;; norm for denominator
+;;   ;;    norm      = norm + SQRT(kx[TT]^2+ ky[TT]^2+ kz[TT]^2)*SQRT(Ex[TT]^2+ Ey[TT]^2+ Ez[TT]^2)
+;;   ;; ENDFOR
   
-  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
-  FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
+;;   PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
+;;   FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
      
-  ENDFOR
+;;   ENDFOR
 
-  PRINT,'norm = ',norm
-  avgkxEtotal = kxEtotal/T
-  PRINT, 'avgkxEtotal/norm = ',avgkxEtotal/norm ; small (supposed to be zero)
+;;   PRINT,'norm = ',norm
+;;   avgkxEtotal = kxEtotal/T
+;;   PRINT, 'avgkxEtotal/norm = ',avgkxEtotal/norm ; small (supposed to be zero)
 
-  omegaB      = 
+;;   omegaB      = 
 
-END
+;; END
