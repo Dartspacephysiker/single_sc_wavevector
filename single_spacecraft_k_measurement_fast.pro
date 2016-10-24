@@ -48,7 +48,10 @@ PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
   hardcopy = mode
   IF hardcopy EQ 1 THEN SET_PLOT,'printer' ;PRINTER
   IF hardcopy EQ 1 THEN DEVICE,YSIZE=25,YOFFSET=0
-  IF hardcopy NE 1 THEN SET_PLOT,'X'
+  IF hardcopy NE 1 THEN BEGIN
+     SET_PLOT,'X'
+     WINDOW,0,XSIZE=800,YSIZE=800
+  ENDIF
   IF hardcopy EQ 2 THEN BEGIN      ;;POSTSCRIPT FILE
      !P.CHARTHICK = 3
      !P.THICK = 3
@@ -347,17 +350,53 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
 
   saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
-  saveFile = 'Chaston_et_al_2006--B_and_J.sav'
-  saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents.sav'
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;The original Chaston et al. [2006] interval
+
+  ;; saveFile = 'Chaston_et_al_2006--B_and_J.sav'
+  ;; saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents.sav'
+  ;; saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents_2.sav'
+  saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents--with_sc_pot.sav'
+  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+     ;; timesBarStr = ['1998-05-04/06:44:30','1998-05-04/06:44:55']
+     ;; timesBarStr = ['1998-05-04/06:44:36','1998-05-04/06:44:48']
+     timesBarStr = ['1998-05-04/06:44:46','1998-05-04/06:44:56']
+     s_t1        = STR_TO_TIME(timesBarStr[0])
+     s_t2        = STR_TO_TIME(timesBarStr[1])
+  ENDIF
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;The orbit 9585
+  saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot.sav'
+  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+     ;; timesBarStr = ['1998-05-04/06:44:30','1998-05-04/06:44:55']
+     ;; timesBarStr = ['1998-05-04/06:44:36','1998-05-04/06:44:48']
+     timesBarStr = ['1999-01-23/14:50:56','1999-01-23/14:51:06']
+     s_t1        = STR_TO_TIME(timesBarStr[0])
+     s_t2        = STR_TO_TIME(timesBarStr[1])
+  ENDIF
 
   PRINT,"Restoring " + saveFile + ' ...'
   RESTORE,saveDir+saveFile
 
-  bUnitFactor = -9 ;'cause nT
-  jUnitFactor = -6 ;'cause microA/m^2
+  ;; bFactor = 1.e-9 ;Get 'em out of nT
+  ;; bFactor = 1.e3
+  bFactor = 1.D
+
+  jFactor = 1.D
+  ;; jFactor = 1.e-6 ;;Put it in A/m^2
+  ;; jFactor = mu_0
+
+  bUnitFactor = (bFactor EQ 1.D) ? -9.D : -9. /ALOG10(bFactor) ;'cause nT
+  jUnitFactor = (jFactor EQ 1.D) ? -6.D : -6 / ALOG10(jFactor) ;'cause microA/m^2
 
   unitFactor  = (10.D)^(jUnitFactor)/(10.D)^(bUnitFactor)
 
+  mu_0      = DOUBLE(4.0D*!PI*1e-7)
+  jFactor  *= mu_0
+
+  ;;Now decide on magField
   saveVar  = 'dB_fac_V'
   IF KEYWORD_SET(use_dB_fac) THEN saveVar = 'dB_fac'
   ;; saveVar  = 'dB_fac_V'
@@ -380,9 +419,6 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ENDCASE
 
   ;; TArr = dB.x
-  ;; bFactor = 1.e-9 ;Get 'em out of nT
-  ;; bFactor = 1.e3
-  bFactor = 1.
   Bx   = dB.y[*,0] * bFactor
   By   = dB.y[*,1] * bFactor
   Bz   = dB.y[*,2] * bFactor
@@ -569,12 +605,6 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   je_z_improv  = je_z_interp
   ji_z_improv  = ji_z_interp
 
-  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-     timesBarStr = ['1998-05-04/06:44:46','1998-05-04/06:44:56']
-     s_t1        = STR_TO_TIME(timesBarStr[0])
-     s_t2        = STR_TO_TIME(timesBarStr[1])
-  ENDIF
-
   CASE 1 OF
      ;; KEYWORD_SET(use_timeBar_time): BEGIN
      (KEYWORD_SET(s_t1) AND KEYWORD_SET(s_t2)): BEGIN
@@ -632,15 +662,11 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   Bz = Bz - Bz[0]
 
   ;;Sorry, Jx and Jy
-  mu_0    = DOUBLE(4.0D*!PI*1e-7)
-  ;; jFactor = mu_0 * 1.e-6 ;;Put it in A/m^2
-  jFactor = mu_0
-
-
   Jx = MAKE_ARRAY(T,VALUE=0.) * jFactor
   Jy = MAKE_ARRAY(T,VALUE=0.) * jFactor
 
   Jz = (Ji_z_improv + Je_z_improv) * jFactor
+  ;; Jz = (Je_z_improv) * jFactor
   ;; Jz = (2.*Ji_z_improv + (-1.)*Je_z_improv) * jFactor ;-1 for electrons because ... you know ...
 
 
@@ -720,10 +746,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   COMPILE_OPT idl2
 
   ;;N points to smooth k components with
-  smInd   = 8
-  dbSmInd = 15
-  edge_truncate = 1
-  edge_mirror   = 0
+  smInd   = 3
+  dbSmInd = 7
+  edge_truncate = 0
+  edge_mirror   = 1
   edge_wrap     = 0
 
   CASE 1 OF
@@ -980,7 +1006,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   CASE 1 OF
      KEYWORD_SET(plot_posFreq): BEGIN
-        inds = WHERE(freq GT 0.0 AND freq LE 4.0)
+        inds = WHERE(freq GT 0.0 AND freq LE 10.0)
      END
      KEYWORD_SET(fold_negFreq): BEGIN
         indNeg = [0:(where(freq EQ 0.00)-1)] 
@@ -1011,7 +1037,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      END
      ELSE: BEGIN
         ;; inds = INDGEN(N_ELEMENTS(freq))
-        inds = WHERE(ABS(freq) LE 4.0)
+        inds = WHERE(ABS(freq) LE 10.0)
      END
   ENDCASE
 
@@ -1055,8 +1081,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ;; smoothKx = kx[inds]
      ;; smoothKy = ky[inds]
 
-     smoothKx = kx
-     smoothKy = ky
+     smoothKx = kx[inds]
+     smoothKy = ky[inds]
 
      ;;Now kx vs ky
      bound = MAX(ABS([smoothKx,smoothKy]))
@@ -1106,6 +1132,54 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           CHARSIZE=cs, $
           YRANGE=[-kx_ysize,kx_ysize]
      IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
+
+     ;; overplot_k_turbulence = 1
+     ;; IF KEYWORD_SET(overplot_k_turbulence) THEN BEGIN
+     ;;    ;; kDoppl = (freq[inds]^(1.7)/10000)
+     ;;    GET_FA_ORBIT,Tarr,/DEFINITIVE,/ALL,/TIME_ARRAY
+     ;;    GET_DATA,'fa_vel',DATA=vel
+
+     ;;    speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
+     ;;    ;; avgSpeed = MEAN(speed)-6000.
+     ;;    avgSpeed = MEAN(speed)
+
+     ;;    kxTemp = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
+     ;;                     ABS(kP) : kP), $
+     ;;                    smInd, $
+     ;;                    EDGE_TRUNCATE=edge_truncate, $
+     ;;                    EDGE_MIRROR=edge_mirror, $
+     ;;                    EDGE_WRAP=edge_wrap)
+     ;;    wDoppl = kxTemp*(avgSpeed)
+     ;;    fDoppl = wDoppl/(2.*!PI)
+     ;;    OPLOT,fDoppl[inds],kxTemp[inds], $
+     ;;          COLOR=110
+
+     ;;    add_Doppler_fit_string = 1
+     ;;    IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
+     ;;       params       = LINFIT(ALOG10(freq[inds]),ALOG10(kxTemp[inds]),YFIT=kxFitter)
+     ;;       corr         = LINCORR(ALOG10(freq[inds]),ALOG10(kxTemp[inds]),T_STAT=t_stat)
+
+     ;;       params       = LINFIT(ALOG10(freq[inds]),ALOG10(ABS(kx[inds])),YFIT=kxFitter)
+     ;;       corr         = LINCORR(ALOG10(freq[inds]),ALOG10(ABS(kx[inds])),T_STAT=t_stat)
+
+     ;;       xFit         = 10.^((INDGEN(10))/ $
+     ;;                           10.*(ALOG10(MAX(freq[inds]))-ALOG10(MIN(freq[inds])))+$
+     ;;                           ALOG10(MIN(freq[inds])))
+     ;;       kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
+     ;;       kxFitter     = 10.^(params[1] * ALOG10(freq[inds]) + params[0])
+
+     ;;       slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
+     ;;       corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
+     ;;       tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
+     ;;       txOutSize    = cs
+     ;;       XYOUTS,0.2,0.89,slopeString,/NORMAL,CHARSIZE=txOutSize
+     ;;       XYOUTS,0.2,0.86,corrString,/NORMAL,CHARSIZE=txOutSize
+     ;;       XYOUTS,0.2,0.83,tString,/NORMAL,CHARSIZE=txOutSize
+
+     ;;       OPLOT,xFit,kxFit,COLOR=40
+
+     ;;    ENDIF
+     ;; ENDIF
 
      PLOT,freq[inds],ky[inds], $
           YTITLE='y component', $
@@ -1168,8 +1242,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         OUTPUT_SETUP,output_mode,plotDir,suff+'--page2',saveDir
      ENDIF
 
-     columns = 2
-     rows    = 1
+     columns = 1
+     rows    = 3
      !P.MULTI  = [0, columns, rows, 0, 0]
      ;; !P.MULTI[0]  = 0
 
@@ -1183,7 +1257,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
       PLOT,freq[inds],kP[inds], $
            XTITLE='Frequency (Hz)', $
-           YRANGE=[1e-5,1e-2], $
+           YRANGE=[4e-6,1e-2], $
+           XSTYLE=1, $
+           YSTYLE=1, $
            XLOG=1, $
            YLOG=1, $
            YTITLE='!8k!Dperp!N (m!U-1!N)', $
@@ -1203,15 +1279,60 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
       overplot_k_turbulence = 1
       IF KEYWORD_SET(overplot_k_turbulence) THEN BEGIN
          ;; kDoppl = (freq[inds]^(1.7)/10000)
-         kxTemp = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
-                          ABS(kx) : kx), $
-                         smInd, $
-                         EDGE_TRUNCATE=edge_truncate, $
-                         EDGE_MIRROR=edge_mirror, $
-                         EDGE_WRAP=edge_wrap)
-         wDoppl = kxTemp*(7000)
-         OPLOT,wDoppl[inds],kxTemp[inds], $
-               COLOR=70
+         GET_FA_ORBIT,Tarr,/DEFINITIVE,/ALL,/TIME_ARRAY
+         GET_DATA,'fa_vel',DATA=vel
+
+         speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
+         ;; avgSpeed = MEAN(speed)-6000.
+         avgSpeed = MEAN(speed)
+
+         kxTemp = ABS(kx)
+         ;; kxTemp = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
+         ;;                  ABS(kP) : kP), $
+         ;;                 smInd, $
+         ;;                 EDGE_TRUNCATE=edge_truncate, $
+         ;;                 EDGE_MIRROR=edge_mirror, $
+         ;;                 EDGE_WRAP=edge_wrap)
+         wDoppl = kxTemp*(avgSpeed)/(2.*!PI)
+         fDoppl = wDoppl/(2.*!PI)
+
+         PLOT,freq[inds],ABS(kx[inds]), $
+              XTITLE='Frequency (Hz)', $
+              YRANGE=[4e-6,1e-2], $
+              XSTYLE=1, $
+              YSTYLE=1, $
+              XLOG=1, $
+              YLOG=1, $
+              CHARSIZE=cs
+
+         OPLOT,fDoppl[inds],kxTemp[inds], $
+               COLOR=110
+
+         add_Doppler_fit_string = 1
+         IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
+            params       = LINFIT(ALOG10(freq[inds]),ALOG10(kxTemp[inds]),YFIT=kxFitter)
+            corr         = LINCORR(ALOG10(freq[inds]),ALOG10(kxTemp[inds]),T_STAT=t_stat)
+
+            params       = LINFIT(ALOG10(freq[inds]),ALOG10(ABS(kx[inds])),YFIT=kxFitter)
+            corr         = LINCORR(ALOG10(freq[inds]),ALOG10(ABS(kx[inds])),T_STAT=t_stat)
+
+            xFit         = 10.^((INDGEN(10))/ $
+                                10.*(ALOG10(MAX(freq[inds]))-ALOG10(MIN(freq[inds])))+$
+                                ALOG10(MIN(freq[inds])))
+            kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
+            kxFitter     = 10.^(params[1] * ALOG10(freq[inds]) + params[0])
+
+            slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
+            corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
+            tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
+            txOutSize    = cs
+            XYOUTS,0.2,0.89,slopeString,/NORMAL,CHARSIZE=txOutSize
+            XYOUTS,0.2,0.86,corrString,/NORMAL,CHARSIZE=txOutSize
+            XYOUTS,0.2,0.83,tString,/NORMAL,CHARSIZE=txOutSize
+
+            OPLOT,xFit,kxFit,COLOR=40
+
+         ENDIF
       ENDIF
 
      ;;Kperp angle plot
@@ -1220,7 +1341,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      PLOT,freq[inds],(kPAngle[inds] + 360) MOD 360, $
           XTITLE='Frequency (Hz)', $
-          YTITLE='!8|' +CGGREEK('theta',PS=save_ps) + '!Dk!Dperp!N)', $
+          ;; YTITLE='!8|' +CGGREEK('theta',PS=save_ps) + '!Dk!Dperp!N)', $
+          YTITLE='!4h!X!Dk!Dperp!N', $
           CHARSIZE=cs
           ;; YTITLE='|$\theta$(k!Dperp!N)'
 
