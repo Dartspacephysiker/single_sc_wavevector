@@ -48,7 +48,7 @@ PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
   hardcopy = mode
   IF hardcopy EQ 1 THEN SET_PLOT,'printer' ;PRINTER
   IF hardcopy EQ 1 THEN DEVICE,YSIZE=25,YOFFSET=0
-  IF hardcopy NE 1 THEN BEGIN
+  IF hardcopy EQ 0 THEN BEGIN
      SET_PLOT,'X'
      WINDOW,0,XSIZE=800,YSIZE=800
   ENDIF
@@ -346,7 +346,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                     SMOOTH_J_DAT_TO_B=smooth_J_dat, $
                     STREAKNUM=streakNum, $
                     OUT_STREAKNUM=longestInd, $
-                    USE_DB_FAC=use_dB_fac
+                    USE_DB_FAC=use_dB_fac, $
+                    BONUSBONUSSUFF=BonusBonusSuff
 
 
   saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
@@ -368,14 +369,37 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;The orbit 9585
-  saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot.sav'
+  ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot.sav'
+  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+  ;;    ;; timesBarStr = ['1998-05-04/06:44:30','1998-05-04/06:44:55']
+  ;;    ;; timesBarStr = ['1998-05-04/06:44:36','1998-05-04/06:44:48']
+  ;;    timesBarStr = ['1999-01-23/14:50:56','1999-01-23/14:51:06']
+  ;;    s_t1        = STR_TO_TIME(timesBarStr[0])
+  ;;    s_t2        = STR_TO_TIME(timesBarStr[1])
+  ;; ENDIF
+  ;; BonusBonusSuff = 'Orbit_9585'
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;The orbit 10837
+  ;; saveFile = 'Orbit_10837--B_and_J--20161025--fixed_currents--with_sc_pot.sav'
+  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+  ;;    ;; timesBarStr = ['1998-05-04/06:44:30','1998-05-04/06:44:55']
+  ;;    ;; timesBarStr = ['1998-05-04/06:44:36','1998-05-04/06:44:48']
+  ;;    timesBarStr = ['1999-05-18/17:46:24','1999-05-18/17:46:39']
+  ;;    s_t1        = STR_TO_TIME(timesBarStr[0])
+  ;;    s_t2        = STR_TO_TIME(timesBarStr[1])
+  ;; ENDIF
+  ;; BonusBonusSuff = 'Orbit_10837'
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;The orbit 10927
+  saveFile = 'Orbit_10927--B_and_J--20161025--fixed_currents--with_sc_pot.sav'
   IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-     ;; timesBarStr = ['1998-05-04/06:44:30','1998-05-04/06:44:55']
-     ;; timesBarStr = ['1998-05-04/06:44:36','1998-05-04/06:44:48']
-     timesBarStr = ['1999-01-23/14:50:56','1999-01-23/14:51:06']
+     timesBarStr = ['1999-05-27/00:30:30','1999-05-27/00:30:47']
      s_t1        = STR_TO_TIME(timesBarStr[0])
      s_t2        = STR_TO_TIME(timesBarStr[1])
   ENDIF
+  BonusBonusSuff = 'Orbit_10927'
 
   PRINT,"Restoring " + saveFile + ' ...'
   RESTORE,saveDir+saveFile
@@ -779,11 +803,12 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                      SMOOTH_J_DAT_TO_B=smooth_J_dat, $
                      STREAKNUM=streakNum, $
                      OUT_STREAKNUM=streakInd, $
-                     USE_DB_FAC=use_dB_fac
+                     USE_DB_FAC=use_dB_fac, $
+                     BONUSBONUSSUFF=BonusBonusSuff
 
      sRate = 1./(TArr[1:-1]-TArr[0:-2])
 
-     suff = 'Chaston_et_al_2006--ionos_erosion--Bellan_method'+'--'+saveVar
+     suff = 'Chaston_et_al_2006--ionos_erosion--Bellan_method'+'--'+BonusBonusSuff+'--'+saveVar
 
   ENDIF ELSE BEGIN
      unitFactor = 1 ;Don't adjust k in this case
@@ -1007,6 +1032,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   CASE 1 OF
      KEYWORD_SET(plot_posFreq): BEGIN
         inds = WHERE(freq GT 0.0 AND freq LE 10.0)
+        fitInds = WHERE(freq GT 0.9 AND freq LE 10.0)
      END
      KEYWORD_SET(fold_negFreq): BEGIN
         indNeg = [0:(where(freq EQ 0.00)-1)] 
@@ -1310,17 +1336,18 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
          add_Doppler_fit_string = 1
          IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
-            params       = LINFIT(ALOG10(freq[inds]),ALOG10(kxTemp[inds]),YFIT=kxFitter)
-            corr         = LINCORR(ALOG10(freq[inds]),ALOG10(kxTemp[inds]),T_STAT=t_stat)
+            fitInds      = CGSETINTERSECTION(fitInds,WHERE(kxTemp GT 0.00))
+            params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kxTemp[fitInds]),YFIT=kxFitter)
+            corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(kxTemp[fitInds]),T_STAT=t_stat)
 
-            params       = LINFIT(ALOG10(freq[inds]),ALOG10(ABS(kx[inds])),YFIT=kxFitter)
-            corr         = LINCORR(ALOG10(freq[inds]),ALOG10(ABS(kx[inds])),T_STAT=t_stat)
+            params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),YFIT=kxFitter)
+            corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),T_STAT=t_stat)
 
             xFit         = 10.^((INDGEN(10))/ $
-                                10.*(ALOG10(MAX(freq[inds]))-ALOG10(MIN(freq[inds])))+$
-                                ALOG10(MIN(freq[inds])))
+                                10.*(ALOG10(MAX(freq[fitInds]))-ALOG10(MIN(freq[fitInds])))+$
+                                ALOG10(MIN(freq[fitInds])))
             kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
-            kxFitter     = 10.^(params[1] * ALOG10(freq[inds]) + params[0])
+            kxFitter     = 10.^(params[1] * ALOG10(freq[fitInds]) + params[0])
 
             slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
             corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
