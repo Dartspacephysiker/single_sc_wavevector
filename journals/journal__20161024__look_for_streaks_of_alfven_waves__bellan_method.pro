@@ -56,8 +56,8 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
 
   ;;DOUBLE_STREAKS options
   decimal_place = -1.
-  N             = 10
-  gap_time      = 0.5
+  N             = 5
+  gap_time      = 1.5
   print_times   = 1
   GET_DOUBLE_STREAKS__NTH_DECIMAL_PLACE,cdbTime,decimal_place, $
                                         MAXIMUS=maximus, $
