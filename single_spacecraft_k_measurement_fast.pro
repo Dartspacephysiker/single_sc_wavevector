@@ -360,17 +360,17 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ;; saveFile = 'Chaston_et_al_2006--B_and_J.sav'
   ;; saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents.sav'
   ;; saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents_2.sav'
-  saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents--with_sc_pot.sav'
-  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-     ;; timesBarStr = ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5']
-     timesBarStr = ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5']
-     ;; timesBarStr = ['1998-05-04/06:44:36','1998-05-04/06:44:56']
-     ;; timesBarStr = ['1998-05-04/06:44:46','1998-05-04/06:44:56']
+  ;; saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents--with_sc_pot.sav'
+  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+  ;;    ;; timesBarStr = ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5']
+  ;;    timesBarStr = ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5']
+  ;;    ;; timesBarStr = ['1998-05-04/06:44:36','1998-05-04/06:44:56']
+  ;;    ;; timesBarStr = ['1998-05-04/06:44:46','1998-05-04/06:44:56']
 
-     ;; timesBarStr = [ ['1998-05-04/06:44:21.5','1998-05-04/06:44:29.0'], $
-     ;;                 ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5'] ]
-  ENDIF
-  BonusBonusSuff = 'dude'
+  ;;    ;; timesBarStr = [ ['1998-05-04/06:44:21.5','1998-05-04/06:44:29.0'], $
+  ;;    ;;                 ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5'] ]
+  ;; ENDIF
+  ;; BonusBonusSuff = 'dude'
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;The orbit 9585
   ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot.sav'
@@ -378,6 +378,40 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ;;    timesBarStr = ['1999-01-23/14:50:56','1999-01-23/14:51:06']
   ;; ENDIF
   ;; BonusBonusSuff = 'Orbit_9585'
+
+  ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--wider.sav'
+  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+  ;;    timesBarStr = ['1999-01-23/14:50:52','1999-01-23/14:51:03']
+  ;; ENDIF
+  ;; BonusBonusSuff = 'Orbit_9585--wider_tBar'
+
+  ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--bro.sav'
+  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+  ;;    timesBarStr = ['1999-01-23/14:50:52','1999-01-23/14:51:03']
+  ;; ENDIF
+  ;; BonusBonusSuff = 'Orbit_9585--wider_tBar--PRE_VIII'
+
+  saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--bro.sav--alt_timebar'
+  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+     ;; timesBarStr = ['1999-01-23/14:50:40','1999-01-23/14:50:51.5']
+
+     ;; timesBarStr    = ['1999-01-23/14:50:40','1999-01-23/14:50:46.25']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
+
+     ;; timesBarStr = ['1999-01-23/14:50:46.25','1999-01-23/14:50:51.5']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
+
+     ;; timesBarStr = ['1999-01-23/14:50:46.25','1999-01-23/14:50:51.5']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
+
+     ;; timesBarStr = ['1999-01-23/14:50:52','1999-01-23/14:50:57.5']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--52_to_57p5'
+
+     timesBarStr = ['1999-01-23/14:50:57.5','1999-01-23/14:51:03']
+     BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--57p5_to_03'
+
+     ;; timesBarStr = ['1999-01-23/14:50:40','1999-01-23/14:51:03']
+  ENDIF
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;The orbit 10837
@@ -422,10 +456,11 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   bUnitFactor = (bFactor EQ 1.D) ? -9.D : -9. /ALOG10(bFactor) ;'cause nT
   jUnitFactor = (jFactor EQ 1.D) ? -6.D : -6 / ALOG10(jFactor) ;'cause microA/m^2
 
-  unitFactor  = (10.D)^(jUnitFactor)/(10.D)^(bUnitFactor)
+  mu_0        = DOUBLE(4.0D*!PI*1e-7)
+  unitFactor  = (10.D)^(jUnitFactor)/(10.D)^(bUnitFactor)*mu_0
 
-  mu_0      = DOUBLE(4.0D*!PI*1e-7)
-  jFactor  *= mu_0
+  ;; mu_0      = DOUBLE(4.0D*!PI*1e-7)
+  ;; jFactor  *= mu_0
 
   ;;Now decide on magField
   saveVar  = 'dB_fac_V'
@@ -453,8 +488,35 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   Bx   = dB.y[*,0] * bFactor
   By   = dB.y[*,1] * bFactor
   Bz   = dB.y[*,2] * bFactor
+  Bt   = dB.x
 
-  mag_sRate  = 1./(dB.x  [1:-1]-dB.x  [0:-2])
+  presmooth_mag = 1
+  IF KEYWORD_SET(presmooth_mag) THEN BEGIN
+     smInd  = 7
+     redFac = 4
+     Bx    = (SMOOTH(Bx,smInd))[0:-1:redFac]
+     By    = (SMOOTH(By,smInd))[0:-1:redFac]
+     Bz    = (SMOOTH(Bz,smInd))[0:-1:redFac]
+     Bt    = Bt[0:-1:redFac]
+
+     smInd  = 5
+     redFac = 2
+     Bx    = (SMOOTH(Bx,smInd))[0:-1:redFac]
+     By    = (SMOOTH(By,smInd))[0:-1:redFac]
+     Bz    = (SMOOTH(Bz,smInd))[0:-1:redFac]
+     Bt    = Bt[0:-1:redFac]
+     ;; plotme = magz
+     ;; bro    = (SMOOTH(plotme.y,smInd))[0:-1:smInd]
+     ;; dough  = plotme.x[0:-1:smInd]
+     ;; this2  = PLOT(plotme.x-plotme.x[0],plotme.y-plotme.y[0])
+     ;; this   = PLOT(dough-dough[0],bro-bro[0],COLOR='RED',/OVERPLOT)
+     ;; thot   = PLOT(plotme.x-plotme.x[0],SMOOTH(plotme.y,smInd)-plotme.y,COLOR='BLUE',/OVERPLOT)
+
+     ;; PRINT,1./(dough[1]-dough[0])
+     PRINT,"Final B sample frequency: ",1./(Bt[1]-Bt[0])
+  ENDIF
+
+  mag_sRate  = 1./(Bt  [1:-1]-Bt  [0:-2])
   eESA_sRate = 1./(Je_z.x[1:-1]-Je_z.x[0:-2])
   iESA_sRate = 1./(Ji_z.x[1:-1]-Ji_z.x[0:-2])
 
@@ -462,11 +524,11 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                 eESA:eESA_sRate, $
                 iESA:iESA_sRate}
 
-  ;; this       = VALUE_CLOSEST2(je_z.x,db.x)
-  ;; PRINT,ABS(je_z.x[this]-db.x)
+  ;; this       = VALUE_CLOSEST2(je_z.x,Bt)
+  ;; PRINT,ABS(je_z.x[this]-Bt)
 
-  ;; this       = VALUE_CLOSEST2(ji_z.x,db.x)
-  ;; PRINT,ABS(ji_z.x[this]-db.x)
+  ;; this       = VALUE_CLOSEST2(ji_z.x,Bt)
+  ;; PRINT,ABS(ji_z.x[this]-Bt)
 
 
   ;;Using j or mag time series?
@@ -484,15 +546,15 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         IF KEYWORD_SET(smooth_J_dat) THEN BEGIN
 
-           bro = ROUND_TO_NTH_DECIMAL_PLACE(db.x[1:-1]-db.x[0:-2],-5)
+           bro = ROUND_TO_NTH_DECIMAL_PLACE(Bt[1:-1]-Bt[0:-2],-5)
            bro = bro[WHERE(ABS(bro) LT 1)]
            distFreq = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
                                 REVERSE_INDICES=ri, $
                                 LOCATIONS=locs)
            junk = MAX(distFreq,ind)
            sPeriod = DOUBLE(locs[ind])
-           even_TS = MAKE_EVENLY_SPACED_TIME_SERIES(START_T=db.x[0], $
-                                                    STOP_T=db.x[-1], $
+           even_TS = MAKE_EVENLY_SPACED_TIME_SERIES(START_T=Bt[0], $
+                                                    STOP_T=Bt[-1], $
                                                     DELTA_T=sPeriod)
 
            je_z_interp = MAKE_ARRAY(N_ELEMENTS(even_TS),VALUE=!VALUES.F_NaN)
@@ -502,8 +564,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            je_z_interp = SMOOTH(je_z.y,3,/NaN)
            ji_z_interp = SMOOTH(ji_z.y,3,/NaN)
 
-           je_z_interp = DATA_CUT({x:je_z.x,y:je_z_interp},db.x)
-           ji_z_interp = DATA_CUT({x:ji_z.x,y:ji_z_interp},db.x)
+           je_z_interp = DATA_CUT({x:je_z.x,y:je_z_interp},Bt)
+           ji_z_interp = DATA_CUT({x:ji_z.x,y:ji_z_interp},Bt)
 
            ;;The old way
            ;; GET_DOUBLE_STREAKS__NTH_DECIMAL_PLACE,je_z.x,-2,NPTS=100, $
@@ -533,16 +595,16 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         ENDIF ELSE BEGIN
 
-           bro = ROUND_TO_NTH_DECIMAL_PLACE(db.x[1:-1]-db.x[0:-2],-5)
+           bro = ROUND_TO_NTH_DECIMAL_PLACE(Bt[1:-1]-Bt[0:-2],-5)
            bro = bro[WHERE(ABS(bro) LT 1)]
            distFreq = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
                                 REVERSE_INDICES=ri, $
                                 LOCATIONS=locs)
            junk = MAX(distFreq,ind)
            sPeriod = DOUBLE(locs[ind])
-           even_TS = db.x
+           even_TS = Bt
 
-           FA_FIELDS_COMBINE,{time:dB.x,comp1:dB.y[*,0]}, $
+           FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
                              {time:Je_z.x,comp1:Je_z.y}, $
                              RESULT=Je_z_interp, $
                              ;; /INTERP, $
@@ -550,7 +612,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                              DELT_T=1.5, $
                              /TALK
 
-           FA_FIELDS_COMBINE,{time:dB.x,comp1:dB.y[*,0]}, $
+           FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
                              {time:Ji_z.x,comp1:Ji_z.y}, $
                              RESULT=Ji_z_interp, $
                              ;; /INTERP, $
@@ -574,7 +636,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         ;; even_TS = even_TS[60:-60]
 
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
-                          {time:dB.x,comp1:Bx}, $
+                          {time:Bt,comp1:Bx}, $
                           RESULT=Bx_interp, $
                           ;; /INTERP, $
                           /SPLINE, $
@@ -582,7 +644,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                           /TALK
 
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
-                          {time:dB.x,comp1:By}, $
+                          {time:Bt,comp1:By}, $
                           RESULT=By_interp, $
                           ;; /INTERP, $
                           /SPLINE, $
@@ -590,7 +652,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                           /TALK
 
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
-                          {time:dB.x,comp1:Bz}, $
+                          {time:Bt,comp1:Bz}, $
                           RESULT=Bz_interp, $
                           ;; /INTERP, $
                           /SPLINE, $
@@ -963,6 +1025,7 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
   ;; ikz                  = -JxB_zcomponent_FFT/(BB_FFT+.001)
 
   IF KEYWORD_SET(double_calc) THEN nonZ = DOUBLE(1.e-10) ELSE nonZ = .001
+  ;; nonZ = COMPLEX(1.e-10,1.e-10)
   ikx                  = -JxB_xcomponent_FFT/(BB_FFT+nonZ)
   iky                  = -JxB_ycomponent_FFT/(BB_FFT+nonZ)
   ikz                  = -JxB_zcomponent_FFT/(BB_FFT+nonZ)
@@ -1042,14 +1105,16 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   splitFFTs = ~KEYWORD_SET(noSplitAndAverage)
 
+  ;; IF N_ELEMENTS(double_calc) EQ 0 THEN double_calc = 1
+
   ;;select output mode,
   ;;set output_mode =0 for screen, 1 for printer, 2 for postscript file
 
   COMPILE_OPT idl2
 
   ;;N points to smooth k components with
-  smInd   = 3
-  dbSmInd = 7
+  smInd   = 5
+  dbSmInd = 10
   edge_truncate = 0
   edge_mirror   = 1
   edge_wrap     = 0
@@ -1192,9 +1257,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ;;Now do some calcs
   ;; FFTsize = 26
   ;; FFTsize = 120
-  FFTsize = 106
+  ;; FFTsize = 106
   ;; FFTsize = 159
-  ;; defFFTsize = T[0]/3
+  defFFTsize = T[0]
+  ;; defFFTsize = T[0]
   ;; defFFTsize = 48
   ;; defFFTsize = 96
   IF ( N_ELEMENTS(FFTsize) EQ 0 ) AND KEYWORD_SET(splitFFTs) THEN BEGIN
@@ -1415,7 +1481,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      KEYWORD_SET(plot_posFreq): BEGIN
         inds = WHERE(freq GT 0.0 AND freq LE maxFreq)
         ;; fitInds = WHERE(freq GT (freq[inds])[2] AND freq LE maxFreq)
-        fitInds = WHERE(freq GT (0.125 < (freq[inds])[2]) AND freq LE maxFreq*1.1)
+        ;; fitInds = WHERE(freq GT (0.01 < (freq[inds])[1]) AND freq LE maxFreq*1.1)
+        fitInds = WHERE(freq GT (0.1 < (freq[inds])[1]) AND freq LE maxFreq*1.1)
      END
      KEYWORD_SET(fold_negFreq): BEGIN
         indNeg = [0:(where(freq EQ 0.00)-1)] 
@@ -1457,8 +1524,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        YRANGE=[-kx_ysize,kx_ysize]
   IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
   IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
-     OPLOT,freq[inds],SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx[inds]) : kx[inds]),smInd, $
-                              EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
+     OPLOT,freq[inds], $
+           SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx[inds]) : kx[inds]),smInd, $
+                  EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap), $
+           COLOR=250
   ENDIF
 
   IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
@@ -1473,13 +1542,17 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        YRANGE=[-ky_ysize,ky_ysize]
   IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
   IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
-     OPLOT,freq[inds],SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky[inds]) : ky[inds]),smInd, $
-                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
+     OPLOT,freq[inds], $
+           SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky[inds]) : ky[inds]),smInd, $
+                  EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap), $
+           COLOR=250
   ENDIF
 
   IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-     OPLOT,freq[inds],SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky[inds]) : ky[inds]),dbSmInd, $
-                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
+     OPLOT,freq[inds], $
+           SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky[inds]) : ky[inds]),dbSmInd, $
+                  EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap), $
+           COLOR=90
   ENDIF
 
   IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
@@ -1645,7 +1718,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
          speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
          ;; avgSpeed = MEAN(speed)-6000.
-         avgSpeed = MEAN(speed)+30000.
+         avgSpeed = MEAN(speed)
 
          kxTemp = kx
          ;; CASE 1 OF
