@@ -373,11 +373,11 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ;; BonusBonusSuff = 'dude'
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;The orbit 9585
-  ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot.sav'
-  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-  ;;    timesBarStr = ['1999-01-23/14:50:56','1999-01-23/14:51:06']
-  ;; ENDIF
-  ;; BonusBonusSuff = 'Orbit_9585'
+  saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot.sav'
+  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+     timesBarStr = ['1999-01-23/14:50:56','1999-01-23/14:51:06']
+  ENDIF
+  BonusBonusSuff = 'Orbit_9585'
 
   ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--wider.sav'
   ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
@@ -391,9 +391,9 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ;; ENDIF
   ;; BonusBonusSuff = 'Orbit_9585--wider_tBar--PRE_VIII'
 
-  saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--bro.sav--alt_timebar'
-  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-     ;; timesBarStr = ['1999-01-23/14:50:40','1999-01-23/14:50:51.5']
+  ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--bro.sav--alt_timebar'
+  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+  ;;    timesBarStr = ['1999-01-23/14:50:40','1999-01-23/14:50:51.5']
 
      ;; timesBarStr    = ['1999-01-23/14:50:40','1999-01-23/14:50:46.25']
      ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
@@ -401,25 +401,50 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      ;; timesBarStr = ['1999-01-23/14:50:46.25','1999-01-23/14:50:51.5']
      ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
 
+     ;;Money #1
      ;; timesBarStr = ['1999-01-23/14:50:46.25','1999-01-23/14:50:51.5']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
+
+     ;;Possibly Money #2
+     ;; timesBarStr = ['1999-01-23/14:51:02.0','1999-01-23/14:51:06.0']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
+
+     ;; timesBarStr = ['1999-01-23/14:50:42.0','1999-01-23/14:50:43.0']
      ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
 
      ;; timesBarStr = ['1999-01-23/14:50:52','1999-01-23/14:50:57.5']
      ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--52_to_57p5'
 
-     timesBarStr = ['1999-01-23/14:50:57.5','1999-01-23/14:51:03']
-     BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--57p5_to_03'
+     ;; timesBarStr = ['1999-01-23/14:50:57.5','1999-01-23/14:51:03']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--57p5_to_03'
+
+     ;; timesBarStr = ['1999-01-23/14:50:44','1999-01-23/14:50:49']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--44_to_49'
+
+     ;; timesBarStr = ['1999-01-23/14:50:36','1999-01-23/14:50:40']
+     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--36_to_40'
 
      ;; timesBarStr = ['1999-01-23/14:50:40','1999-01-23/14:51:03']
-  ENDIF
+  ;; ENDIF
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;The orbit 10837
   ;; saveFile = 'Orbit_10837--B_and_J--20161025--fixed_currents--with_sc_pot.sav'
+  ;; saveFile = 'Orbit_10837--B_and_J--20161025--fixed_currents--with_sc_pot.sav'
+
   ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
   ;;    timesBarStr = ['1999-05-18/17:46:24','1999-05-18/17:46:39']
   ;; ENDIF
   ;; BonusBonusSuff = 'Orbit_10837'
+
+  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
+  ;;    ;; timesBarStr = ['1999-05-18/17:46:24','1999-05-18/17:46:39']
+  ;;    ;; timesBarStr = ['1999-05-18/17:46:20','1999-05-18/17:46:39']
+  ;;    ;; timesBarStr = ['1999-05-18/17:46:18','1999-05-18/17:46:40']
+  ;;    ;; timesBarStr = ['1999-05-18/17:46:12','1999-05-18/17:46:46']
+  ;;    timesBarStr = ['1999-05-18/17:46:10','1999-05-18/17:46:48']
+  ;; ENDIF
+  ;; BonusBonusSuff = 'Orbit_10837--poke_around'
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;The orbit 10927
@@ -490,21 +515,46 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   Bz   = dB.y[*,2] * bFactor
   Bt   = dB.x
 
-  presmooth_mag = 1
+  presmooth_mag = 0
   IF KEYWORD_SET(presmooth_mag) THEN BEGIN
-     smInd  = 7
-     redFac = 4
-     Bx    = (SMOOTH(Bx,smInd))[0:-1:redFac]
-     By    = (SMOOTH(By,smInd))[0:-1:redFac]
-     Bz    = (SMOOTH(Bz,smInd))[0:-1:redFac]
-     Bt    = Bt[0:-1:redFac]
 
-     smInd  = 5
+     ;;Do one smooth
+     ;; smInd  = 20
+     ;; redFac = 20
+     ;; Bx    = (SMOOTH(Bx,smInd))[0:-1:redFac]
+     ;; By    = (SMOOTH(By,smInd))[0:-1:redFac]
+     ;; Bz    = (SMOOTH(Bz,smInd))[0:-1:redFac]
+     ;; Bt    = Bt[0:-1:redFac]
+
+
+     ;;... Or do two smooths in a row
+     smInd  = 21
      redFac = 2
      Bx    = (SMOOTH(Bx,smInd))[0:-1:redFac]
      By    = (SMOOTH(By,smInd))[0:-1:redFac]
+     ;; Bx    = Bx[0:-1:redFac]
+     ;; By    = By[0:-1:redFac]
      Bz    = (SMOOTH(Bz,smInd))[0:-1:redFac]
      Bt    = Bt[0:-1:redFac]
+
+     smInd  = 11
+     redFac = 2
+     Bx    = (SMOOTH(Bx,smInd))[0:-1:redFac]
+     By    = (SMOOTH(By,smInd))[0:-1:redFac]
+     ;; Bx    = Bx[0:-1:redFac]
+     ;; By    = By[0:-1:redFac]
+     Bz    = (SMOOTH(Bz,smInd))[0:-1:redFac]
+     Bt    = Bt[0:-1:redFac]
+
+     ;; smInd  = 10
+     ;; redFac = 2
+     ;; Bx    = (SMOOTH(Bx,smInd))[0:-1:redFac]
+     ;; By    = (SMOOTH(By,smInd))[0:-1:redFac]
+     ;; ;; Bx    = Bx[0:-1:redFac]
+     ;; ;; By    = By[0:-1:redFac]
+     ;; Bz    = (SMOOTH(Bz,smInd))[0:-1:redFac]
+     ;; Bt    = Bt[0:-1:redFac]
+
      ;; plotme = magz
      ;; bro    = (SMOOTH(plotme.y,smInd))[0:-1:smInd]
      ;; dough  = plotme.x[0:-1:smInd]
@@ -514,6 +564,62 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
      ;; PRINT,1./(dough[1]-dough[0])
      PRINT,"Final B sample frequency: ",1./(Bt[1]-Bt[0])
+  ENDIF
+
+  plot_currents_so_I_can_see = 0
+  IF KEYWORD_SET(plot_currents_so_I_can_see) THEN BEGIN
+     ;;scope out mag current
+     ;;Get orbit stuff
+     GET_FA_ORBIT,Bt,/TIME_ARRAY ;,/all
+
+     ;;Get speed and position for calculation of mag stuff
+     GET_DATA,'fa_vel',DATA=vel
+     speed                   = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
+
+     old_pos                 = 0.
+     position                = MAKE_ARRAY(N_ELEMENTS(Bt),/DOUBLE)
+     speed_mag_point         = MAKE_ARRAY(N_ELEMENTS(Bt),/DOUBLE)
+     FOR j=0L,N_ELEMENTS(Bt)-2 DO BEGIN
+        speed_point_ind      = MIN(ABS(vel.x-Bt[j]),ind)
+
+        speed_mag_point[j]   = speed[ind]
+        samplingperiod       = Bt[j+1] - Bt[j]
+
+        position[j]          = old_pos + speed_mag_point[j]*samplingperiod
+        old_pos              = position[j]
+     ENDFOR
+
+     ;; deltaBY                 = DERIV(position,SMOOTH(By,3))
+     deltaBY                 = DERIV(position,By)
+     ;; deltaBY                 = DERIV(position,By)
+     ;; deltaBY                 = DERIV(position,SMOOTH(By,5))
+     ;; jtemp                = ABS(1.0e-3*(deltaBx)/1.26e-6)
+     ;; jtemp                = 1.0e-3*(deltaBx)/1.26e-6
+     ;;in number flux units
+     jtemp                   = 1.0e-3*(deltaBY)/1.26e-6
+     muLetter = '!4l!X'
+
+     t0 = s_t1
+     this = PLOT(Bt-t0,jtemp,NAME='Magnetometer', $
+                 XTITLE='Time since ' + TIME_TO_STR(s_t1,/MSEC), $
+                 YTITLe='Current density ($\mu$A/m$^2$', $
+                 XRANGE=[0,s_t2-s_t1], $
+                 ;; YRANGE=MINMAX(jtemp))
+                 YRANGE=[MIN(jtemp) < MIN(je_z.y) < MIN(ji_z.y), $
+                         MAX(jtemp) > MAX(je_z.y) > MAX(ji_z.y)])
+
+     this = PLOT(Je_z.x-t0,Je_z.y, $
+                 ;; this = PLOT(Je_z.x-t0,Je_z.y, $
+                 NAME='e!U-!N', $
+                 COLOR='Red', $
+                 /OVERPLOT)
+
+     this = PLOT(Ji_z.x-t0,Ji_z.y, $
+                 ;; this = PLOT(Ji_z.x-t0,SMOOTH(2*Ji_z.y+je_z.y,5)*0.6-25, $
+                 NAME='i!U+!N', $
+                 COLOR='Green', $
+                 /OVERPLOT)
+     STOP
   ENDIF
 
   mag_sRate  = 1./(Bt  [1:-1]-Bt  [0:-2])
@@ -1171,6 +1277,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ENDCASE
 
      maxFreq = (MIN([MEDIAN(sRates.mag),MEDIAN(sRates.eESA),MEDIAN(sRates.iESA)]))/2.
+     maxFreq = 4.
 
   ENDIF ELSE BEGIN
      unitFactor = 1 ;Don't adjust k in this case
@@ -1743,6 +1850,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
          PLOT,freq[inds],ABS(kx[inds]), $
               XTITLE='Frequency (Hz)', $
+              YTITLE='k!Dx!N (m!U-1!N)', $
               YRANGE=[4e-6,1e-2], $
               XSTYLE=1, $
               YSTYLE=1, $
@@ -1753,7 +1861,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
          OPLOT,fDoppl[inds],kxTemp[inds], $
                COLOR=110
 
-         add_Doppler_fit_string = 1
+         add_Doppler_fit_string = 0
          IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
             fitInds      = CGSETINTERSECTION(fitInds,WHERE(kxTemp GT 0.00))
             params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kxTemp[fitInds]),YFIT=kxFitter)
@@ -1768,18 +1876,18 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
             kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
             kxFitter     = 10.^(params[1] * ALOG10(freq[fitInds]) + params[0])
 
-            slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
-            corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
-            tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
-            txOutSize    = cs
+            ;; slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
+            ;; corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
+            ;; tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
+            ;; txOutSize    = cs
             ;; XYOUTS,0.2,0.89,slopeString,/NORMAL,CHARSIZE=txOutSize
             ;; XYOUTS,0.2,0.86,corrString,/NORMAL,CHARSIZE=txOutSize
             ;; XYOUTS,0.2,0.83,tString,/NORMAL,CHARSIZE=txOutSize
-            XYOUTS,0.2,0.59,slopeString,/NORMAL,CHARSIZE=txOutSize
-            XYOUTS,0.2,0.56,corrString,/NORMAL,CHARSIZE=txOutSize
-            XYOUTS,0.2,0.53,tString,/NORMAL,CHARSIZE=txOutSize
+            ;; XYOUTS,0.2,0.59,slopeString,/NORMAL,CHARSIZE=txOutSize
+            ;; XYOUTS,0.2,0.56,corrString,/NORMAL,CHARSIZE=txOutSize
+            ;; XYOUTS,0.2,0.53,tString,/NORMAL,CHARSIZE=txOutSize
 
-            OPLOT,xFit,kxFit,COLOR=40
+            ;; OPLOT,xFit,kxFit,COLOR=40
 
          ENDIF
       ENDIF
