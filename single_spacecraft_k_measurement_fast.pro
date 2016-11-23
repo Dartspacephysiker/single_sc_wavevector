@@ -78,7 +78,7 @@ PRO CONCLUDE_OUTPUT,mode,plotDir
   ENDIF
   IF hardcopy EQ 1 THEN SET_PLOT,'printer'
   IF hardcopy EQ 1 THEN DEVICE,YSIZE=25,YOFFSET=5
-  IF hardcopy ne 1 THEN SET_PLOT,'X'
+  IF hardcopy NE 1 THEN SET_PLOT,'X'
   PRINT, 'FINISHED'
 END
 
