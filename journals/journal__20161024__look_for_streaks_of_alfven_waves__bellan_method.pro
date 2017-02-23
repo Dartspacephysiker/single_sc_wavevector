@@ -14,45 +14,66 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
   RESTORE,dbDir+dbFile
   RESTORE,dbDir+dbTimeFile
 
-  tagNames = TAG_NAMES(maximus)
+  goingRate      = N_ELEMENTS(maximus.(0))
+  IF goingRate NE N_ELEMENTS(cdbTime) THEN STOP
+  
+
+  tagNames       = TAG_NAMES(maximus)
   ;;Sort them
-  ;; sort_i     = SORT(cdbTime)
-  ;; cdbTime    = cdbTime[sort_i]
+  ;; sort_i      = SORT(cdbTime)
+  ;; cdbTime     = cdbTime[sort_i]
 
 
-  uniq_i     = WHERE(ABS(maximus.esa_current) GE 10.)
-  cdbTime    = cdbTime[uniq_i]
+  this              = WHERE(STRUPCASE(tagNames) EQ 'MODE')
+  IF this[0] EQ -1 THEN STOP
+  clean_these_inds = INDGEN(this)
+  
+  ;;Apply current restriction
+  ;; curThresh   = 10.
+  curThresh      = 5.
+  clean_i        = BASIC_DB_CLEANER(maximus, $
+                                    /CLEAN_NANS_AND_INFINITIES, $
+                                    CLEAN_THESE_INDS=clean_these_inds, $
+                                    /DISREGARD_SAMPLE_T)
+  clean_i         = CGSETINTERSECTION(WHERE(ABS(maximus.esa_current) GE curThresh), $
+                                     clean_i, $
+                                     COUNT=nUniq, $
+                                     NORESULT=-1)
+  IF nUniq EQ 0 THEN STOP
+  
+  cdbTime        = cdbTime[clean_i]
 
-  maxTemp = CREATE_STRUCT(tagNames[0],(maximus.(0))[uniq_i])
+  maxTemp        = CREATE_STRUCT(tagNames[0],(maximus.(0))[clean_i])
   FOR k=1, N_ELEMENTS(tagNames)-1 DO BEGIN
-     maxTemp = CREATE_STRUCT(maxTemp,tagNames[k],(maximus.(k))[uniq_i])
+     IF N_ELEMENTS(maximus.(k)) EQ goingRate THEN BEGIN
+        maxTemp  = CREATE_STRUCT(maxTemp,tagNames[k],(maximus.(k))[clean_i])
+     ENDIF ELSE BEGIN
+        PRINT,"Bogus: ",TAG_NAMES[k]
+     ENDELSE
   ENDFOR
 
-  maximus = TEMPORARY(maxTemp)
+  maximus        = TEMPORARY(maxTemp)
 
 
-  uniq_i     = UNIQ(cdbTime,SORT(cdbTime))
-  cdbTime    = cdbTime[uniq_i]
+  ;;Now screen for times that are actually unique
+  uniq_i         = UNIQ(cdbTime,SORT(cdbTime))
+  cdbTime        = cdbTime[uniq_i]
 
-  maximus2 = CREATE_STRUCT(tagNames[0],(maximus.(0))[uniq_i])
+  maximus2       = CREATE_STRUCT(tagNames[0],(maximus.(0))[uniq_i])
   FOR k=1, N_ELEMENTS(tagNames)-1 DO BEGIN
-     maximus2 = CREATE_STRUCT(maximus2,tagNames[k],(maximus.(k))[uniq_i])
+     maximus2    = CREATE_STRUCT(maximus2,tagNames[k],(maximus.(k))[uniq_i])
   ENDFOR
 
-  ;; final_i    = CGSETINTERSECTION(WHERE(cdbTime LE STR_TO_TIME('1999-11-12/22:52:14.217')), $
-  ;;                                uniq_i)
+  ;;Now cull the garbage
+  final_i        = WHERE(cdbTime LE STR_TO_TIME('1999-11-12/22:52:14.217'))
+  cdbTime        = cdbTime[final_i]
 
-  final_i    = WHERE(cdbTime LE STR_TO_TIME('1999-11-12/22:52:14.217'))
-  cdbTime    = cdbTime[final_i]
-
-  maximus = CREATE_STRUCT(tagNames[0],(maximus2.(0))[final_i])
+  maximus        = CREATE_STRUCT(tagNames[0],(maximus2.(0))[final_i])
   FOR k=1, N_ELEMENTS(tagNames)-1 DO BEGIN
-     maximus = CREATE_STRUCT(maximus,tagNames[k],(maximus2.(k))[final_i])
+     maximus     = CREATE_STRUCT(maximus,tagNames[k],(maximus2.(k))[final_i])
   ENDFOR
 
-  maximus2 = !NULL
-
-  ;; inds = 
+  maximus2       = !NULL
 
   ;;DOUBLE_STREAKS options
   decimal_place = -1.
