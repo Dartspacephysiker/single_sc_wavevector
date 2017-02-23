@@ -1,2 +1,8 @@
 #No emacs stupidité
 *~
+
+#No plot nonsense
+plots/
+
+#No saves or their friends
+saves_output_etc/
