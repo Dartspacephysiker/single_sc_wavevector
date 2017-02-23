@@ -155,8 +155,9 @@ PRO ADD_NOISE,Bx,By,Bz,Jx,Jy,Jz,T
 
 END
 
-PRO  SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
-                   EXAMPLE=example
+PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                  SAVEDIR=saveDir, $
+                  EXAMPLE=example
 
   T         = 200               ; number of elements in time domain vectors
   TArr      = INDGEN(T)
@@ -1340,6 +1341,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   IF KEYWORD_SET(example_mode) THEN BEGIN
      SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                   SAVEDIR=saveDir, $
                    EXAMPLE=example
   ENDIF
 

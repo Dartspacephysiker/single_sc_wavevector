@@ -1,4 +1,4 @@
-;;10/24/16
+;;2016/10/24
 PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
 
   COMPILE_OPT IDL2
@@ -71,7 +71,7 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
                                         FLOOR=floor, $
                                         CEILING=ceiling, $
                                         PRINT_START_STOP_TIMES=print_times, $
-                                        /PRINT__INCLUDE_CURRENT
+                                        /PRINT_MAXIMUS__INCLUDE_CURRENT
                                         
 
   ;; big_ii       = REVERSE(SORT(streakLens))
