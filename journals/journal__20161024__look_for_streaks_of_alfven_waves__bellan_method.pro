@@ -1,4 +1,7 @@
 ;;2016/10/24
+;;Wanna see where the rubber meets the road? Check out the BATCH_JOBS repo under
+;;"reproducing_figures_from_the_literature/Chaston_et_al_2006--erosion--wavevector/"
+;;That's where you got it.
 PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
 
   COMPILE_OPT IDL2
@@ -13,9 +16,17 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
   decimal_place   = -1. ;don't mess, it's good
   N               = 5   ;min # points to qualify a streak
   gap_time        = 2.0 ;max allowable gap between observations
-  streakLen_tSort = 1B
+
+  ;;how to sort?
+  sort_reverse    = 1B ;Put big guys up front
+
+  streakLen_tSort = 0B
   streakLenSort   = 0B
-  sort_reverse    = 1B
+  sort_by_avg_dt  = 0B
+  jESA_sort       = 0B
+  jMAG_sort       = 0B
+  ABS_jESA_sort   = 0B
+  ABS_jMAG_sort   = 1B
 
   dbDir           = '/home/spencerh/Research/database/FAST/dartdb/saves/'
 
@@ -163,6 +174,11 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
                                         /PRINT_MAXIMUS__INCLUDE_CURRENT, $
                                         SORT_BY_STREAKLEN=streakLenSort, $
                                         SORT_BY_T_STREAKLEN=streakLen_tSort, $
+                                        SORT_BY_AVG_DT=sort_by_avg_dt, $
+                                        SORT_BY_MAGNITUDE_ESA_CURRENT=ABS_jESA_sort, $
+                                        SORT_BY_MAGNITUDE_MAG_CURRENT=ABS_jMAG_sort, $
+                                        SORT_BY_ESA_CURRENT=jESA_sort, $
+                                        SORT_BY_MAG_CURRENT=jMAG_sort, $
                                         SORT_REVERSE=sort_reverse, $
                                         NO_SORT=no_sort
 
