@@ -340,136 +340,127 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 END
 
 PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
-                    SAVFILE_T1=s_t1, $
-                    SAVFILE_T2=s_t2, $
-                    USE_TIMEBAR_TIME=use_timeBar_time, $
+                    B_AND_J_FILE=saveFile, $
+                    USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+                    CUSTOM_T1=custom_t1, $
+                    CUSTOM_T2=custom_t2, $
                     USE_J_TIME_SERIES=use_J_time_series, $
                     SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+                    PRESMOOTH_MAG=presmooth_mag, $
+                    PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
                     STREAKNUM=streakNum, $
                     OUT_STREAKNUM=longestInd, $
                     USE_ALL_STREAKS=use_all_streaks, $
                     USE_DB_FAC=use_dB_fac, $
                     HAVE_EFIELD=have_EField, $
                     SRATES=sRates, $
-                    BONUSBONUSSUFF=BonusBonusSuff
+                    EXTRA_SUFFIX=extra_Suffix
 
   saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
 
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;;The original Chaston et al. [2006] interval
+  PRINT,"Restoring " + saveFile + ' ...'
+  RESTORE,saveDir+saveFile
 
-  ;; saveFile = 'Chaston_et_al_2006--B_and_J.sav'
-  ;; saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents.sav'
-  ;; saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents_2.sav'
-  ;; saveFile = 'Chaston_et_al_2006--B_and_J--20161022--fixed_currents--with_sc_pot.sav'
-  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-  ;;    ;; timesBarStr = ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5']
-  ;;    timesBarStr = ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5']
-  ;;    ;; timesBarStr = ['1998-05-04/06:44:36','1998-05-04/06:44:56']
-  ;;    ;; timesBarStr = ['1998-05-04/06:44:46','1998-05-04/06:44:56']
-
-  ;;    ;; timesBarStr = [ ['1998-05-04/06:44:21.5','1998-05-04/06:44:29.0'], $
-  ;;    ;;                 ['1998-05-04/06:44:31.5','1998-05-04/06:44:56.5'] ]
-  ;; ENDIF
-  ;; BonusBonusSuff = 'dude'
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;;The orbit 9585
-  saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot.sav'
-  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-     timesBarStr = ['1999-01-23/14:50:56','1999-01-23/14:51:06']
-  ENDIF
-  BonusBonusSuff = 'Orbit_9585'
-
-  ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--wider.sav'
-  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-  ;;    timesBarStr = ['1999-01-23/14:50:52','1999-01-23/14:51:03']
-  ;; ENDIF
-  ;; BonusBonusSuff = 'Orbit_9585--wider_tBar'
-
-  ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--bro.sav'
-  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-  ;;    timesBarStr = ['1999-01-23/14:50:52','1999-01-23/14:51:03']
-  ;; ENDIF
-  ;; BonusBonusSuff = 'Orbit_9585--wider_tBar--PRE_VIII'
-
-  ;; saveFile = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--bro.sav--alt_timebar'
-  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-  ;;    timesBarStr = ['1999-01-23/14:50:40','1999-01-23/14:50:51.5']
-
-     ;; timesBarStr    = ['1999-01-23/14:50:40','1999-01-23/14:50:46.25']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
-
-     ;; timesBarStr = ['1999-01-23/14:50:46.25','1999-01-23/14:50:51.5']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
-
-     ;;Money #1
-     ;; timesBarStr = ['1999-01-23/14:50:46.25','1999-01-23/14:50:51.5']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
-
-     ;;Possibly Money #2
-     ;; timesBarStr = ['1999-01-23/14:51:02.0','1999-01-23/14:51:06.0']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
-
-     ;; timesBarStr = ['1999-01-23/14:50:42.0','1999-01-23/14:50:43.0']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--46p25_to_51.5'
-
-     ;; timesBarStr = ['1999-01-23/14:50:52','1999-01-23/14:50:57.5']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--52_to_57p5'
-
-     ;; timesBarStr = ['1999-01-23/14:50:57.5','1999-01-23/14:51:03']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--57p5_to_03'
-
-     ;; timesBarStr = ['1999-01-23/14:50:44','1999-01-23/14:50:49']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--44_to_49'
-
-     ;; timesBarStr = ['1999-01-23/14:50:36','1999-01-23/14:50:40']
-     ;; BonusBonusSuff = 'Orbit_9585--wider_alt_tBar--PRE_VIII--36_to_40'
-
-     ;; timesBarStr = ['1999-01-23/14:50:40','1999-01-23/14:51:03']
-  ;; ENDIF
-
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;;The orbit 10837
-  ;; saveFile = 'Orbit_10837--B_and_J--20161025--fixed_currents--with_sc_pot.sav'
-  ;; saveFile = 'Orbit_10837--B_and_J--20161025--fixed_currents--with_sc_pot.sav'
-
-  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-  ;;    timesBarStr = ['1999-05-18/17:46:24','1999-05-18/17:46:39']
-  ;; ENDIF
-  ;; BonusBonusSuff = 'Orbit_10837'
-
-  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-  ;;    ;; timesBarStr = ['1999-05-18/17:46:24','1999-05-18/17:46:39']
-  ;;    ;; timesBarStr = ['1999-05-18/17:46:20','1999-05-18/17:46:39']
-  ;;    ;; timesBarStr = ['1999-05-18/17:46:18','1999-05-18/17:46:40']
-  ;;    ;; timesBarStr = ['1999-05-18/17:46:12','1999-05-18/17:46:46']
-  ;;    timesBarStr = ['1999-05-18/17:46:10','1999-05-18/17:46:48']
-  ;; ENDIF
-  ;; BonusBonusSuff = 'Orbit_10837--poke_around'
-
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;;The orbit 10927
-  ;; saveFile = 'Orbit_10927--B_and_J--20161025--fixed_currents--with_sc_pot.sav'
-  ;; IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-  ;;    timesBarStr = ['1999-05-27/00:30:30','1999-05-27/00:30:47']
-  ;; ENDIF
-  ;; BonusBonusSuff = 'Orbit_10927'
-
-  IF KEYWORD_SET(use_timeBar_time) THEN BEGIN
-     CASE NDIMEN(timesBarStr) OF
+  IF KEYWORD_SET(use_timeBar_time__from_file) AND N_ELEMENTS(timeBar_times) GT 0 THEN BEGIN
+     PRINT,"Using timeBar_times from file: ",TIME_TO_STR(timeBar_times[
+     CASE NDIMEN(timeBar_times) OF
         1: BEGIN
-           s_t1        = STR_TO_TIME(timesBarStr[0])
-           s_t2        = STR_TO_TIME(timesBarStr[1])
+           CASE SIZE(timeBar_times,/TYPE) OF
+              7: BEGIN
+                 tBar_t1  = STR_TO_TIME(timeBar_times[0])
+                 tBar_t2  = STR_TO_TIME(timeBar_times[1])
+              END
+              5: BEGIN
+                 tBar_t1  = timeBar_times[0]
+                 tBar_t2  = timeBar_times[1]
+              END
+              ELSE: STOP
+           ENDCASE
         END
         2: BEGIN
-           s_t1        = STR_TO_TIME(REFORM(timesBarStr[0,*]))
-           s_t2        = STR_TO_TIME(REFORM(timesBarStr[1,*]))
+           CASE SIZE(timeBar_times,/TYPE) OF
+              7: BEGIN
+                 tBar_t1  = STR_TO_TIME(REFORM(timeBar_times[0,*]))
+                 tBar_t2  = STR_TO_TIME(REFORM(timeBar_times[1,*]))
+              END
+              5: BEGIN
+                 tBar_t1  = REFORM(timeBar_times[0,*])
+                 tBar_t2  = REFORM(timeBar_times[1,*])
+              END
+              ELSE: STOP
+           ENDCASE
         END
      ENDCASE
   ENDIF
 
-  PRINT,"Restoring " + saveFile + ' ...'
-  RESTORE,saveDir+saveFile
+  ;;Just in case user is inclined to sparse provision of information
+  t1BKUP = dB.x[0]
+  t2BKUP = dB.x[-1]
+
+  ;;Now custom times
+  IF KEYWORD_SET(custom_t1) THEN BEGIN
+     PRINT,FORMAT='(A0,T25,": ",A0)','Custom T1',TIME_TO_STR(custom_t1,/MS)
+
+     CASE NDIMEN(custom_t1) OF
+        1: BEGIN
+           CASE SIZE(custom_t1,/TYPE) OF
+              7: BEGIN
+                 analysis_t1  = STR_TO_TIME(custom_t1)
+              END
+              5: BEGIN
+                 analysis_t1  = custom_t1
+              END
+              ELSE: STOP
+           ENDCASE
+        END
+        2: BEGIN
+           CASE SIZE(custom_t1,/TYPE) OF
+              7: BEGIN
+                 analysis_t1  = STR_TO_TIME(REFORM(custom_t1[0,*]))
+              END
+              5: BEGIN
+                 analysis_t1  = REFORM(custom_t1[0,*])
+              END
+              ELSE: STOP
+           ENDCASE
+        END
+     ENDCASE
+
+  ENDIF ELSE BEGIN
+     analysis_t1        = KEYWORD_SET(tBar_t1) ? TEMPORARY(tBar_t1) : t1BKUP
+  ENDELSE
+
+  IF KEYWORD_SET(custom_t2) THEN BEGIN
+     PRINT,FORMAT='(A0,T25,": ",A0)','Custom T2',TIME_TO_STR(custom_t2,/MS)
+
+     CASE NDIMEN(custom_t2) OF
+        1: BEGIN
+           CASE SIZE(custom_t2,/TYPE) OF
+              7: BEGIN
+                 analysis_t2  = STR_TO_TIME(custom_t2)
+              END
+              5: BEGIN
+                 analysis_t2  = custom_t2
+              END
+              ELSE: STOP
+           ENDCASE
+        END
+        2: BEGIN
+           CASE SIZE(custom_t2,/TYPE) OF
+              7: BEGIN
+                 analysis_t2  = STR_TO_TIME(REFORM(custom_t2[0,*]))
+              END
+              5: BEGIN
+                 analysis_t2  = REFORM(custom_t2[0,*])
+              END
+              ELSE: STOP
+           ENDCASE
+        END
+     ENDCASE
+
+  ENDIF ELSE BEGIN
+     analysis_t2        = KEYWORD_SET(tBar_t2) ? TEMPORARY(tBar_t2) : t2BKUP
+  ENDELSE
 
   ;; bFactor = 1.e-9 ;Get 'em out of nT
   ;; bFactor = 1.e3
@@ -493,30 +484,37 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   IF KEYWORD_SET(use_dB_fac) THEN saveVar = 'dB_fac'
   ;; saveVar  = 'dB_fac_V'
 
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;Align time series
-
   CASE STRUPCASE(saveVar) OF
      'DB_FAC_V': BEGIN
-        ;;   From UCLA_MAG_DESPIN: "Field-aligned velocity-based coordinates defined as:    "
-        ;;x (ind 0)-along track ((BxV)xB),
-        ;;y (ind 1)-cross track (BxV),
-        ;;z (ind 2)-along B" (I added "ind" marks)
+
+        ;; From UCLA_MAG_DESPIN:
+        ;; "Field-aligned velocity-based coordinates defined as:    "
+        ;; x (ind 0)-along track ((BxV)xB),
+        ;; y (ind 1)-cross track (BxV),
+        ;; z (ind 2)-along B" (I added "ind" marks)
+
         dB = dB_fac_v
+
      END
      'DB_FAC': BEGIN
-        ;;  Field-aligned coordinates defined as:
-        ;;   z-along B, y-east (BxR), x-nominally out
+
+        ;; From UCLA_MAG_DESPIN:
+        ;; Field-aligned coordinates defined as:
+        ;; z-along B, y-east (BxR), x-nominally out
+
         dB = dB_fac
+
      END
   ENDCASE
 
-  ;; TArr = dB.x
+  ;;Now make 'em Bellan-useable
   Bx   = dB.y[*,0] * bFactor
   By   = dB.y[*,1] * bFactor
   Bz   = dB.y[*,2] * bFactor
   Bt   = dB.x
 
-  presmooth_mag = 0
   IF KEYWORD_SET(presmooth_mag) THEN BEGIN
 
      ;;Do one smooth
@@ -567,8 +565,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      PRINT,"Final B sample frequency: ",1./(Bt[1]-Bt[0])
   ENDIF
 
-  plot_currents_so_I_can_see = 0
-  IF KEYWORD_SET(plot_currents_so_I_can_see) THEN BEGIN
+  IF KEYWORD_SET(prePlot_currents_and_stop) THEN BEGIN
+
      ;;scope out mag current
      ;;Get orbit stuff
      GET_FA_ORBIT,Bt,/TIME_ARRAY ;,/all
@@ -600,11 +598,11 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      jtemp                   = 1.0e-3*(deltaBY)/1.26e-6
      muLetter = '!4l!X'
 
-     t0 = s_t1
+     t0 = analysis_t1
      this = PLOT(Bt-t0,jtemp,NAME='Magnetometer', $
-                 XTITLE='Time since ' + TIME_TO_STR(s_t1,/MSEC), $
+                 XTITLE='Time since ' + TIME_TO_STR(analysis_t1,/MSEC), $
                  YTITLe='Current density ($\mu$A/m$^2$', $
-                 XRANGE=[0,s_t2-s_t1], $
+                 XRANGE=[0,analysis_t2-analysis_t1], $
                  ;; YRANGE=MINMAX(jtemp))
                  YRANGE=[MIN(jtemp) < MIN(je_z.y) < MIN(ji_z.y), $
                          MAX(jtemp) > MAX(je_z.y) > MAX(ji_z.y)])
@@ -630,12 +628,6 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   sRates     = {mag:mag_sRate, $
                 eESA:eESA_sRate, $
                 iESA:iESA_sRate}
-
-  ;; this       = VALUE_CLOSEST2(je_z.x,Bt)
-  ;; PRINT,ABS(je_z.x[this]-Bt)
-
-  ;; this       = VALUE_CLOSEST2(ji_z.x,Bt)
-  ;; PRINT,ABS(ji_z.x[this]-Bt)
 
 
   ;;Using j or mag time series?
@@ -810,9 +802,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ji_z_improv  = ji_z_interp
 
   CASE 1 OF
-     ;; KEYWORD_SET(use_timeBar_time): BEGIN
-     (KEYWORD_SET(s_t1) AND KEYWORD_SET(s_t2)): BEGIN
-        IF N_ELEMENTS(s_t1) GT 1 OR KEYWORD_SET(use_timeBar_time) THEN BEGIN
+     (KEYWORD_SET(analysis_t1) AND KEYWORD_SET(analysis_t2)): BEGIN
+        IF N_ELEMENTS(analysis_t1) GT 1 THEN BEGIN
 
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
            IF nGood EQ 0 THEN STOP
@@ -821,10 +812,10 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            ;; stop_i_list = !NULL
            strt_i_list = LIST()
            stop_i_list = LIST()
-           FOR k=0,N_ELEMENTS(s_t1)-1 DO BEGIN
+           FOR k=0,N_ELEMENTS(analysis_t1)-1 DO BEGIN
               good_iTmp  = CGSETINTERSECTION(good_i, $
-                                             WHERE((even_TS GE s_t1[k]) AND  $
-                                                   (even_TS LE s_t2[k]),nGood))
+                                             WHERE((even_TS GE analysis_t1[k]) AND  $
+                                                   (even_TS LE analysis_t2[k]),nGood))
               GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
                           OUT_STREAKLENS=streakLensTmp
               IF streakLensTmp[0] GT 1 THEN BEGIN
@@ -839,27 +830,24 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         ENDIF ELSE BEGIN
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
-                               (even_TS GE s_t1) AND (even_TS LE s_t2),nGood)
+                               (even_TS GE analysis_t1) AND (even_TS LE analysis_t2),nGood)
            GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
            strt_i = good_i[strt_ii]
            stop_i = good_i[stop_ii]
         ENDELSE
-        ;; FOR kk=0,N_ELEMENTS(streakLens)-1 DO BEGIN
-        ;;    start_i =
-        ;; ENDELSE
 
      END
-     KEYWORD_SET(s_t1): BEGIN
-        IF N_ELEMENTS(s_t1) GT 1 OR KEYWORD_SET(use_timeBar_time) THEN BEGIN
+     KEYWORD_SET(analysis_t1): BEGIN
+        IF N_ELEMENTS(analysis_t1) GT 1 THEN BEGIN
 
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
            IF nGood EQ 0 THEN STOP
 
            strt_i      = !NULL
            stop_i      = !NULL
-           FOR k=0,N_ELEMENTS(s_t1)-1 DO BEGIN
+           FOR k=0,N_ELEMENTS(analysis_t1)-1 DO BEGIN
               good_iTmp  = CGSETINTERSECTION(good_i, $
-                                             WHERE((even_TS GE s_t1[k]),nGood))
+                                             WHERE((even_TS GE analysis_t1[k]),nGood))
               GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
                           OUT_STREAKLENS=streakLensTmp
               IF streakLensTmp[0] GT 1 THEN BEGIN
@@ -872,7 +860,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         ENDIF ELSE BEGIN
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
-                               (even_TS GE s_t1),nGood)
+                               (even_TS GE analysis_t1),nGood)
            GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
            IF streakLens[0] GT 1 THEN BEGIN
               strt_i      = good_i[strt_ii]
@@ -882,18 +870,19 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
               STOP
            ENDELSE
         ENDELSE
+
      END
-     KEYWORD_SET(s_t2): BEGIN
-        IF N_ELEMENTS(s_t2) GT 1 OR KEYWORD_SET(use_timeBar_time) THEN BEGIN
+     KEYWORD_SET(analysis_t2): BEGIN
+        IF N_ELEMENTS(analysis_t2) GT 1 THEN BEGIN
 
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
            IF nGood EQ 0 THEN STOP
 
            strt_i      = !NULL
            stop_i      = !NULL
-           FOR k=0,N_ELEMENTS(s_t1)-1 DO BEGIN
+           FOR k=0,N_ELEMENTS(analysis_t1)-1 DO BEGIN
               good_iTmp  = CGSETINTERSECTION(good_i, $
-                                             WHERE((even_TS LE s_t2[k]),nGood))
+                                             WHERE((even_TS LE analysis_t2[k]),nGood))
               GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
                           OUT_STREAKLENS=streakLensTmp
               IF streakLensTmp[0] GT 1 THEN BEGIN
@@ -906,7 +895,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         ENDIF ELSE BEGIN
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
-                               (even_TS LE s_t2),nGood)
+                               (even_TS LE analysis_t2),nGood)
            GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
            IF streakLens[0] GT 1 THEN BEGIN
               strt_i      = good_i[strt_ii]
@@ -916,6 +905,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
               STOP
            ENDELSE
         ENDELSE
+
      END
      ELSE: BEGIN
         good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
@@ -933,8 +923,12 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      END
   ENDCASE
 
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;How many streaks to use?
   CASE 1 OF
      KEYWORD_SET(use_all_streaks): BEGIN
+
         good_i_list = LIST()
         TArr_list   = LIST()
         T_list      = LIST()
@@ -951,6 +945,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            stop_iTmp = stop_i_list[k]
 
            FOR kk=0,N_ELEMENTS(strt_iTmp)-1 DO BEGIN
+
               ;; good_i_list.Add,(good_i[strt_ii[k]:stop_ii[k]])
               good_i_list.Add,([strt_iTmp[kk]:stop_iTmp[kk]])
 
@@ -978,6 +973,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
               Jy_list.Add,MAKE_ARRAY(T_list[-1],VALUE=0.) * jFactor
 
               Jz_list.Add,(Ji_zTmp + Je_zTmp) * jFactor
+
            ENDFOR
            
         ENDFOR
@@ -990,16 +986,16 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jx    = Jx_list
         Jy    = Jy_list
         Jz    = Jz_list
+
      END
      ELSE: BEGIN
+
         IF N_ELEMENTS(strt_i_list) GT 0 THEN BEGIN
            streakLens = stop_i_list[0]-strt_i_list[0]
            long     = MAX(streakLens,longestInd)
         ENDIF ELSE BEGIN
            longestInd = 0
         ENDELSE
-
-        
 
         good_i      = [strt_i_list[0]:stop_i_list[0]]
         ;; good_i      = (good_i[strt_ii[longestInd]:stop_ii[longestInd]])
@@ -1039,6 +1035,7 @@ PRO DEAL_WITH_BADNESS,datSerie,improvSerie
   nDat         = nGood+nBad
 
   IF nBad GT 0 THEN BEGIN
+
      GET_STREAKS,bad_i,start_i=strtB_ii,stop_i=stopB_ii
      GET_STREAKS,good_i,start_i=strtG_ii,stop_i=stopG_ii
      strtB_i  = bad_i[strtB_ii]
@@ -1183,10 +1180,11 @@ END
 ; this code is free to use, but please acknowledge P. M. Bellan if used
 
 PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
-   PARSE_SAVEFILE=parse_saveFile, $
-   SAVFILE_T1=s_t1, $
-   SAVFILE_T2=s_t2, $
-   USE_TIMEBAR_TIME=use_timeBar_time, $
+   PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
+   B_AND_J_FILE=saveFile, $
+   USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+   CUSTOM_T1=custom_t1, $
+   CUSTOM_T2=custom_t2, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
@@ -1196,35 +1194,43 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
    SAVE_PS=save_ps, $
    BONUS_SUFF=bonus_suff, $
+   EXTRA_SUFFIX=extra_suffix, $
    DOUBLE_CALC=double_calc, $
    HANNING=hanning, $
    USE_J_TIME_SERIES=use_J_time_series, $
    SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+   PRESMOOTH_MAG=presmooth_mag, $
+   KSMOOTH__NSMOOTHS=smInd, $
+   KSMOOTH__DOUBLENSMOOTHS=dbSmInd, $
+   KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
+   KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
+   KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
    OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
+   PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
    FITLINE__USE_ABS=fitline__use_abs, $
    FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
-   DO_NOT_SPLIT_AND_AVERAGE=noSplitAndAverage, $
+   COMBINE_AND_AVERAGE_INTERVALS=combine_and_average_intervals, $
    USE_DB_FAC=use_dB_fac, $
    STREAKNUM=streakNum, $
    USE_ALL_STREAKS=use_all_streaks, $
    PUBLICATION_SETTINGS=pubSettings, $
    ODDNESS_CHECK=oddness_check
 
-  splitFFTs = ~KEYWORD_SET(noSplitAndAverage)
+  COMPILE_OPT idl2
+
+  splitFFTs = ~KEYWORD_SET(combine_and_average_intervals)
 
   ;; IF N_ELEMENTS(double_calc) EQ 0 THEN double_calc = 1
 
   ;;select output mode,
   ;;set output_mode =0 for screen, 1 for printer, 2 for postscript file
 
-  COMPILE_OPT idl2
-
   ;;N points to smooth k components with
-  smInd   = 5
-  dbSmInd = 10
-  edge_truncate = 0
-  edge_mirror   = 1
-  edge_wrap     = 0
+  smInd         = KEYWORD_SET(smInd                 ) ? smInd                  : 5
+  dbSmInd       = KEYWORD_SET(dbSmInd               ) ? dbSmInd                : 10
+  edge_truncate = KEYWORD_SET(kSmooth__edge_truncate) ? kSmooth__edge_truncate : 0
+  edge_mirror   = KEYWORD_SET(kSmooth__edge_mirror  ) ? kSmooth__edge_mirror   : 1
+  edge_wrap     = KEYWORD_SET(kSmooth__edge_wrap    ) ? kSmooth__edge_wrap     : 0
 
   CASE 1 OF
      KEYWORD_SET(save_ps): BEGIN
@@ -1246,20 +1252,23 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ;; example   = 3
 
   suff = 'TEST'
-  IF KEYWORD_SET(parse_saveFile) THEN BEGIN
+  IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
      CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
-                     SAVFILE_T1=s_t1, $
-                     SAVFILE_T2=s_t2, $
-                     USE_TIMEBAR_TIME=use_timeBar_time, $
+                     B_AND_J_FILE=saveFile, $
+                     USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+                     CUSTOM_T1=custom_t1, $
+                     CUSTOM_T2=custom_t2, $
                      USE_J_TIME_SERIES=use_J_time_series, $
                      SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+                     PRESMOOTH_MAG=presmooth_mag, $
+                     PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
                      STREAKNUM=streakNum, $
                      OUT_STREAKNUM=streakInd, $
                      USE_ALL_STREAKS=use_all_streaks, $
                      USE_DB_FAC=use_dB_fac, $
                      HAVE_EFIELD=have_EField, $
                      SRATES=sRates, $
-                     BONUSBONUSSUFF=BonusBonusSuff
+                     EXTRA_SUFFIX=extra_Suffix
 
      CASE 1 OF
         KEYWORD_SET(use_all_streaks): BEGIN
@@ -1272,7 +1281,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            sRate = 1./(TArr[1:-1]-TArr[0:-2])
 
            suff = 'Chaston_et_al_2006--ionos_erosion--Bellan_method'+'--'+ $
-                  BonusBonusSuff+'--'+ $
+                  extra_Suffix+'--'+ $
                   saveVar
         END
      ENDCASE
@@ -1346,7 +1355,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDIF
 
   ;;read data from file
-  IF ~KEYWORD_SET(parse_saveFile) THEN BEGIN
+  IF ~KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
      filename = saveDir+B_J_file
 
      OPENR,1,filename
@@ -1533,7 +1542,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ky_ysize = ysize
   kz_ysize = ysize
 
-  IF KEYWORD_SET(parse_saveFile) THEN BEGIN
+  IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
      kx_ysize = MAX(ABS(kx))
      ky_ysize = MAX(ABS(ky))
      kz_ysize = MAX(ABS(kz))

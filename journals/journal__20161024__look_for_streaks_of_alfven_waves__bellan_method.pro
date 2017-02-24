@@ -7,9 +7,9 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
   COMPILE_OPT IDL2
 
   ;;Options for current threshold
-  curThresh   = 10.
+  curThresh       = 10.
   ;; curThresh       = 2.
-  map_current     = 1B
+  map_current     = 0B
 
   ;;Options for streaks
   min_streakLen_t = 10  ;min temporal length of streak
@@ -26,7 +26,7 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
   jESA_sort       = 0B
   jMAG_sort       = 0B
   ABS_jESA_sort   = 0B
-  ABS_jMAG_sort   = 1B
+  ABS_jMAG_sort   = 0B
 
   dbDir           = '/home/spencerh/Research/database/FAST/dartdb/saves/'
 
@@ -110,7 +110,7 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
                                     /CLEAN_NANS_AND_INFINITIES, $
                                     CLEAN_THESE_INDS=clean_these_inds, $
                                     /DISREGARD_SAMPLE_T)
-  clean_i        = CGSETINTERSECTION(WHERE(ABS(maximus.mag_current) GE curThresh), $
+  clean_i        = CGSETINTERSECTION(WHERE(ABS(maximus.esa_current) GE curThresh), $
                                      clean_i, $
                                      COUNT=nClean, $
                                      NORESULT=-1)
