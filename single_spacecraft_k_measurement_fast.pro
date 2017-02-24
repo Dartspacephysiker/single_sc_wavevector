@@ -394,8 +394,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ENDIF
 
   ;;Just in case user is inclined to sparse provision of information
-  t1BKUP = dB.x[0]
-  t2BKUP = dB.x[-1]
+  t1BKUP = N_ELEMENTS(t1Zoom) GT 0 ? t1Zoom : dB.x[0]
+  t2BKUP = N_ELEMENTS(t2Zoom) GT 0 ? t2Zoom : dB.x[-1]
 
   ;;Now custom times
   IF KEYWORD_SET(custom_t1) THEN BEGIN
