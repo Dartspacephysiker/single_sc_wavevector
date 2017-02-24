@@ -7,7 +7,7 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
   COMPILE_OPT IDL2
 
   ;;Options for current threshold
-  curThresh   = 10.
+  curThresh       = 10.
   ;; curThresh       = 2.
   map_current     = 0B
 
@@ -26,7 +26,7 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
   jESA_sort       = 0B
   jMAG_sort       = 0B
   ABS_jESA_sort   = 0B
-  ABS_jMAG_sort   = 1B
+  ABS_jMAG_sort   = 0B
 
   dbDir           = '/home/spencerh/Research/database/FAST/dartdb/saves/'
 
