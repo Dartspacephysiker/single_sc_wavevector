@@ -35,7 +35,7 @@ END
 PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
   ;; prefix='D:\CORR\MNSCRPTS\2016-JGR-spacecraft-current-wavevector\2106-Vinas-kvect-revised\'
   SET_PLOT_DIR,plotDir,/FOR_SINGLE_SC_WVEC,/ADD_TODAY
-  saveDir = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/'
+  saveDir = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
   PRINT,'plotDir: ',plotDir
   ;;
   filename = plotDir+ $
