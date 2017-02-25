@@ -39,14 +39,12 @@ PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
   COMPILE_OPT idl2
 
   ;; prefix='D:\CORR\MNSCRPTS\2016-JGR-spacecraft-current-wavevector\2106-Vinas-kvect-revised\'
-  SET_PLOT_DIR,plotDir,/FOR_SINGLE_SC_WVEC,/ADD_TODAY
   saveDir = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
-  PRINT,'plotDir: ',plotDir
 
   filename = plotDir+ $
              suff
 
-  PRINT,'print plot to file ',filename
+  PRINT,STRING(FORMAT='("plotFile : ",A0)',suff)
   ;;SET UP FOR PLOTTING ON:
   ;; SCREEN,          set hardcopy = 0
   ;; PRINTER,         set hardcopy = 1
@@ -59,7 +57,7 @@ PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
      WINDOW,0,XSIZE=800,YSIZE=800
   ENDIF
   IF hardcopy EQ 2 THEN BEGIN      ;;POSTSCRIPT FILE
-     !P.CHARSIZE  = 3
+     ;; !P.CHARSIZE  = 3
      !P.CHARTHICK = 3
      !P.THICK     = 3
 
@@ -96,13 +94,14 @@ PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
 
         EPS2PDF,filename, $
                 TRANSPARENCY_LEVEL=pdf_transparency, $
-                REMOVE_EPS=remove_eps
+                REMOVE_EPS=remove_eps, $
+                /QUIET
      ENDIF
   ENDIF
   IF hardcopy EQ 1 THEN SET_PLOT,'printer'
   IF hardcopy EQ 1 THEN DEVICE,YSIZE=25,YOFFSET=5
   IF hardcopy NE 1 THEN SET_PLOT,'X'
-  PRINT, 'FINISHED'
+  ;; PRINT, 'FINISHED'
 END
 
 ;********************************************************************
@@ -851,7 +850,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                                           WHERE((even_TS GE analysis_t1[k]) AND  $
                                                 (even_TS LE analysis_t2[k]),nGood))
            GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
-                       OUT_STREAKLENS=streakLensTmp
+                       OUT_STREAKLENS=streakLensTmp,/QUIET,/NO_PRINT_SUMMARY
            IF streakLensTmp[0] GT 1 THEN BEGIN
               ;; FOR kk=0,N_ELEMENTS(streakLensTmp)-1 DO BEGIN
               ;; strt_i = [strt_i,good_iTmp[strt_iiTmp]]
@@ -884,7 +883,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
               good_iTmp  = CGSETINTERSECTION(good_i, $
                                              WHERE((even_TS GE analysis_t1[k]),nGood))
               GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
-                          OUT_STREAKLENS=streakLensTmp
+                          OUT_STREAKLENS=streakLensTmp,/QUIET,/NO_PRINT_SUMMARY
               IF streakLensTmp[0] GT 1 THEN BEGIN
                  ;; FOR kk=0,N_ELEMENTS(streakLensTmp)-1 DO BEGIN
                  strt_i = [strt_i,good_iTmp[strt_iiTmp]]
@@ -896,7 +895,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         ENDIF ELSE BEGIN
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
                                (even_TS GE analysis_t1),nGood)
-           GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
+           GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens,/QUIET,/NO_PRINT_SUMMARY
            IF streakLens[0] GT 1 THEN BEGIN
               strt_i      = good_i[strt_ii]
               stop_i      = good_i[stop_ii]
@@ -919,7 +918,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
               good_iTmp  = CGSETINTERSECTION(good_i, $
                                              WHERE((even_TS LE analysis_t2[k]),nGood))
               GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
-                          OUT_STREAKLENS=streakLensTmp
+                          OUT_STREAKLENS=streakLensTmp,/QUIET,/NO_PRINT_SUMMARY
               IF streakLensTmp[0] GT 1 THEN BEGIN
                  ;; FOR kk=0,N_ELEMENTS(streakLensTmp)-1 DO BEGIN
                  strt_i = [strt_i,good_iTmp[strt_iiTmp]]
@@ -931,7 +930,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         ENDIF ELSE BEGIN
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
                                (even_TS LE analysis_t2),nGood)
-           GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
+           GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens,/QUIET,/NO_PRINT_SUMMARY
            IF streakLens[0] GT 1 THEN BEGIN
               strt_i      = good_i[strt_ii]
               stop_i      = good_i[stop_ii]
@@ -944,7 +943,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      END
      ELSE: BEGIN
         good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
-        GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
+        GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens,/QUIET,/NO_PRINT_SUMMARY
         IF streakLens[0] GT 1 THEN BEGIN
            strt_i      = good_i[strt_ii]
            stop_i      = good_i[stop_ii]
@@ -1073,8 +1072,8 @@ PRO DEAL_WITH_BADNESS,datSerie,improvSerie
 
   IF nBad GT 0 THEN BEGIN
 
-     GET_STREAKS,bad_i,start_i=strtB_ii,stop_i=stopB_ii
-     GET_STREAKS,good_i,start_i=strtG_ii,stop_i=stopG_ii
+     GET_STREAKS,bad_i,START_I=strtB_ii,STOP_I=stopB_ii,/QUIET,/NO_PRINT_SUMMARY
+     GET_STREAKS,good_i,START_I=strtG_ii,STOP_I=stopG_ii,/QUIET,/NO_PRINT_SUMMARY
      strtB_i  = bad_i[strtB_ii]
      stopB_i  = bad_i[stopB_ii]
 
@@ -1123,9 +1122,9 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
      norm      = norm + SQRT(Jx[TT]^2+ Jy[TT]^2+ Jz[TT]^2)*SQRT(Bx[TT]^2+ By[TT]^2+ Bz[TT]^2)
   ENDFOR
 
-  PRINT,'norm = ',norm
+  PRINT,'norm             : ',norm
   avgJxBtotal = JxBtotal/T
-  PRINT, 'avgJxBtotal/norm = ',avgJxBtotal/norm ; small (supposed to be zero)
+  PRINT,'avgJxBtotal/norm : ',avgJxBtotal/norm ; small (supposed to be zero)
 
   ;; auto-correlation of B, i.e, <B_VEC(t) dot B_VEC(t+tau)>
   BBautocorr = CORRELATION(Bx,Bx,T) + CORRELATION(By,By,T) + CORRELATION(Bz,Bz,T)
@@ -1248,6 +1247,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
    KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
    KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+   PAGE1__FREQRANGE=page1__freqRange, $
    PAGE2__FREQRANGE=page2__freqRange, $
    OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
    PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
@@ -1284,6 +1284,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   CASE 1 OF
      KEYWORD_SET(save_ps): BEGIN
         output_mode = 2
+
+        SET_PLOT_DIR,plotDir,/FOR_SINGLE_SC_WVEC,/ADD_TODAY
+        PRINT,STRING(FORMAT='("plotDir  : ",A0)',plotDir)
      END
      ELSE: BEGIN
         output_mode = 0
@@ -1412,7 +1415,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      filename = saveDir+B_J_file
 
      OPENR,1,filename
-     PRINT, 'opening ', filename
+     PRINT,'opening ', filename
      READF,1,example,T_read,FORMAT='(I5,1x,I5,1x)'
      Bx = FLTARR(T_read) & By = Bx & Bz = Bx &Jx = Bx &Jy =Bx & Jz = Bx
      readf,1,Bx
@@ -1577,7 +1580,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               tmpI = [(k*FFTsize):( ((k+1)*FFTsize-1) < lastInd )]
               nTmp = N_ELEMENTS(tmpI)
               nArr = [nArr,nTmp]
-              PRINT,k," ",nTmp
+              PRINT,FORMAT='(A0,T10,A0)',"Itvl","nPts"
+              PRINT,FORMAT='(I0,T10,I0)',k,nTmp
               BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
                                freq,kx,ky,kz,kP, $
                                SPERIOD=sPeriod, $
@@ -1744,8 +1748,12 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        ;; YTITLE='k!Dx!N (m!U-1!N)', $
        YTITLE='k!Dx!N (km!U-1!N)', $
        XTITLE='', $
-       CHARSIZE=cs, $
-       YRANGE=[-kx_ysize,kx_ysize]
+       XRANGE=page1__freqRange, $
+       YRANGE=[-kx_ysize,kx_ysize], $
+       XSTYLE=1, $
+       YSTYLE=1, $
+       CHARSIZE=cs
+
   IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
   IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
      OPLOT,freq[inds], $
@@ -1763,8 +1771,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        ;; YTITLE='k!Dy!N (m!U-1!N)', $
        YTITLE='k!Dy!N (km!U-1!N)', $
        XTITLE='Frequency (Hz)', $
-       CHARSIZE=cs, $
-       YRANGE=[-ky_ysize,ky_ysize]
+       XRANGE=page1__freqRange, $
+       YRANGE=[-ky_ysize,ky_ysize], $
+       XSTYLE=1, $
+       YSTYLE=1, $
+       CHARSIZE=cs
   IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
   IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
      OPLOT,freq[inds], $
@@ -1809,8 +1820,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           ;; YTITLE='k!Dz!N (m!U-1!N)', $
           YTITLE='k!Dz!N (km!U-1!N)', $
           XTITLE='', $
-          CHARSIZE=cs, $
-          YRANGE=[-kz_ysize,kz_ysize]
+          XRANGE=page1__freqRange, $
+          YRANGE=[-kz_ysize,kz_ysize], $
+          XSTYLE=1, $
+          YSTYLE=1, $
+          CHARSIZE=cs
      IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
      IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
         OPLOT,freq[inds],SMOOTH(kz[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
@@ -2094,8 +2108,8 @@ PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz
      ENDELSE
   ENDIF
   
-  PRINT,'avg freq oddness: ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
-  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3)','avg k oddness: ', $
+  PRINT,'avg freq oddness : ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
+  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3)','avg k oddness    : ', $
         MEAN((DOUBLE(kxT))[indPos]+REVERSE((DOUBLE(kxT))[indNeg]),/DOUBLE), $
         MEAN((DOUBLE(kyT))[indPos]+REVERSE((DOUBLE(kyT))[indNeg]),/DOUBLE), $
         MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE)
@@ -2124,8 +2138,8 @@ PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,kx,ky,kz,freq,freq_sp,inds
   
   PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
 
-  PRINT,'norm     = ',norm
+  PRINT,'norm     : ',norm
   avgkxEtotal     = kxEtotal/T
-  PRINT, 'avgkxEtotal/norm = ',avgkxEtotal/norm ; small (supposed to be zero)
+  PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
 
 END

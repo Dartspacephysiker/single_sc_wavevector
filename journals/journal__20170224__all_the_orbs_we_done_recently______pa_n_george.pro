@@ -37,6 +37,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
    KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
    KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+   PAGE1__FREQRANGE=page1__freqRange, $
    PAGE2__FREQRANGE=page2__freqRange, $
    OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
    PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
@@ -121,6 +122,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
      KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
      KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+     PAGE1__FREQRANGE=page1__freqRange, $
      PAGE2__FREQRANGE=page2__freqRange, $
      OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
      PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
