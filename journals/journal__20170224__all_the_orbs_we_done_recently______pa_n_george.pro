@@ -49,7 +49,8 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    PUBLICATION_SETTINGS=pubSettings, $
    ODDNESS_CHECK=oddness_check, $
    FFTSIZE=FFTsize, $
-   FFTPERCENT=FFTpercent
+   FFTPERCENT=FFTpercent,$
+   WHICH_FFTS=which_FFTs
 
   COMPILE_OPT IDL2
 
@@ -60,16 +61,20 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      PRINT," 10837"
      PRINT," 10839"
      PRINT," 9627 "
+     PRINT," 10927"
+     PRINT," 9585 (the original!)"
+     PRINT," 6717 (Look out--FG was only sampling at 8 Hz)"
      RETURN
+  ENDIF
+
+  IF N_ELEMENTS(date) EQ 0 THEN BEGIN
+     date    = '20170224'
   ENDIF
 
   eeb_or_ees = 'eeb'
   ieb_or_ies = 'ieb'
 
-  eeb_or_ees        = 'eeb'
-  ieb_or_ies        = 'ieb'
-
-  saveSuff          = '-fixed_currents-with_sc_pot'
+  saveSuff   = '-fixed_currents-with_sc_pot'
 
   SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
      ORBIT=orbit, $
@@ -128,6 +133,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      PUBLICATION_SETTINGS=pubSettings, $
      ODDNESS_CHECK=oddness_check, $
      FFTSIZE=FFTsize, $
-     FFTPERCENT=FFTpercent
+     FFTPERCENT=FFTpercent,$
+     WHICH_FFTS=which_FFTs
 
 END

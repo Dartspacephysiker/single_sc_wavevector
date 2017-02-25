@@ -1260,7 +1260,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PUBLICATION_SETTINGS=pubSettings, $
    ODDNESS_CHECK=oddness_check, $
    FFTSIZE=FFTsize, $
-   FFTPERCENT=FFTpercent
+   FFTPERCENT=FFTpercent,$
+   WHICH_FFTS=which_FFTs
 
   COMPILE_OPT idl2
 
@@ -1425,14 +1426,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDIF
 
   ;;Now do some calcs
-  ;; FFTsize = 26
-  ;; FFTsize = 120
-  ;; FFTsize = 106
-  ;; FFTsize = 159
   defFFTsize = T[0]
-  ;; defFFTsize = T[0]
-  ;; defFFTsize = 48
-  ;; defFFTsize = 96
   IF ( N_ELEMENTS(FFTsize) EQ 0 ) AND KEYWORD_SET(splitFFTs) THEN BEGIN
      FFTsize = defFFTsize
   ENDIF
@@ -1459,17 +1453,19 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               ;;    tmpI = [(k*FFTsize):( ((k+1)*FFTsize-1) < lastInd )]                 
               ;; ENDFOR
            ENDFOR
-           nFFTs    = TOTAL(nFFTsArr)
+           nFFTs     = TOTAL(nFFTsArr)
 
-           fArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           kxArr    = MAKE_ARRAY(nFFTs,FFTsize)
-           kyArr    = MAKE_ARRAY(nFFTs,FFTsize)
-           kzArr    = MAKE_ARRAY(nFFTs,FFTsize)
-           kpArr    = MAKE_ARRAY(nFFTs,FFTsize)
+           fArr      = MAKE_ARRAY(nFFTs,FFTsize)
+           kxArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           kyArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           kzArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           kpArr     = MAKE_ARRAY(nFFTs,FFTsize)
 
-           FFTCount = 0
+           FFTCount  = 0
            include_i = !NULL
            prevFFTs  = 0
+           FFTi_list = LIST()
+
            FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
 
               TTmp  = T[kk]
@@ -1519,34 +1515,65 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kyArr[this[0,*],this[1,*]] = ky
                  kzArr[this[0,*],this[1,*]] = kz
                  kPArr[this[0,*],this[1,*]] = kP
+
               ENDFOR
+
               FFTCount += nFFTsArr[kk]
               prevFFTs = FFTCount
+              FFTi_list.Add,TEMPORARY(tmpI)
            ENDFOR
 
-           fArr = fArr[include_i,*]
-           kxArr = kxArr[include_i,*]
-           kyArr = kyArr[include_i,*]
-           kzArr = kzArr[include_i,*]
+           fArr      = fArr[include_i,*]
+           kxArr     = kxArr[include_i,*]
+           kyArr     = kyArr[include_i,*]
+           kzArr     = kzArr[include_i,*]
 
-              freq          = MEAN(fArr ,DIMENSION=1)
-              kx            = MEAN(kxArr,DIMENSION=1)
-              ky            = MEAN(kyArr,DIMENSION=1)
-              kz            = MEAN(kzArr,DIMENSION=1)
-              kP            = MEAN(kPArr,DIMENSION=1)
+           freq      = MEAN(fArr ,DIMENSION=1)
+           kx        = MEAN(kxArr,DIMENSION=1)
+           ky        = MEAN(kyArr,DIMENSION=1)
+           kz        = MEAN(kzArr,DIMENSION=1)
+           kP        = SQRT(kx*kx+ky*ky)
+           ;; kP        = MEAN(kPArr,DIMENSION=1)
+
+           usedInds  = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
 
         ENDIF ELSE BEGIN
 
-           nFFTs = T/FFTsize
+           eMulieribus   = T/FFTsize
+           IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
 
-           lastInd  = T-1
-           nArr     = !NULL
-           fArr  = MAKE_ARRAY(nFFTs,FFTsize)
-           kxArr = MAKE_ARRAY(nFFTs,FFTsize)
-           kyArr = MAKE_ARRAY(nFFTs,FFTsize)
-           kzArr = MAKE_ARRAY(nFFTs,FFTsize)
-           kpArr = MAKE_ARRAY(nFFTs,FFTsize)
-           FOR k=0,nFFTs-1 DO BEGIN
+              IF (N_ELEMENTS(which_FFTs) GT eMulieribus) OR which_FFTs[0] GT eMulieribus THEN BEGIN
+                 PRINT,"You're WRONG"
+                 STOP
+              ENDIF
+
+              nFFTs = N_ELEMENTS(which_FFTs)
+
+              FFTSuff = '-FFT_itvls'
+              FOR k=0,nFFTs-1 DO FFTSuff += STRING(FORMAT='("_",I0)',which_FFTs[k])
+              suff   += FFTSuff
+
+           ENDIF ELSE BEGIN
+
+              nFFTs = eMulieribus
+
+           ENDELSE
+
+           lastInd   = T-1
+           nArr      = !NULL
+           fArr      = MAKE_ARRAY(nFFTs,FFTsize)
+           kxArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           kyArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           kzArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           kpArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           FFTCount  = 0
+           FFTi_list = LIST()
+           FOR k=0,eMulieribus-1 DO BEGIN
+
+              IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
+                 IF (WHERE(k EQ which_FFTs))[0] EQ -1 THEN CONTINUE
+              ENDIF
+
               tmpI = [(k*FFTsize):( ((k+1)*FFTsize-1) < lastInd )]
               nTmp = N_ELEMENTS(tmpI)
               nArr = [nArr,nTmp]
@@ -1560,13 +1587,19 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                HANNING=hanning, $
                                HAVE_EFIELD=have_EField, $
                                ODDNESS_CHECK=oddness_check
-              fArr[k,*]  = freq
-              kxArr[k,*] = kx
-              kyArr[k,*] = ky
-              kzArr[k,*] = kz
-              kPArr[k,*] = kP
+
+              fArr [FFTCount,*] = freq
+              kxArr[FFTCount,*] = kx
+              kyArr[FFTCount,*] = ky
+              kzArr[FFTCount,*] = kz
+              kPArr[FFTCount,*] = kP
+
+              FFTCount++
+
+              FFTi_list.Add,TEMPORARY(tmpI)
            ENDFOR
-           keepEm = WHERE(nArr EQ MEDIAN(nArr),nKeep)
+
+           keepEm        = WHERE(nArr EQ MEDIAN(nArr),nKeep)
            freq          = MEAN(fArr ,DIMENSION=1)
            kx            = MEAN(kxArr,DIMENSION=1)
            ky            = MEAN(kyArr,DIMENSION=1)
@@ -1575,6 +1608,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            ;;This makes kP seem larger than he is. Don't do it. Recalculate instead.
            ;; kP            = MEAN(kPArr,DIMENSION=1)
            kP            = SQRT(kx*kx+ky*ky)
+           usedInds      = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
+
         ENDELSE
      END
      ELSE: BEGIN
@@ -1587,6 +1622,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                          HANNING=hanning, $
                          HAVE_EFIELD=have_EField, $
                          ODDNESS_CHECK=oddness_check
+
+        usedInds         = LINDGEN(T)
 
      END
   ENDCASE
@@ -1637,28 +1674,28 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   END
 
   muLetter = '!4' + String('154'O) + '!X'
-  PLOT,TArr-TArr[0],Bx, $
+  PLOT,TArr[usedInds]-TArr[usedInds[0]],Bx[usedInds], $
        XTITLE='t', $
        YTITLE='!8B!Dx!N', $
        CHARSIZE=cs
-  PLOT,TArr-TArr[0],By, $
-       XTITLE='t since' + TIME_TO_STR(TArr[0]) + '(s)', $
+  PLOT,TArr[usedInds]-TArr[usedInds[0]],By[usedInds], $
+       XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
        YTITLE='!8B!Dy!N (nT)', $
        CHARSIZE=cs
-  PLOT,TArr-TArr[0],Bz, $
+  PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
        XTITLE='t', $
        YTITLE='!8B!Dz!N', $
        CHARSIZE=cs
 
-  PLOT,TArr-TArr[0],Jx, $
+  PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
        XTITLE='t', $
        YTITLE='!4l!3!D0 !N!8J!Dx!N', $
        CHARSIZE=cs
-  PLOT,TArr-TArr[0],Jy, $
-       XTITLE='t since' + TIME_TO_STR(TArr[0]) + '(s)', $
+  PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
+       XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
        YTITLE='!4l!3!D0 !N!8J!Dy!N (!4l!N!8T/m)', $
        CHARSIZE=cs
-  PLOT,TArr-TArr[0],Jz, $
+  PLOT,TArr[usedInds]-TArr[usedInds[0]],Jz[usedInds], $
        XTITLE='t', $
        YTITLE='!4l!3!D0 !N!8J!Dz!N', $
        CHARSIZE=cs
@@ -1855,7 +1892,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      bro = PLOT(freq[inds],kPAngle[inds], $
                 XTITLE='Frequency (Hz)', $
-                ;; XTITLE='T since' + TIME_TO_STR(TArr[0]) + '(s)', $
+                ;; XTITLE='T since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
                 YTITLE='|$\theta$(k!Dperp!N)', $
                 CURRENT=window, $
                 LAYOUT=[1,2,2])
