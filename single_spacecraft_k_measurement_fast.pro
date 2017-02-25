@@ -365,7 +365,7 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
 END
 
-PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                     B_AND_J_FILE=saveFile, $
                     USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                     CUSTOM_T1=custom_t1, $
@@ -877,8 +877,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
            IF nGood EQ 0 THEN STOP
 
-           strt_i      = !NULL
-           stop_i      = !NULL
+           ;; strt_i      = !NULL
+           ;; stop_i      = !NULL
            FOR k=0,N_ELEMENTS(analysis_t1)-1 DO BEGIN
               good_iTmp  = CGSETINTERSECTION(good_i, $
                                              WHERE((even_TS GE analysis_t1[k]),nGood))
@@ -886,8 +886,10 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                           OUT_STREAKLENS=streakLensTmp,/QUIET,/NO_PRINT_SUMMARY
               IF streakLensTmp[0] GT 1 THEN BEGIN
                  ;; FOR kk=0,N_ELEMENTS(streakLensTmp)-1 DO BEGIN
-                 strt_i = [strt_i,good_iTmp[strt_iiTmp]]
-                 stop_i = [stop_i,good_iTmp[stop_iiTmp]]
+                 ;; strt_i = [strt_i,good_iTmp[strt_iiTmp]]
+                 ;; stop_i = [stop_i,good_iTmp[stop_iiTmp]]
+                 strt_i_list.Add,good_iTmp[strt_iiTmp]
+                 stop_i_list.Add,good_iTmp[stop_iiTmp]
                  ;; ENDFOR
               ENDIF
            ENDFOR
@@ -897,8 +899,10 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                                (even_TS GE analysis_t1),nGood)
            GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens,/QUIET,/NO_PRINT_SUMMARY
            IF streakLens[0] GT 1 THEN BEGIN
-              strt_i      = good_i[strt_ii]
-              stop_i      = good_i[stop_ii]
+              ;; strt_i      = good_i[strt_ii]
+              ;; stop_i      = good_i[stop_ii]
+              strt_i_list.Add,good_i[strt_ii]
+              stop_i_list.Add,good_i[stop_ii]
            ENDIF ELSE BEGIN
               PRINT,'No streaks'
               STOP
@@ -921,8 +925,10 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                           OUT_STREAKLENS=streakLensTmp,/QUIET,/NO_PRINT_SUMMARY
               IF streakLensTmp[0] GT 1 THEN BEGIN
                  ;; FOR kk=0,N_ELEMENTS(streakLensTmp)-1 DO BEGIN
-                 strt_i = [strt_i,good_iTmp[strt_iiTmp]]
-                 stop_i = [stop_i,good_iTmp[stop_iiTmp]]
+                 ;; strt_i = [strt_i,good_iTmp[strt_iiTmp]]
+                 ;; stop_i = [stop_i,good_iTmp[stop_iiTmp]]
+                 strt_i_list.Add,good_iTmp[strt_iiTmp]
+                 stop_i_list.Add,good_iTmp[stop_iiTmp]
                  ;; ENDFOR
               ENDIF
            ENDFOR
@@ -932,8 +938,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                                (even_TS LE analysis_t2),nGood)
            GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens,/QUIET,/NO_PRINT_SUMMARY
            IF streakLens[0] GT 1 THEN BEGIN
-              strt_i      = good_i[strt_ii]
-              stop_i      = good_i[stop_ii]
+              strt_i_list.Add,good_i[strt_ii]
+              stop_i_list.Add,good_i[stop_ii]
            ENDIF ELSE BEGIN
               PRINT,'No streaks'
               STOP
@@ -945,8 +951,10 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
         GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens,/QUIET,/NO_PRINT_SUMMARY
         IF streakLens[0] GT 1 THEN BEGIN
-           strt_i      = good_i[strt_ii]
-           stop_i      = good_i[stop_ii]
+           ;; strt_i      = good_i[strt_ii]
+           ;; stop_i      = good_i[stop_ii]
+           strt_i_list.Add,good_i[strt_ii]
+           stop_i_list.Add,good_i[stop_ii]
         ENDIF ELSE BEGIN
            PRINT,'No streaks'
            STOP
@@ -957,6 +965,10 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      END
   ENDCASE
 
+  IF N_ELEMENTS(strt_i_list[0]) EQ 0 OR N_ELEMENTS(stop_i_list[0]) EQ 0 THEN BEGIN
+     MESSAGE,"Couldn't get any data!",/CONT
+     RETURN,0
+  ENDIF
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;How many streaks to use?
@@ -1058,6 +1070,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
      END
   ENDCASE
+
+  RETURN,1
 
 END
 
@@ -1305,22 +1319,26 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   suff = 'TEST'
   IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
-     CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
-                     B_AND_J_FILE=saveFile, $
-                     USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
-                     CUSTOM_T1=custom_t1, $
-                     CUSTOM_T2=custom_t2, $
-                     USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
-                     USE_J_TIME_SERIES=use_J_time_series, $
-                     SMOOTH_J_DAT_TO_B=smooth_J_dat, $
-                     PRESMOOTH_MAG=presmooth_mag, $
-                     PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
-                     STREAKNUM=streakNum, $
-                     OUT_STREAKNUM=streakInd, $
-                     USE_ALL_STREAKS=use_all_streaks, $
-                     USE_DB_FAC=use_dB_fac, $
-                     HAVE_EFIELD=have_EField, $
-                     SRATES=sRates
+     IF ~CHUNK_SAVE_FILE(T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                         B_AND_J_FILE=saveFile, $
+                         USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+                         CUSTOM_T1=custom_t1, $
+                         CUSTOM_T2=custom_t2, $
+                         USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
+                         USE_J_TIME_SERIES=use_J_time_series, $
+                         SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+                         PRESMOOTH_MAG=presmooth_mag, $
+                         PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+                         STREAKNUM=streakNum, $
+                         OUT_STREAKNUM=streakInd, $
+                         USE_ALL_STREAKS=use_all_streaks, $
+                         USE_DB_FAC=use_dB_fac, $
+                         HAVE_EFIELD=have_EField, $
+                         SRATES=sRates) $
+     THEN BEGIN
+        MESSAGE,"Failed to parse!",/CONT
+        RETURN
+     ENDIF
 
      CASE 1 OF
         KEYWORD_SET(use_all_streaks): BEGIN
@@ -1992,21 +2010,25 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
          ;;                 EDGE_TRUNCATE=edge_truncate, $
          ;;                 EDGE_MIRROR=edge_mirror, $
          ;;                 EDGE_WRAP=edge_wrap)
-         wDoppl    = kMajic*(avgSpeed)/(2.*!PI)
-         fDoppl    = wDoppl
 
-         kDoppl    = freq[inds]/avgSpeed
+         ;; wDoppl    = kMajic*(avgSpeed)/(2.*!PI)
+         ;; fDoppl    = wDoppl
+
+         minDoppl  = FLOOR(MIN(freq))
+         maxDoppl  = CEIL(MAX(freq))
+         fDoppl    = FINDGEN((maxDoppl-minDoppl)*20.+1)*0.05+minDoppl
+         kDoppl    = fDoppl/avgSpeed
 
          like_kx   = 1
          IF KEYWORD_SET(like_kx) THEN BEGIN
-            yArg   = ABS(kx[inds])
+            yArg   = ABS(kx)
             yTito  = 'k!Dx!N (km!U-1!N)'
          ENDIF ELSE BEGIN
-            yArg   = ABS(ky[inds])
+            yArg   = ABS(ky)
             yTito  = 'k!Dy!N (km!U-1!N)'
          ENDELSE
 
-         PLOT,freq[inds],yArg, $
+         PLOT,freq[inds],yArg[inds], $
               XTITLE='Frequency (Hz)', $
               YTITLE=yTito, $
               XRANGE=page2__freqRange, $
@@ -2018,7 +2040,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               CHARSIZE=cs
 
          ;; OPLOT,fDoppl[inds],kMajic[inds], $
-         OPLOT,freq[inds],kDoppl[inds], $
+         ;; OPLOT,freq[inds],kDoppl[inds], $
+         OPLOT,fDoppl,kDoppl, $
                COLOR=110
 
          add_Doppler_fit_string = 0
