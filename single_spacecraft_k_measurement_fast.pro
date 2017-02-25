@@ -42,9 +42,10 @@ PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
   SET_PLOT_DIR,plotDir,/FOR_SINGLE_SC_WVEC,/ADD_TODAY
   saveDir = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
   PRINT,'plotDir: ',plotDir
-  ;;
+
   filename = plotDir+ $
-             'FAST_'+suff
+             suff
+
   PRINT,'print plot to file ',filename
   ;;SET UP FOR PLOTTING ON:
   ;; SCREEN,          set hardcopy = 0
@@ -90,7 +91,7 @@ PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
 
      IF KEYWORD_SET(to_pdf) THEN BEGIN
         filename = plotDir+ $
-                   'FAST_'+suff
+                   suff
 
         EPS2PDF,filename, $
                 REMOVE_EPS=remove_eps
@@ -1244,6 +1245,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
    KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
    KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+   PAGE2__FREQRANGE=page2__freqRange, $
    OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
    PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
    FITLINE__USE_ABS=fitline__use_abs, $
@@ -1323,7 +1325,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ELSE: BEGIN
            sRate = 1./(TArr[1:-1]-TArr[0:-2])
 
-           suff = 'Chaston_et_al_2006--ionos_erosion--Bellan_method'+'--'+ $
+           suff = 'Bellan_method'+'--'+ $
                   extra_suffix+'--'+ $
                   saveVar
         END
@@ -1566,7 +1568,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            kx            = MEAN(kxArr,DIMENSION=1)
            ky            = MEAN(kyArr,DIMENSION=1)
            kz            = MEAN(kzArr,DIMENSION=1)
-           kP            = MEAN(kPArr,DIMENSION=1)
+
+           ;;This makes kP seem larger than he is. Don't do it. Recalculate instead.
+           ;; kP            = MEAN(kPArr,DIMENSION=1)
+           kP            = SQRT(kx*kx+ky*ky)
         ENDELSE
      END
      ELSE: BEGIN
@@ -1667,13 +1672,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ;; indPos = ([where(freq EQ 0.00,/NULL):N_ELEMENTS(freq)-1])[0:(N_ELEMENTS(indNeg)-1)]
         indPos = ([(where(freq GT 0.00))[0]:(N_ELEMENTS(freq)-1)])[0:(N_ELEMENTS(indNeg)-1)]
 
-        this = plot(kx[indpos]) 
-        this = plot((-1.)*REVERSE(kx[indneg]),/OVERPLOT,COLOR='RED') 
+        ;; this = plot(kx[indpos]) 
+        ;; this = plot((-1.)*REVERSE(kx[indneg]),/OVERPLOT,COLOR='RED') 
 
         divFactor = 2.
         kx   = (kx[indPos]-REVERSE(kx[indNeg])) / divFactor 
 
-        this = plot(kx,/OVERPLOT,COLOR='BLUE')
+        ;; this = plot(kx,/OVERPLOT,COLOR='BLUE')
 
         ky   = (ky[indPos]-REVERSE(ky[indNeg])) / divFactor 
         kz   = (kz[indPos]-REVERSE(kz[indNeg])) / divFactor
@@ -1880,6 +1885,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      PLOT,freq[inds],kP[inds], $
           XTITLE='Frequency (Hz)', $
           ;; YRANGE=[4e-6,1e-2], $
+          XRANGE=page2__freqRange, $
           YRANGE=k__yRange, $
           XSTYLE=1, $
           YSTYLE=1, $
@@ -1947,9 +1953,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
          PLOT,freq[inds],yArg, $
               XTITLE='Frequency (Hz)', $
-              ;; YTITLE='k!Dx!N (m!U-1!N)', $
               YTITLE=yTito, $
-              ;; YRANGE=[4e-6,1e-2], $
+              XRANGE=page2__freqRange, $
               YRANGE=k__yRange, $
               XSTYLE=1, $
               YSTYLE=1, $
@@ -1998,8 +2003,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      PLOT,freq[inds],(kPAngle[inds] + 360) MOD 360, $
           XTITLE='Frequency (Hz)', $
-          ;; YTITLE='!8|' +CGGREEK('theta',PS=save_ps) + '!Dk!Dperp!N)', $
           YTITLE='!4h!X!Dk!Dperp!N', $
+          XRANGE=page2__freqRange, $
+          YRANGE=[0,360], $
           XSTYLE=1, $
           YSTYLE=1, $
           CHARSIZE=cs
