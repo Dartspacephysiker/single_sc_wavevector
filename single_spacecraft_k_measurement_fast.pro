@@ -77,6 +77,7 @@ END
 ; place at end of code to do housekeeping
 PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
                     TO_PDF=to_pdf, $
+                    PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
                     REMOVE_EPS=remove_eps
 
   COMPILE_OPT idl2
@@ -94,6 +95,7 @@ PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
                    suff
 
         EPS2PDF,filename, $
+                TRANSPARENCY_LEVEL=pdf_transparency, $
                 REMOVE_EPS=remove_eps
      ENDIF
   ENDIF
@@ -1231,6 +1233,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
    SAVE_PS=save_ps, $
    TO_PDF=to_pdf, $
+   PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
    REMOVE_EPS=remove_eps, $
    BONUS_SUFF=bonus_suff, $
    EXTRA_SUFFIX=extra_suffix, $
@@ -1785,6 +1788,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   IF KEYWORD_SET(save_ps) THEN BEGIN
      CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
                      TO_PDF=to_pdf, $
+                     PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
                      REMOVE_EPS=remove_eps
   ENDIF
 
@@ -2024,6 +2028,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      IF KEYWORD_SET(save_ps) THEN BEGIN
         CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page2', $
                         TO_PDF=to_pdf, $
+                        PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
                         REMOVE_EPS=remove_eps
      ENDIF
 

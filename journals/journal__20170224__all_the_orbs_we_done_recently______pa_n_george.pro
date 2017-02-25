@@ -22,6 +22,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
    SAVE_PS=save_ps, $
    TO_PDF=to_pdf, $
+   PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
    REMOVE_EPS=remove_eps, $
    BONUS_SUFF=bonus_suff, $
    EXTRA_SUFFIX=extra_suffix, $
@@ -100,6 +101,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
      SAVE_PS=save_ps, $
      TO_PDF=to_pdf, $
+     PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
      REMOVE_EPS=remove_eps, $
      BONUS_SUFF=bonus_suff, $
      EXTRA_SUFFIX=extra_suffix, $
