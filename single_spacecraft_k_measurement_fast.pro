@@ -65,7 +65,8 @@ PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
      ;; POPEN,filename,XSIZE=10,YSIZE=10
 
      SET_PLOT,'PS'
-     DEVICE,FILE=filename+'.eps',/ENCAPSUL,XSIZE=10,YSIZE=10,/INCHES,YOFFSET=2,/COLOR
+     ;; DEVICE,FILE=filename+'.eps',/ENCAPSUL,XSIZE=10,YSIZE=10,/INCHES,YOFFSET=2,/COLOR
+     DEVICE,FILE=filename+'.eps',XSIZE=10,YSIZE=10,/INCHES,YOFFSET=2,/COLOR
   ENDIF
 
 END
@@ -93,6 +94,7 @@ PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
                    suff
 
         EPS2PDF,filename, $
+                ;; /PS, $
                 TRANSPARENCY_LEVEL=pdf_transparency, $
                 REMOVE_EPS=remove_eps, $
                 /QUIET
@@ -1225,6 +1227,60 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
 
 END
 
+PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz
+
+  sort_i = SORT(freq)
+  freqT  = freq[sort_i]
+  kxT  = kx[sort_i]
+  kyT  = ky[sort_i]
+  kzT  = kz[sort_i]
+
+  indNeg = WHERE(freqT LE 0.00,nNeg)
+  indPos = WHERE(freqT GT 0.00,nPos)
+  IF nNeg NE nPos THEN BEGIN
+     IF nNeg GT nPos THEN BEGIN
+        indNeg = indNeg[0:-2]
+     ENDIF ELSE BEGIN
+        indPos = indPos[0:-2]
+     ENDELSE
+  ENDIF
+  
+  PRINT,'avg freq oddness : ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
+  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3)','avg k oddness    : ', $
+        MEAN((DOUBLE(kxT))[indPos]+REVERSE((DOUBLE(kxT))[indNeg]),/DOUBLE), $
+        MEAN((DOUBLE(kyT))[indPos]+REVERSE((DOUBLE(kyT))[indNeg]),/DOUBLE), $
+        MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE)
+
+END
+
+PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,kx,ky,kz,freq,freq_sp,inds
+
+  omega_sp        = freq_sp * 2. * !PI
+
+  omegaBtotal     = 0
+  kxEtotal        = 0
+  norm            = 0                 ; check that avg k x E =0
+  diffs           = MAKE_ARRAY(N_ELEMENTS(freq),/DOUBLE)
+  FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
+     kvectemp     = [kx[k], ky[k], kz[k]]
+     Evectemp     = [Ex_sp[k], Ey_sp[k], Ez_sp[k]]
+     Bvectemp     = [Bx[k], By[k], Bz[k]]
+     kxEtotal     = kxEtotal+CROSSP(kvectemp,Evectemp)
+     omegaBtotal  = omegaBtotal + omega_sp*Bvectemp
+     diffs[k]     = CROSSP(kvectemp,Evectemp)-omega_sp*Bvectemp
+
+     ;; norm for denominator
+     ;; norm         = norm + SQRT(kx[k]^2+ ky[k]^2+ kz[k]^2)*SQRT(Ex[k]^2+ Ey[k]^2+ Ez[k]^2)
+  ENDFOR
+  
+  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
+
+  PRINT,'norm     : ',norm
+  avgkxEtotal     = kxEtotal/T
+  PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
+
+END
+
 ;********************************************************************
 ;MAIN PROGRAM
 ;********************************************************************
@@ -1279,6 +1335,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   COMPILE_OPT idl2
 
+  diag      = 1
+  diagInd   = 0
+  
   splitFFTs = ~KEYWORD_SET(combine_and_average_intervals)
 
   IF N_ELEMENTS(extra_suffix) EQ 0 THEN extra_suffix = ''
@@ -1410,6 +1469,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   columns   = 3
   rows      = 3 + KEYWORD_SET(example_mode)
   !P.MULTI  = [0, columns, rows, 0, 0]
+  ;; !P.MULTI  = [0, columns, rows, 1, 0]
 
 
   ;;setup frequency, and wavevector arrays if in example mode
@@ -1695,19 +1755,24 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      Jz   = LIST_TO_1DARRAY(Jz)
   END
 
+  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
+
   muLetter = '!4' + String('154'O) + '!X'
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Bx[usedInds], $
        XTITLE='t', $
        YTITLE='!8B!Dx!N', $
        CHARSIZE=cs
+  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
   PLOT,TArr[usedInds]-TArr[usedInds[0]],By[usedInds], $
        XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
        YTITLE='!8B!Dy!N (nT)', $
        CHARSIZE=cs
+  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
        XTITLE='t', $
        YTITLE='!8B!Dz!N', $
        CHARSIZE=cs
+  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
        XTITLE='t', $
@@ -1721,6 +1786,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        XTITLE='t', $
        YTITLE='!4l!3!D0 !N!8J!Dz!N', $
        CHARSIZE=cs
+  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
   CASE 1 OF
      KEYWORD_SET(plot_posFreq): BEGIN
@@ -1771,6 +1837,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        XSTYLE=1, $
        YSTYLE=1, $
        CHARSIZE=cs
+  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
+
 
   IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
   IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
@@ -1794,6 +1862,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        XSTYLE=1, $
        YSTYLE=1, $
        CHARSIZE=cs
+  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
+
   IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
   IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
      OPLOT,freq[inds], $
@@ -1853,12 +1923,17 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ENDIF
 
   ENDELSE
+  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
+
 
   IF KEYWORD_SET(save_ps) THEN BEGIN
      CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
                      TO_PDF=to_pdf, $
                      PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
                      REMOVE_EPS=remove_eps
+
+     ;;Don't conclude, just keep it movin'
+     ;; ERASE
   ENDIF
 
   ;;Show Hanning windowed?
@@ -1870,6 +1945,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      ;; !P.MULTI  = [0, columns, rows, 0, 0]
      !P.MULTI[0]  = 0
+     !P.MULTI[3]  = 1 ;;Next page?
 
      PLOT,freq[inds],kx[inds], $
           YTITLE='x component', $
@@ -1941,9 +2017,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         OUTPUT_SETUP,output_mode,plotDir,suff+'-page2',saveDir
      ENDIF
 
-     columns = 1
-     rows    = 3
-     !P.MULTI  = [0, columns, rows, 0, 0]
+     columns      = 1
+     rows         = 3
+     !P.MULTI[3]  = 2 ;;Next page?
+     !P.MULTI[1]  = 1
+     ;; !P.MULTI  = [0, columns, rows, 0, 0]
+     ;; !P.MULTI  = [0, columns, rows]
+     ;; !P.MULTI  = [0, columns, rows, 1, 0]
      ;; !P.MULTI[0]  = 0
 
      IF ~KEYWORD_SET(save_ps) THEN BEGIN
@@ -2101,9 +2181,25 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      IF KEYWORD_SET(save_ps) THEN BEGIN
         CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page2', $
+        ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
                         TO_PDF=to_pdf, $
                         PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
                         REMOVE_EPS=remove_eps
+
+        ;;Smash pages together
+        IF KEYWORD_SET(to_pdf) THEN BEGIN
+           fPref = plotDir + suff
+
+           SPAWN,'pdfunite ' + fPref + '.pdf' + ' ' + $
+                 fPref + '-page2' + '.pdf' + ' ' + $
+                 fPref + '-all' + '.pdf'
+
+           SPAWN,'mv ' + fPref + '-all' + '.pdf' + ' ' + $
+                 fPref + '.pdf'
+
+           SPAWN,'rm ' + fPref + '-page2' + '.pdf'
+        ENDIF
+
      ENDIF
 
 
@@ -2111,58 +2207,4 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   ;; print to screen, printer, or file depending on mode=0,1,2
   ;; CONCLUDE_OUTPUT,output_mode
-END
-
-PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz
-
-  sort_i = SORT(freq)
-  freqT  = freq[sort_i]
-  kxT  = kx[sort_i]
-  kyT  = ky[sort_i]
-  kzT  = kz[sort_i]
-
-  indNeg = WHERE(freqT LE 0.00,nNeg)
-  indPos = WHERE(freqT GT 0.00,nPos)
-  IF nNeg NE nPos THEN BEGIN
-     IF nNeg GT nPos THEN BEGIN
-        indNeg = indNeg[0:-2]
-     ENDIF ELSE BEGIN
-        indPos = indPos[0:-2]
-     ENDELSE
-  ENDIF
-  
-  PRINT,'avg freq oddness : ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
-  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3)','avg k oddness    : ', $
-        MEAN((DOUBLE(kxT))[indPos]+REVERSE((DOUBLE(kxT))[indNeg]),/DOUBLE), $
-        MEAN((DOUBLE(kyT))[indPos]+REVERSE((DOUBLE(kyT))[indNeg]),/DOUBLE), $
-        MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE)
-
-END
-
-PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,kx,ky,kz,freq,freq_sp,inds
-
-  omega_sp        = freq_sp * 2. * !PI
-
-  omegaBtotal     = 0
-  kxEtotal        = 0
-  norm            = 0                 ; check that avg k x E =0
-  diffs           = MAKE_ARRAY(N_ELEMENTS(freq),/DOUBLE)
-  FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
-     kvectemp     = [kx[k], ky[k], kz[k]]
-     Evectemp     = [Ex_sp[k], Ey_sp[k], Ez_sp[k]]
-     Bvectemp     = [Bx[k], By[k], Bz[k]]
-     kxEtotal     = kxEtotal+CROSSP(kvectemp,Evectemp)
-     omegaBtotal  = omegaBtotal + omega_sp*Bvectemp
-     diffs[k]     = CROSSP(kvectemp,Evectemp)-omega_sp*Bvectemp
-
-     ;; norm for denominator
-     ;; norm         = norm + SQRT(kx[k]^2+ ky[k]^2+ kz[k]^2)*SQRT(Ex[k]^2+ Ey[k]^2+ Ez[k]^2)
-  ENDFOR
-  
-  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
-
-  PRINT,'norm     : ',norm
-  avgkxEtotal     = kxEtotal/T
-  PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
-
 END
