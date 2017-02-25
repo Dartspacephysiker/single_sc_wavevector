@@ -1,6 +1,7 @@
 ;;2017/02/24
 PRO SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
    ORBIT=orbit, $
+   DATE=date, $
    EEB_OR_EES=eeb_or_ees, $
    IEB_OR_IES=ieb_or_ies, $
    SKIP_DESPIN=skip_despin, $
@@ -22,6 +23,8 @@ PRO SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
 
   despunStr         = KEYWORD_SET(skip_despin) ? '-no_B_despin' : ''
 
+  dateStr           = KEYWORD_SET(date       ) ? date           : GET_TODAY_STRING(/DO_YYYYMMDD_FMT)
+
   IF ~KEYWORD_SET(plotPref) THEN plotPref = ''
   IF ~KEYWORD_SET(saveSuff) THEN saveSuff = ''
 
@@ -30,7 +33,7 @@ PRO SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
 
   outPlotName       = 'Orb_' + orbStr + plotPref + ee_ie_string + despunStr
   saveFile          = 'Orbit_' + orbStr + '-B_and_J-' + $
-                      GET_TODAY_STRING(/DO_YYYYMMDD_FMT) + $
+                      dateStr + $
                       ee_ie_string + despunStr + $
                       saveSuff + '.sav'
 

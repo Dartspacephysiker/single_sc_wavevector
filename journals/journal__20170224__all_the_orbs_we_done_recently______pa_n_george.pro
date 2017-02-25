@@ -1,18 +1,68 @@
-;;2017/02/24
+;2017/02/24
+;Here's a keeper:
+;JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE,/PARSE_B_AND_J_SAVEFILE,/USE_TIMEBAR_TIME__FROM_FILE,/PLOT_KPERP_MAGNITUDE_FOR_KZ,/PLOT_KX_VS_KY_FOR_KZ,/FOLD_NEGFREQ_ONTO_POS,/USE_LOWRES_TIME_SERIES,DATE='20170224',ORBIT=10837,/SAVE_PS,/TO_PDF,/REMOVE_EPS,FFTPERCENT=25,CUSTOM_T1='1999-05-18/17:46:22.0',CUSTOM_T2='1999-05-18/17:46:40.0'
+;
+;Also try the above with FFTPERCENT=100. The smoothing is evident, and it looks like there's some fo' real signal happening.
+;
 PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    SKIP_DESPIN=skip_despin, $
-   ORBIT=orbit
+   ORBIT=orbit, $
+   DATE=date, $
+   PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
+   B_AND_J_FILE=saveFile, $
+   USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+   CUSTOM_T1=custom_t1, $
+   CUSTOM_T2=custom_t2, $
+   EXAMPLE_MODE=example_mode, $
+   PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+   PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
+   PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
+   PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
+   PLOT_POSFREQ=plot_posFreq, $
+   FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
+   SAVE_PS=save_ps, $
+   TO_PDF=to_pdf, $
+   REMOVE_EPS=remove_eps, $
+   BONUS_SUFF=bonus_suff, $
+   EXTRA_SUFFIX=extra_suffix, $
+   DOUBLE_CALC=double_calc, $
+   HANNING=hanning, $
+   USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
+   USE_J_TIME_SERIES=use_J_time_series, $
+   SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+   PRESMOOTH_MAG=presmooth_mag, $
+   KSMOOTH__NSMOOTHS=smInd, $
+   KSMOOTH__DOUBLENSMOOTHS=dbSmInd, $
+   KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
+   KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
+   KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+   OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
+   PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+   FITLINE__USE_ABS=fitline__use_abs, $
+   FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
+   COMBINE_AND_AVERAGE_INTERVALS=combine_and_average_intervals, $
+   USE_DB_FAC=use_dB_fac, $
+   STREAKNUM=streakNum, $
+   USE_ALL_STREAKS=use_all_streaks, $
+   PUBLICATION_SETTINGS=pubSettings, $
+   ODDNESS_CHECK=oddness_check, $
+   FFTSIZE=FFTsize, $
+   FFTPERCENT=FFTpercent
 
   COMPILE_OPT IDL2
 
-  IF KEYWORD_SET(skip_despin
-
-  orbit = 
+  IF ~KEYWORD_SET(orbit) THEN BEGIN
+     PRINT,"Possibilities"
+     PRINT," 10767"
+     PRINT," 10832"
+     PRINT," 10837"
+     PRINT," 10839"
+     PRINT," 9627 "
+     RETURN
+  ENDIF
 
   eeb_or_ees = 'eeb'
   ieb_or_ies = 'ieb'
-
-  skip_despin = 
 
   eeb_or_ees        = 'eeb'
   ieb_or_ies        = 'ieb'
@@ -21,6 +71,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
 
   SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
      ORBIT=orbit, $
+     DATE=date, $
      EEB_OR_EES=eeb_or_ees, $
      IEB_OR_IES=ieb_or_ies, $
      SKIP_DESPIN=skip_despin, $
@@ -31,21 +82,48 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      OUTPLOTNAME=outPlotName, $
      SAVEFILE=saveFile
 
-
-
-  Orbit_10767-B_and_J-20170224-eeb-ieb-fixed_currents-with_sc_pot.sav           
-  Orbit_10767-B_and_J-20170224-eeb-ieb-no_B_despin-fixed_currents-with_sc_pot.sav
-  Orbit_10832-B_and_J-20170224-eeb-ieb-fixed_currents-with_sc_pot.sav           
-  Orbit_10832-B_and_J-20170224-eeb-ieb-no_B_despin-fixed_currents-with_sc_pot.sav
-  Orbit_10837-B_and_J-20170224-eeb-ieb-fixed_currents-with_sc_pot.sav           
-  Orbit_10837-B_and_J-20170224-eeb-ieb-no_B_despin-fixed_currents-with_sc_pot.sav
-  Orbit_10839-B_and_J-20170224-eeb-ieb-fixed_currents-with_sc_pot.sav           
-  Orbit_10839-B_and_J-20170224-eeb-ieb-no_B_despin-fixed_currents-with_sc_pot.sav
-  Orbit_9627-B_and_J-20170224-eeb-ieb-fixed_currents-with_sc_pot.sav            
-  Orbit_9627-B_and_J-20170224-eeb-ieb-no_B_despin-fixed_currents-with_sc_pot.sav
-
-
-
-
+  extra_suffix = saveFile.Replace('.sav','')
+  
+  SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
+     PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
+     B_AND_J_FILE=saveFile, $
+     USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+     CUSTOM_T1=custom_t1, $
+     CUSTOM_T2=custom_t2, $
+     EXAMPLE_MODE=example_mode, $
+     PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+     PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
+     PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
+     PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
+     PLOT_POSFREQ=plot_posFreq, $
+     FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
+     SAVE_PS=save_ps, $
+     TO_PDF=to_pdf, $
+     REMOVE_EPS=remove_eps, $
+     BONUS_SUFF=bonus_suff, $
+     EXTRA_SUFFIX=extra_suffix, $
+     DOUBLE_CALC=double_calc, $
+     HANNING=hanning, $
+     USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
+     USE_J_TIME_SERIES=use_J_time_series, $
+     SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+     PRESMOOTH_MAG=presmooth_mag, $
+     KSMOOTH__NSMOOTHS=smInd, $
+     KSMOOTH__DOUBLENSMOOTHS=dbSmInd, $
+     KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
+     KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
+     KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+     OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
+     PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+     FITLINE__USE_ABS=fitline__use_abs, $
+     FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
+     COMBINE_AND_AVERAGE_INTERVALS=combine_and_average_intervals, $
+     USE_DB_FAC=use_dB_fac, $
+     STREAKNUM=streakNum, $
+     USE_ALL_STREAKS=use_all_streaks, $
+     PUBLICATION_SETTINGS=pubSettings, $
+     ODDNESS_CHECK=oddness_check, $
+     FFTSIZE=FFTsize, $
+     FFTPERCENT=FFTpercent
 
 END

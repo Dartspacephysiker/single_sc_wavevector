@@ -18,14 +18,16 @@
 ;calculate cross-correlation of two functions <f(t)*g(t+tau)>
 ; written by P. M. Bellan, April 2016, MS 128-95 Caltech, Pasadena CA 91125
 FUNCTION CORRELATION,f,g,T
-  autocorr = FLTARR(T)
-  FOR tau=0,T-1 do BEGIN
-     FOR TT=0,T-1 do BEGIN
-        TT_plus_tau= (TT+tau) mod T ; use modulo arithmetic to wrap back to beginning
+
+  autocorr            = FLTARR(T)
+  FOR tau=0,T-1 DO BEGIN
+     FOR TT=0,T-1 DO BEGIN
+        TT_plus_tau   = (TT+tau) MOD T ; use modulo arithmetic to wrap back to beginning
         autocorr[tau] = autocorr[tau]+f[TT]*g[TT_plus_tau]
      ENDFOR
   ENDFOR
   RETURN,autocorr/T
+
 END
 
 ;********************************************************************
@@ -33,6 +35,9 @@ END
 ; prefix gives file path for eps output, data input/output
 ; user should change to be appropriate for user's computer
 PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
+
+  COMPILE_OPT idl2
+
   ;; prefix='D:\CORR\MNSCRPTS\2016-JGR-spacecraft-current-wavevector\2106-Vinas-kvect-revised\'
   SET_PLOT_DIR,plotDir,/FOR_SINGLE_SC_WVEC,/ADD_TODAY
   saveDir = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
@@ -53,8 +58,9 @@ PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
      WINDOW,0,XSIZE=800,YSIZE=800
   ENDIF
   IF hardcopy EQ 2 THEN BEGIN      ;;POSTSCRIPT FILE
+     !P.CHARSIZE  = 3
      !P.CHARTHICK = 3
-     !P.THICK = 3
+     !P.THICK     = 3
 
      ;; @startup
      ;; POPEN,filename,XSIZE=10,YSIZE=10
@@ -62,12 +68,18 @@ PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
      SET_PLOT,'PS'
      DEVICE,FILE=filename+'.eps',/ENCAPSUL,XSIZE=10,YSIZE=10,/INCHES,YOFFSET=2,/COLOR
   ENDIF
+
 END
 
 ;********************************************************************
 ; written by P. M. Bellan, April 2016, MS 128-95 Caltech, Pasadena CA 91125
 ; place at end of code to do housekeeping
-PRO CONCLUDE_OUTPUT,mode,plotDir
+PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
+                    TO_PDF=to_pdf, $
+                    REMOVE_EPS=remove_eps
+
+  COMPILE_OPT idl2
+
   hardcopy = mode
   IF hardcopy EQ 1 THEN DEVICE,/CLOSE
   IF hardcopy EQ 1 THEN SET_PLOT,'X'
@@ -75,6 +87,14 @@ PRO CONCLUDE_OUTPUT,mode,plotDir
      DEVICE,/CLOSE
      ;; PCLOSE
      SET_PLOT,'X'
+
+     IF KEYWORD_SET(to_pdf) THEN BEGIN
+        filename = plotDir+ $
+                   'FAST_'+suff
+
+        EPS2PDF,filename, $
+                REMOVE_EPS=remove_eps
+     ENDIF
   ENDIF
   IF hardcopy EQ 1 THEN SET_PLOT,'printer'
   IF hardcopy EQ 1 THEN DEVICE,YSIZE=25,YOFFSET=5
@@ -85,6 +105,8 @@ END
 ;********************************************************************
 PRO ADD_NOISE,Bx,By,Bz,Jx,Jy,Jz,T
   ;;create and add noise IF example = 3
+
+  COMPILE_OPT idl2
 
   Bsqtotal = 0.0
   Jsqtotal = 0.0
@@ -158,6 +180,8 @@ END
 PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                   SAVEDIR=saveDir, $
                   EXAMPLE=example
+
+  COMPILE_OPT idl2
 
   T         = 200               ; number of elements in time domain vectors
   TArr      = INDGEN(T)
@@ -344,6 +368,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                     USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                     CUSTOM_T1=custom_t1, $
                     CUSTOM_T2=custom_t2, $
+                    USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
                     USE_J_TIME_SERIES=use_J_time_series, $
                     SMOOTH_J_DAT_TO_B=smooth_J_dat, $
                     PRESMOOTH_MAG=presmooth_mag, $
@@ -353,8 +378,9 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                     USE_ALL_STREAKS=use_all_streaks, $
                     USE_DB_FAC=use_dB_fac, $
                     HAVE_EFIELD=have_EField, $
-                    SRATES=sRates, $
-                    EXTRA_SUFFIX=extra_Suffix
+                    SRATES=sRates
+
+  COMPILE_OPT idl2
 
   saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
 
@@ -362,7 +388,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   RESTORE,saveDir+saveFile
 
   IF KEYWORD_SET(use_timeBar_time__from_file) AND N_ELEMENTS(timeBar_times) GT 0 THEN BEGIN
-     PRINT,"Using timeBar_times from file: ",TIME_TO_STR(timeBar_times[
+     PRINT,"Using timeBar_times from file: ",timeBar_times
      CASE NDIMEN(timeBar_times) OF
         1: BEGIN
            CASE SIZE(timeBar_times,/TYPE) OF
@@ -401,7 +427,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   IF KEYWORD_SET(custom_t1) THEN BEGIN
      PRINT,FORMAT='(A0,T25,": ",A0)','Custom T1',TIME_TO_STR(custom_t1,/MS)
 
-     CASE NDIMEN(custom_t1) OF
+     CASE NDIMEN([custom_t1]) OF
         1: BEGIN
            CASE SIZE(custom_t1,/TYPE) OF
               7: BEGIN
@@ -433,7 +459,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   IF KEYWORD_SET(custom_t2) THEN BEGIN
      PRINT,FORMAT='(A0,T25,": ",A0)','Custom T2',TIME_TO_STR(custom_t2,/MS)
 
-     CASE NDIMEN(custom_t2) OF
+     CASE NDIMEN([custom_t2]) OF
         1: BEGIN
            CASE SIZE(custom_t2,/TYPE) OF
               7: BEGIN
@@ -629,6 +655,11 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                 eESA:eESA_sRate, $
                 iESA:iESA_sRate}
 
+  IF KEYWORD_SET(use_lowRes_time_series) THEN BEGIN
+
+     use_J_time_series = (MEDIAN(sRates.mag)/MEDIAN(sRates.EESA)) GT 1.
+
+  ENDIF
 
   ;;Using j or mag time series?
   CASE 1 OF
@@ -721,6 +752,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         ENDELSE
      END
      2: BEGIN
+
         bro = ROUND_TO_NTH_DECIMAL_PLACE(ji_z.x[1:-1]-ji_z.x[0:-2],-5)
         bro = bro[WHERE(ABS(bro) LT 1)]
         distFreq = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
@@ -801,40 +833,40 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   je_z_improv  = je_z_interp
   ji_z_improv  = ji_z_interp
 
+  strt_i_list  = LIST()
+  stop_i_list  = LIST()
   CASE 1 OF
      (KEYWORD_SET(analysis_t1) AND KEYWORD_SET(analysis_t2)): BEGIN
-        IF N_ELEMENTS(analysis_t1) GT 1 THEN BEGIN
+        ;; IF N_ELEMENTS(analysis_t1) GT 1 THEN BEGIN
 
-           good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
-           IF nGood EQ 0 THEN STOP
+        good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
+        IF nGood EQ 0 THEN STOP
 
-           ;; strt_i_list = !NULL
-           ;; stop_i_list = !NULL
-           strt_i_list = LIST()
-           stop_i_list = LIST()
-           FOR k=0,N_ELEMENTS(analysis_t1)-1 DO BEGIN
-              good_iTmp  = CGSETINTERSECTION(good_i, $
-                                             WHERE((even_TS GE analysis_t1[k]) AND  $
-                                                   (even_TS LE analysis_t2[k]),nGood))
-              GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
-                          OUT_STREAKLENS=streakLensTmp
-              IF streakLensTmp[0] GT 1 THEN BEGIN
-                 ;; FOR kk=0,N_ELEMENTS(streakLensTmp)-1 DO BEGIN
-                 ;; strt_i = [strt_i,good_iTmp[strt_iiTmp]]
-                 ;; stop_i = [stop_i,good_iTmp[stop_iiTmp]]
-                 strt_i_list.Add,good_iTmp[strt_iiTmp]
-                 stop_i_list.Add,good_iTmp[stop_iiTmp]
-                 ;; ENDFOR
-              ENDIF
-           ENDFOR
+        FOR k=0,N_ELEMENTS(analysis_t1)-1 DO BEGIN
 
-        ENDIF ELSE BEGIN
-           good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
-                               (even_TS GE analysis_t1) AND (even_TS LE analysis_t2),nGood)
-           GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
-           strt_i = good_i[strt_ii]
-           stop_i = good_i[stop_ii]
-        ENDELSE
+           good_iTmp  = CGSETINTERSECTION(good_i, $
+                                          WHERE((even_TS GE analysis_t1[k]) AND  $
+                                                (even_TS LE analysis_t2[k]),nGood))
+           GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
+                       OUT_STREAKLENS=streakLensTmp
+           IF streakLensTmp[0] GT 1 THEN BEGIN
+              ;; FOR kk=0,N_ELEMENTS(streakLensTmp)-1 DO BEGIN
+              ;; strt_i = [strt_i,good_iTmp[strt_iiTmp]]
+              ;; stop_i = [stop_i,good_iTmp[stop_iiTmp]]
+              strt_i_list.Add,good_iTmp[strt_iiTmp]
+              stop_i_list.Add,good_iTmp[stop_iiTmp]
+              ;; ENDFOR
+           ENDIF
+
+        ENDFOR
+
+        ;; ENDIF ELSE BEGIN
+        ;;    good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv) AND $
+        ;;                        (even_TS GE analysis_t1) AND (even_TS LE analysis_t2),nGood)
+        ;;    GET_STREAKS,good_i,START_i=strt_ii,STOP_I=stop_ii,OUT_STREAKLENS=streakLens
+        ;;    strt_i = good_i[strt_ii]
+        ;;    stop_i = good_i[stop_ii]
+        ;; ENDELSE
 
      END
      KEYWORD_SET(analysis_t1): BEGIN
@@ -992,7 +1024,7 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         IF N_ELEMENTS(strt_i_list) GT 0 THEN BEGIN
            streakLens = stop_i_list[0]-strt_i_list[0]
-           long     = MAX(streakLens,longestInd)
+           long       = MAX(streakLens,longestInd)
         ENDIF ELSE BEGIN
            longestInd = 0
         ENDELSE
@@ -1028,6 +1060,8 @@ PRO CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 END
 
 PRO DEAL_WITH_BADNESS,datSerie,improvSerie
+
+  COMPILE_OPT idl2
 
   improvSerie  = datSerie
 
@@ -1072,6 +1106,8 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      HANNING=hanning, $
                      HAVE_EFIELD=have_EField, $
                      ODDNESS_CHECK=oddness_check
+
+  COMPILE_OPT idl2
 
   JxBtotal     = 0
   norm         = 0              ; check that avg J x B =0
@@ -1193,10 +1229,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PLOT_POSFREQ=plot_posFreq, $
    FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
    SAVE_PS=save_ps, $
+   TO_PDF=to_pdf, $
+   REMOVE_EPS=remove_eps, $
    BONUS_SUFF=bonus_suff, $
    EXTRA_SUFFIX=extra_suffix, $
    DOUBLE_CALC=double_calc, $
    HANNING=hanning, $
+   USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
    USE_J_TIME_SERIES=use_J_time_series, $
    SMOOTH_J_DAT_TO_B=smooth_J_dat, $
    PRESMOOTH_MAG=presmooth_mag, $
@@ -1214,11 +1253,15 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    STREAKNUM=streakNum, $
    USE_ALL_STREAKS=use_all_streaks, $
    PUBLICATION_SETTINGS=pubSettings, $
-   ODDNESS_CHECK=oddness_check
+   ODDNESS_CHECK=oddness_check, $
+   FFTSIZE=FFTsize, $
+   FFTPERCENT=FFTpercent
 
   COMPILE_OPT idl2
 
   splitFFTs = ~KEYWORD_SET(combine_and_average_intervals)
+
+  IF N_ELEMENTS(extra_suffix) EQ 0 THEN extra_suffix = ''
 
   ;; IF N_ELEMENTS(double_calc) EQ 0 THEN double_calc = 1
 
@@ -1258,6 +1301,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                      USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                      CUSTOM_T1=custom_t1, $
                      CUSTOM_T2=custom_t2, $
+                     USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
                      USE_J_TIME_SERIES=use_J_time_series, $
                      SMOOTH_J_DAT_TO_B=smooth_J_dat, $
                      PRESMOOTH_MAG=presmooth_mag, $
@@ -1267,8 +1311,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                      USE_ALL_STREAKS=use_all_streaks, $
                      USE_DB_FAC=use_dB_fac, $
                      HAVE_EFIELD=have_EField, $
-                     SRATES=sRates, $
-                     EXTRA_SUFFIX=extra_Suffix
+                     SRATES=sRates
 
      CASE 1 OF
         KEYWORD_SET(use_all_streaks): BEGIN
@@ -1281,7 +1324,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            sRate = 1./(TArr[1:-1]-TArr[0:-2])
 
            suff = 'Chaston_et_al_2006--ionos_erosion--Bellan_method'+'--'+ $
-                  extra_Suffix+'--'+ $
+                  extra_suffix+'--'+ $
                   saveVar
         END
      ENDCASE
@@ -1295,42 +1338,46 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   CASE 1 OF
      KEYWORD_SET(use_all_streaks): BEGIN
-        suff += '--all_streaks'
+        suff += '-all_streaks'
      END
      ELSE: BEGIN
         IF N_ELEMENTS(streakInd) GT 0 THEN BEGIN
-           suff += '--streak_' + STRCOMPRESS(streakInd,/REMOVE_ALL)
+           suff += '-streak_' + STRCOMPRESS(streakInd,/REMOVE_ALL)
         ENDIF
      END
   ENDCASE
 
   ;;Aligned to mag or j time series?
-  IF KEYWORD_SET(use_J_time_series) THEN BEGIN
-     suff += '--jz_ts'
-  ENDIF ELSE BEGIN
-     suff += '--mag_ts'
-  ENDELSE
+  CASE 1 OF
+     KEYWORD_SET(use_lowRes_time_series): BEGIN
+        suff += '-lowRes_ts'
+     END
+     KEYWORD_SET(use_J_time_series): BEGIN
+        suff += '-jz_ts'
+     END
+     ELSE: BEGIN
+        suff += '-mag_ts'
+     END
+  ENDCASE
+
 
   IF KEYWORD_SET(smooth_J_dat) THEN BEGIN
-     suff += '--sm_je'
+     suff += '-sm_je'
   ENDIF
 
   IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
-     suff += '--kPerp'
+     suff += '-kPerp'
   ENDIF
 
   IF KEYWORD_SET(hanning    ) THEN BEGIN
      PRINT,"You shouldn't apply a window to correlation functions ..."
      WAIT,2
-     suff += '--hanning'
+     suff += '-hanning'
   ENDIF
-  IF KEYWORD_SET(double_calc) THEN suff += '--double_arithmetic'
+  IF KEYWORD_SET(double_calc) THEN suff += '-double_arithmetic'
   IF KEYWORD_SET(bonus_suff ) THEN suff += bonus_suff
 
   example = 1
-
-  ;;setup file management, filenames for selected output mode
-  OUTPUT_SETUP,output_mode,plotDir,suff,saveDir
 
   ;;setup graphic layout
   columns   = 3
@@ -1385,9 +1432,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      FFTsize = defFFTsize
   ENDIF
 
+  IF KEYWORD_SET(FFTpercent) THEN BEGIN
+     IF FFTpercent GT 1 THEN FFTpercent /= 100.
+     FFTsize = FIX(T[0]*FFTpercent)
+  ENDIF
+
   CASE 1 OF
      KEYWORD_SET(FFTsize): BEGIN
-        suff += '--FFTsize_' + STRCOMPRESS(FFTsize,/REMOVE_ALL)
+        suff += '-FFTsize_' + STRCOMPRESS(FFTsize,/REMOVE_ALL)
 
         IF KEYWORD_SET(use_all_streaks) THEN BEGIN
 
@@ -1531,6 +1583,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      END
   ENDCASE
 
+  kx *= 1000.
+  ky *= 1000.
+  kz *= 1000.
+  kP *= 1000.
+
+  ;;setup file management, filenames for selected output mode
+  OUTPUT_SETUP,output_mode,plotDir,suff,saveDir
+
   ;;plot components of calculated k vectors
   IF example EQ 1 THEN BEGIN
      ysize = 10
@@ -1636,7 +1696,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDCASE
 
   PLOT,freq[inds],kx[inds], $
-       YTITLE='k!Dx!N (m!U-1!N)', $
+       ;; YTITLE='k!Dx!N (m!U-1!N)', $
+       YTITLE='k!Dx!N (km!U-1!N)', $
        XTITLE='', $
        CHARSIZE=cs, $
        YRANGE=[-kx_ysize,kx_ysize]
@@ -1654,7 +1715,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDIF
 
   PLOT,freq[inds],ky[inds], $
-       YTITLE='k!Dy!N (m!U-1!N)', $
+       ;; YTITLE='k!Dy!N (m!U-1!N)', $
+       YTITLE='k!Dy!N (km!U-1!N)', $
        XTITLE='Frequency (Hz)', $
        CHARSIZE=cs, $
        YRANGE=[-ky_ysize,ky_ysize]
@@ -1687,8 +1749,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ;;Now kx vs ky
      bound = MAX(ABS([smoothKx,smoothKy]))
      PLOT,smoothKx,smoothKy, $
-          XTITLE='k!Dx!N  (m!U-1!N)', $
-          YTITLE='k!Dy!N  (m!U-1!N)', $
+          ;; XTITLE='k!Dx!N  (m!U-1!N)', $
+          ;; YTITLE='k!Dy!N  (m!U-1!N)', $
+          XTITLE='k!Dx!N  (km!U-1!N)', $
+          YTITLE='k!Dy!N  (km!U-1!N)', $
           PSYM=2, $
           YRANGE=[-bound,bound], $
           XRANGE=[-bound,bound], $
@@ -1697,7 +1761,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDIF ELSE BEGIN
 
      PLOT,freq[inds],kz[inds], $
-          YTITLE='k!Dz!N (m!U-1!N)', $
+          ;; YTITLE='k!Dz!N (m!U-1!N)', $
+          YTITLE='k!Dz!N (km!U-1!N)', $
           XTITLE='', $
           CHARSIZE=cs, $
           YRANGE=[-kz_ysize,kz_ysize]
@@ -1713,7 +1778,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDELSE
 
   IF KEYWORD_SET(save_ps) THEN BEGIN
-     CONCLUDE_OUTPUT,output_mode
+     CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
+                     TO_PDF=to_pdf, $
+                     REMOVE_EPS=remove_eps
   ENDIF
 
   ;;Show Hanning windowed?
@@ -1757,7 +1824,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      bro = PLOT(freq[inds],kP[inds], $
                 ;; XTITLE='Frequency (Hz)', $
-                YTITLE='|k!Dperp!N (m$^{-1}$)', $
+                ;; YTITLE='|k!Dperp!N (m$^{-1}$)', $
+                YTITLE='|k!Dperp!N (km$^{-1}$)', $
                 CURRENT=window, $
                 LAYOUT=[1,2,1])
 
@@ -1766,7 +1834,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
      bro = PLOT(freq[inds],smkP, $
                 ;; XTITLE='Frequency (Hz)', $
-                YTITLE='|k!Dperp!N (m$^{-1}$)', $
+                ;; YTITLE='|k!Dperp!N (m$^{-1}$)', $
+                YTITLE='|k!Dperp!N (km$^{-1}$)', $
                 COLOR='RED', $
                 /OVERPLOT, $
                 CURRENT=window)
@@ -1791,7 +1860,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDIF ELSE BEGIN
 
      IF KEYWORD_SET(save_ps) THEN BEGIN
-        OUTPUT_SETUP,output_mode,plotDir,suff+'--page2',saveDir
+        OUTPUT_SETUP,output_mode,plotDir,suff+'-page2',saveDir
      ENDIF
 
      columns = 1
@@ -1807,16 +1876,19 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ENDELSE
      ENDIF
 
-      PLOT,freq[inds],kP[inds], $
-           XTITLE='Frequency (Hz)', $
-           YRANGE=[4e-6,1e-2], $
-           XSTYLE=1, $
-           YSTYLE=1, $
-           XLOG=1, $
-           YLOG=1, $
-           YTITLE='!8k!Dperp!N (m!U-1!N)', $
-           ;; XTICKFORMAT="(A1)", $
-           CHARSIZE=cs
+     k__yRange = [4e-3,1e1]
+     PLOT,freq[inds],kP[inds], $
+          XTITLE='Frequency (Hz)', $
+          ;; YRANGE=[4e-6,1e-2], $
+          YRANGE=k__yRange, $
+          XSTYLE=1, $
+          YSTYLE=1, $
+          ;; XLOG=1, $
+          YLOG=1, $
+          ;; YTITLE='!8k!Dperp!N (m!U-1!N)', $
+          YTITLE='!8k!Dperp!N (km!U-1!N)', $
+          ;; XTICKFORMAT="(A1)", $
+          CHARSIZE=cs
 
       smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
       OPLOT,freq[inds],smkP, $
@@ -1834,49 +1906,66 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
          GET_FA_ORBIT,Tarr,/DEFINITIVE,/ALL,/TIME_ARRAY
          GET_DATA,'fa_vel',DATA=vel
 
-         speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
+         ;; speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
+         speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)
          ;; avgSpeed = MEAN(speed)-6000.
          avgSpeed = MEAN(speed)
 
-         kxTemp = kx
+         kMajic = kx
+         ;; kxTemp = kx
+
          ;; CASE 1 OF
          IF KEYWORD_SET(fitline__use_abs) THEN BEGIN
-            kxTemp = ABS(kxTemp)
+            kMajic = ABS(kMajic)
          ENDIF ELSE BEGIN
-            chuck = WHERE(kxTemp GT 0.0,nPosKx)
-            chuck = WHERE(kxTemp LT 0.0,nNegKx)
-            IF nNegKx GT nPosKx THEN kxTemp *= -1.
+            chuck = WHERE(kMajic GT 0.0,nPosKx)
+            chuck = WHERE(kMajic LT 0.0,nNegKx)
+            IF nNegKx GT nPosKx THEN kMajic *= -1.
          ENDELSE
          IF KEYWORD_SET(fitline__use_smoothed) THEN BEGIN
-            kxTemp = SMOOTH(kxTemp,smInd)
+            kMajic = SMOOTH(kMajic,smInd)
          END
-         ;; kxTemp = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
+         ;; kMajic = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
          ;;                  ABS(kP) : kP), $
          ;;                 smInd, $
          ;;                 EDGE_TRUNCATE=edge_truncate, $
          ;;                 EDGE_MIRROR=edge_mirror, $
          ;;                 EDGE_WRAP=edge_wrap)
-         wDoppl = kxTemp*(avgSpeed)/(2.*!PI)
-         fDoppl = wDoppl
+         wDoppl    = kMajic*(avgSpeed)/(2.*!PI)
+         fDoppl    = wDoppl
 
-         PLOT,freq[inds],ABS(kx[inds]), $
+         kDoppl    = freq[inds]/avgSpeed
+
+         like_kx   = 1
+         IF KEYWORD_SET(like_kx) THEN BEGIN
+            yArg   = ABS(kx[inds])
+            yTito  = 'k!Dx!N (km!U-1!N)'
+         ENDIF ELSE BEGIN
+            yArg   = ABS(ky[inds])
+            yTito  = 'k!Dy!N (km!U-1!N)'
+         ENDELSE
+
+         PLOT,freq[inds],yArg, $
               XTITLE='Frequency (Hz)', $
-              YTITLE='k!Dx!N (m!U-1!N)', $
-              YRANGE=[4e-6,1e-2], $
+              ;; YTITLE='k!Dx!N (m!U-1!N)', $
+              YTITLE=yTito, $
+              ;; YRANGE=[4e-6,1e-2], $
+              YRANGE=k__yRange, $
               XSTYLE=1, $
               YSTYLE=1, $
-              XLOG=1, $
+              ;; XLOG=1, $
               YLOG=1, $
               CHARSIZE=cs
 
-         OPLOT,fDoppl[inds],kxTemp[inds], $
+         ;; OPLOT,fDoppl[inds],kMajic[inds], $
+         OPLOT,freq[inds],kDoppl[inds], $
                COLOR=110
 
          add_Doppler_fit_string = 0
          IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
-            fitInds      = CGSETINTERSECTION(fitInds,WHERE(kxTemp GT 0.00))
-            params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kxTemp[fitInds]),YFIT=kxFitter)
-            corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(kxTemp[fitInds]),T_STAT=t_stat)
+            fitInds      = CGSETINTERSECTION(fitInds,WHERE(kMajic GT 0.00))
+            params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),YFIT=kxFitter)
+            corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),T_STAT=t_stat)
 
             params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),YFIT=kxFitter)
             corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),T_STAT=t_stat)
@@ -1911,6 +2000,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           XTITLE='Frequency (Hz)', $
           ;; YTITLE='!8|' +CGGREEK('theta',PS=save_ps) + '!Dk!Dperp!N)', $
           YTITLE='!4h!X!Dk!Dperp!N', $
+          XSTYLE=1, $
+          YSTYLE=1, $
           CHARSIZE=cs
           ;; YTITLE='|$\theta$(k!Dperp!N)'
 
@@ -1925,7 +2016,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ENDIF
 
      IF KEYWORD_SET(save_ps) THEN BEGIN
-        CONCLUDE_OUTPUT,output_mode
+        CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page2', $
+                        TO_PDF=to_pdf, $
+                        REMOVE_EPS=remove_eps
      ENDIF
 
 
