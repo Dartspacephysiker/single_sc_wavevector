@@ -429,7 +429,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
   ;;Now custom times
   IF KEYWORD_SET(custom_t1) THEN BEGIN
-     PRINT,FORMAT='(A0,T25,": ",A0)','Custom T1',TIME_TO_STR(custom_t1,/MS)
+     PRINT,FORMAT='(A0,T25,": ",A0)','Custom T1',SIZE(custom_t1,/TYPE) EQ 7 ? custom_t1 : TIME_TO_STR(custom_t1,/MS)
 
      CASE NDIMEN([custom_t1]) OF
         1: BEGIN
@@ -461,7 +461,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ENDELSE
 
   IF KEYWORD_SET(custom_t2) THEN BEGIN
-     PRINT,FORMAT='(A0,T25,": ",A0)','Custom T2',TIME_TO_STR(custom_t2,/MS)
+     PRINT,FORMAT='(A0,T25,": ",A0)','Custom T2',SIZE(custom_t2,/TYPE) EQ 7 ? custom_t2 : TIME_TO_STR(custom_t2,/MS)
 
      CASE NDIMEN([custom_t2]) OF
         1: BEGIN
@@ -1222,12 +1222,14 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
   ENDIF
 
   IF KEYWORD_SET(oddness_check) THEN BEGIN
-     CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz
+     CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
+                          KZ_IS_KPERP=plot_kperp_magnitude_for_kz
   ENDIF
 
 END
 
-PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz
+PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
+                          KZ_IS_KPERP=kz_is_kPerp
 
   sort_i = SORT(freq)
   freqT  = freq[sort_i]
@@ -1246,10 +1248,11 @@ PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz
   ENDIF
   
   PRINT,'avg freq oddness : ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
-  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3)','avg k oddness    : ', $
+  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3,T50,A0)','avg k oddness    : ', $
         MEAN((DOUBLE(kxT))[indPos]+REVERSE((DOUBLE(kxT))[indNeg]),/DOUBLE), $
         MEAN((DOUBLE(kyT))[indPos]+REVERSE((DOUBLE(kyT))[indNeg]),/DOUBLE), $
-        MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE)
+        MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE), $
+        (KEYWORD_SET(kz_is_kPerp) ? "(kz is kPerp, you know)" : '')
 
 END
 
@@ -1409,8 +1412,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ELSE: BEGIN
            sRate = 1./(TArr[1:-1]-TArr[0:-2])
 
-           suff = 'Bellan_method'+'--'+ $
-                  extra_suffix+'--'+ $
+           suff = 'Bellan'+'-'+ $
+                  extra_suffix+'-'+ $
                   saveVar
         END
      ENDCASE
@@ -1452,7 +1455,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDIF
 
   IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
-     suff += '-kPerp'
+     ;; suff += '-kPerp'
   ENDIF
 
   IF KEYWORD_SET(hanning    ) THEN BEGIN
@@ -1479,7 +1482,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   ;; cs        = 1.8
   IF KEYWORD_SET(pubSettings) THEN BEGIN
-     cs = 1.8
+     cs = 2.5
   ENDIF
 
   IF KEYWORD_SET(example_mode) THEN BEGIN
@@ -1737,12 +1740,12 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   bro = 1
   IF KEYWORD_SET(bro) THEN BEGIN
-     tmp = SORT(freq)
+     tmp  = SORT(freq)
      freq = freq[tmp]
      kx   = kx[tmp]
      ky   = ky[tmp]
      kz   = kz[tmp]
-     kP = kP[tmp]
+     kP   = kP[tmp]
   ENDIF
 
   IF KEYWORD_SET(use_all_streaks) THEN BEGIN
@@ -1755,38 +1758,37 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      Jz   = LIST_TO_1DARRAY(Jz)
   END
 
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
-
   muLetter = '!4' + String('154'O) + '!X'
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Bx[usedInds], $
        XTITLE='t', $
        YTITLE='!8B!Dx!N', $
        CHARSIZE=cs
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
+
   PLOT,TArr[usedInds]-TArr[usedInds[0]],By[usedInds], $
        XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
        YTITLE='!8B!Dy!N (nT)', $
        CHARSIZE=cs
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
+
+
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
        XTITLE='t', $
        YTITLE='!8B!Dz!N', $
        CHARSIZE=cs
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
        XTITLE='t', $
        YTITLE='!4l!3!D0 !N!8J!Dx!N', $
        CHARSIZE=cs
+
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
        XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
        YTITLE='!4l!3!D0 !N!8J!Dy!N (!4l!N!8T/m)', $
        CHARSIZE=cs
+
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Jz[usedInds], $
        XTITLE='t', $
        YTITLE='!4l!3!D0 !N!8J!Dz!N', $
        CHARSIZE=cs
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
   CASE 1 OF
      KEYWORD_SET(plot_posFreq): BEGIN
@@ -1806,18 +1808,20 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         divFactor = 2.
         kx   = (kx[indPos]-REVERSE(kx[indNeg])) / divFactor 
 
-        ;; this = plot(kx,/OVERPLOT,COLOR='BLUE')
-
         ky   = (ky[indPos]-REVERSE(ky[indNeg])) / divFactor 
         kz   = (kz[indPos]-REVERSE(kz[indNeg])) / divFactor
+        kP   = (kP[indPos]+REVERSE(kP[indNeg])) / divFactor
         freq = freq[indPos]
         ;; inds = WHERE(freq GT 0.0)
+
+        ;; this = plot(kx,/OVERPLOT,COLOR='BLUE')
 
         IF freq[0] EQ 0.00 THEN BEGIN
            freq = freq[1:-1]
            kx = kx[1:-1]
            ky = ky[1:-1]
            kz = kz[1:-1]
+           kP = kP[1:-1]
         ENDIF
 
         inds = INDGEN(N_ELEMENTS(freq))
@@ -1827,6 +1831,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         inds = WHERE(ABS(freq) LE 10.0)
      END
   ENDCASE
+
+  ;;Rotation matrix?
+  angle      = 20.*!DTOR
+  kxprime    = kx*COS(angle) - ky*SIN(angle)
+  kyprime    = kx*SIN(angle) + ky*COS(angle)
+  kx         = TEMPORARY(kxprime)
+  ky         = TEMPORARY(kyprime)
+  
 
   PLOT,freq[inds],kx[inds], $
        ;; YTITLE='k!Dx!N (m!U-1!N)', $
@@ -1900,6 +1912,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           PSYM=2, $
           YRANGE=[-bound,bound], $
           XRANGE=[-bound,bound], $
+          XTICKLEN=1.0, $
+          YTICKLEN=1.0, $
+          XGRIDSTYLE=1, $
+          YGRIDSTYLE=1, $
           CHARSIZE=cs
 
   ENDIF ELSE BEGIN
@@ -2042,6 +2058,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           YRANGE=k__yRange, $
           XSTYLE=1, $
           YSTYLE=1, $
+          XTICKLEN=1.0, $
+          YTICKLEN=1.0, $
+          XGRIDSTYLE=1, $
+          YGRIDSTYLE=1, $
           ;; XLOG=1, $
           YLOG=1, $
           ;; YTITLE='!8k!Dperp!N (m!U-1!N)', $
@@ -2115,6 +2135,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               YRANGE=k__yRange, $
               XSTYLE=1, $
               YSTYLE=1, $
+              XTICKLEN=1.0, $
+              YTICKLEN=1.0, $
+              XGRIDSTYLE=1, $
+              YGRIDSTYLE=1, $
               ;; XLOG=1, $
               YLOG=1, $
               CHARSIZE=cs
@@ -2157,19 +2181,49 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      ;;Kperp angle plot
      kPAngle = ATAN(ky,kx)*!RADEG
+     yRange  = [-180,180]
+     yTickV  = [-180,-90,0,90,180]
+     histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
+     IF (histo[0]+histo[3]) GT (histo[1]+histo[2]) THEN BEGIN
+        kPAngle = (kPAngle + 360) MOD 360
+        ;; histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=0,MAX=360,LOCATIONS=locs)
+        yRange += 180
+        yTickV += 180
+     ENDIF
+     
+     ;;We don't want any wrap
+     ;; sm2    = smInd/2
+     ;; startK = sm2
+     ;; FOR k=startK,(N_ELEMENTS(inds)-sm2-1) DO BEGIN
+     ;;    tmpInds = inds[(k-sm2):(k+sm2)]
+     ;;    histo   = HISTOGRAM(kPAngle[tmpInds],BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
+     ;;    print,'k: ',k
+     ;;    PRINT,histo
+     ;;    PRINT,locs
+     ;;    junk = MAX(histo,ind)
+     ;;    PRINT,locs[ind],histo[ind]
+     ;;    PRINT,''
+     ;; ENDFOR
 
 
-     PLOT,freq[inds],(kPAngle[inds] + 360) MOD 360, $
+     PLOT,freq[inds],kPAngle[inds], $
           XTITLE='Frequency (Hz)', $
           YTITLE='!4h!X!Dk!Dperp!N', $
           XRANGE=page2__freqRange, $
-          YRANGE=[0,360], $
+          YRANGE=yRange, $
           XSTYLE=1, $
           YSTYLE=1, $
+          XTICKLEN=1.0, $
+          YTICKLEN=1.0, $
+          XGRIDSTYLE=1, $
+          YGRIDSTYLE=1, $
+          YTICKS=N_ELEMENTS(yTickV)-1, $
+          YTICKV=yTickV, $
+          YMINOR=6, $
           CHARSIZE=cs
           ;; YTITLE='|$\theta$(k!Dperp!N)'
 
-     smkPAngle = SMOOTH((kPAngle[inds] + 360) MOD 360,smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+     smkPAngle = SMOOTH(kPAngle[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
      OPLOT,freq[inds],smkPAngle, $
            COLOR=250
 
