@@ -545,6 +545,8 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   Bz   = dB.y[*,2] * bFactor
   Bt   = dB.x
 
+  bz[*] = 0.
+
   IF KEYWORD_SET(presmooth_mag) THEN BEGIN
 
      ;;Do one smooth
@@ -1587,18 +1589,24 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                   HAVE_EFIELD=have_EField, $
                                   ODDNESS_CHECK=oddness_check
                  this = ARRAY_INDICES(TRANSPOSE(fArr),(k*N_ELEMENTS(fArr[0,*])+LINDGEN(N_ELEMENTS(tmpI))))
-                 this = [this[1,*],this[0,*]]
+                 ;; this = [this[1,*],this[0,*]]
                  PRINT,this
                  ;; fArr [k,*]  = freq
                  ;; kxArr[k,*] = kx
                  ;; kyArr[k,*] = ky
                  ;; kzArr[k,*] = kz
                  ;; kPArr[k,*] = kP
-                 fArr [this[0,*],this[1,*]]  = freq
-                 kxArr[this[0,*],this[1,*]] = kx
-                 kyArr[this[0,*],this[1,*]] = ky
-                 kzArr[this[0,*],this[1,*]] = kz
-                 kPArr[this[0,*],this[1,*]] = kP
+                 ;; fArr [this[0,*],this[1,*]]  = freq
+                 ;; kxArr[this[0,*],this[1,*]] = kx
+                 ;; kyArr[this[0,*],this[1,*]] = ky
+                 ;; kzArr[this[0,*],this[1,*]] = kz
+                 ;; kPArr[this[0,*],this[1,*]] = kP
+
+                 fArr [this] = freq
+                 kxArr[this] = kx
+                 kyArr[this] = ky
+                 kzArr[this] = kz
+                 kPArr[this] = kP
 
               ENDFOR
 
@@ -1661,8 +1669,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               tmpI = [(k*FFTsize):( ((k+1)*FFTsize-1) < lastInd )]
               nTmp = N_ELEMENTS(tmpI)
               nArr = [nArr,nTmp]
-              PRINT,FORMAT='(A0,T10,A0)',"Itvl","nPts"
-              PRINT,FORMAT='(I0,T10,I0)',k,nTmp
+              PRINT,FORMAT='(A0,T10,A0,T20,A0,T45,A0)',"Itvl","nPts","Start T","Stop T"
+              PRINT,FORMAT='(I0,T10,I0,T20,A0,T45,A0)',k,nTmp,TIME_TO_STR(TArr[tmpI[0]],/MS),TIME_TO_STR(TArr[tmpI[-1]],/MS)
               BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
                                freq,kx,ky,kz,kP, $
                                SPERIOD=sPeriod, $
@@ -1893,18 +1901,19 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
      
-     ;; smoothKx = SMOOTH(kx[inds],smInd)
-     ;; smoothKy = SMOOTH(ky[inds],smInd)
+     smoothKx = SMOOTH(kx[inds],smInd)
+     smoothKy = SMOOTH(ky[inds],smInd)
 
      ;; smoothKx = kx[inds]
      ;; smoothKy = ky[inds]
 
-     smoothKx = kx[inds]
-     smoothKy = ky[inds]
+     ;; smoothKx = kx[inds]
+     ;; smoothKy = ky[inds]
 
      ;;Now kx vs ky
      bound = MAX(ABS([smoothKx,smoothKy]))
-     PLOT,smoothKx,smoothKy, $
+     ;; PLOT,smoothKx,smoothKy, $
+     PLOT,kx[inds],ky[inds], $
           ;; XTITLE='k!Dx!N  (m!U-1!N)', $
           ;; YTITLE='k!Dy!N  (m!U-1!N)', $
           XTITLE='k!Dx!N  (km!U-1!N)', $
@@ -1917,6 +1926,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           XGRIDSTYLE=1, $
           YGRIDSTYLE=1, $
           CHARSIZE=cs
+
+     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+        OPLOT,smoothKx,smoothKy,COLOR=250,PSYM=1
+     ENDIF
 
   ENDIF ELSE BEGIN
 
@@ -2121,31 +2134,40 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
          like_kx   = 1
          IF KEYWORD_SET(like_kx) THEN BEGIN
-            yArg   = ABS(kx)
+            ;; yArg   = ABS(kx)
+            yArg   = kx
             yTito  = 'k!Dx!N (km!U-1!N)'
          ENDIF ELSE BEGIN
             yArg   = ABS(ky)
             yTito  = 'k!Dy!N (km!U-1!N)'
          ENDELSE
 
+         k__yRange = [MIN(yArg),MAX(yArg)] 
          PLOT,freq[inds],yArg[inds], $
               XTITLE='Frequency (Hz)', $
               YTITLE=yTito, $
               XRANGE=page2__freqRange, $
-              YRANGE=k__yRange, $
+              ;; YRANGE=k__yRange, $
               XSTYLE=1, $
-              YSTYLE=1, $
+              ;; YSTYLE=1, $
+              ;; XLOG=1, $
+              ;; YLOG=1, $
+              ;;NWO
+              ;; YRANGE=[(-1.)*MIN(k__yRange),MAX(k__yRange)], $
+              YRANGE=k__yRange, $
+              YLOG=0, $
               XTICKLEN=1.0, $
               YTICKLEN=1.0, $
               XGRIDSTYLE=1, $
               YGRIDSTYLE=1, $
-              ;; XLOG=1, $
-              YLOG=1, $
               CHARSIZE=cs
 
          ;; OPLOT,fDoppl[inds],kMajic[inds], $
          ;; OPLOT,freq[inds],kDoppl[inds], $
          OPLOT,fDoppl,kDoppl, $
+               COLOR=110
+
+         OPLOT,fDoppl,(-1.)*kDoppl, $
                COLOR=110
 
          add_Doppler_fit_string = 0
