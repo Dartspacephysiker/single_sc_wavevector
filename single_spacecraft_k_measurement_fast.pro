@@ -545,8 +545,6 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   Bz   = dB.y[*,2] * bFactor
   Bt   = dB.x
 
-  bz[*] = 0.
-
   IF KEYWORD_SET(presmooth_mag) THEN BEGIN
 
      ;;Do one smooth
@@ -1324,6 +1322,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
    PAGE1__FREQRANGE=page1__freqRange, $
    PAGE2__FREQRANGE=page2__freqRange, $
+   KP__ANGLERANGE=kP__angleRange, $
+   THIRD_PAGE=third_page, $
    OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
    PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
    FITLINE__USE_ABS=fitline__use_abs, $
@@ -1545,7 +1545,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            kxArr     = MAKE_ARRAY(nFFTs,FFTsize)
            kyArr     = MAKE_ARRAY(nFFTs,FFTsize)
            kzArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           kpArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           ;; kpArr     = MAKE_ARRAY(nFFTs,FFTsize)
 
            FFTCount  = 0
            include_i = !NULL
@@ -1606,7 +1606,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kxArr[this] = kx
                  kyArr[this] = ky
                  kzArr[this] = kz
-                 kPArr[this] = kP
+                 ;; kPArr[this] = kP
 
               ENDFOR
 
@@ -1657,7 +1657,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            kxArr     = MAKE_ARRAY(nFFTs,FFTsize)
            kyArr     = MAKE_ARRAY(nFFTs,FFTsize)
            kzArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           kpArr     = MAKE_ARRAY(nFFTs,FFTsize)
+           ;; kpArr     = MAKE_ARRAY(nFFTs,FFTsize)
            FFTCount  = 0
            FFTi_list = LIST()
            FOR k=0,eMulieribus-1 DO BEGIN
@@ -1685,7 +1685,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               kxArr[FFTCount,*] = kx
               kyArr[FFTCount,*] = ky
               kzArr[FFTCount,*] = kz
-              kPArr[FFTCount,*] = kP
+              ;; kPArr[FFTCount,*] = kP
 
               FFTCount++
 
@@ -1721,10 +1721,29 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      END
   ENDCASE
 
-  kx *= 1000.
-  ky *= 1000.
-  kz *= 1000.
-  kP *= 1000.
+  kx     *= 1000.
+  ky     *= 1000.
+  kz     *= 1000.
+  kP     *= 1000.
+
+  ;;Kperp angle
+  kPAngle = ATAN(ky,kx)*!RADEG
+  IF KEYWORD_SET(kP__angleRange) THEN BEGIN
+
+     rotate_kPA = 0
+
+     those = WHERE(kPAngle LT MIN(kP__angleRange),nThose)
+     IF nThose GT 0 THEN BEGIN
+        kPAngle[those] = (kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
+     ENDIF
+
+  ENDIF ELSE BEGIN
+     histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
+     rotate_kPA = (histo[0]+histo[3]) GT (histo[1]+histo[2])
+     IF rotate_kPA THEN BEGIN
+        kPAngle = (kPAngle + 360) MOD 360
+     ENDIF
+  ENDELSE
 
   ;;setup file management, filenames for selected output mode
   OUTPUT_SETUP,output_mode,plotDir,suff,saveDir
@@ -1841,11 +1860,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDCASE
 
   ;;Rotation matrix?
-  angle      = 20.*!DTOR
-  kxprime    = kx*COS(angle) - ky*SIN(angle)
-  kyprime    = kx*SIN(angle) + ky*COS(angle)
-  kx         = TEMPORARY(kxprime)
-  ky         = TEMPORARY(kyprime)
+  ;; angle      = 20.*!DTOR
+  ;; kxprime    = kx*COS(angle) - ky*SIN(angle)
+  ;; kyprime    = kx*SIN(angle) + ky*COS(angle)
+  ;; kx         = TEMPORARY(kxprime)
+  ;; ky         = TEMPORARY(kyprime)
   
 
   PLOT,freq[inds],kx[inds], $
@@ -1859,12 +1878,40 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        CHARSIZE=cs
   ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
+  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
+
+     smooth_kx      = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx) : kx),smInd, $
+                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+
+     smooth_ky      = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky) : ky),smInd, $
+                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+
+     ;; smooth_kP      = SMOOTH(kP,smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+     ;; smooth_kPAngle = SMOOTH(kPAngle,smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+
+     smooth_kP      = SQRT(smooth_kx*smooth_kx+smooth_ky*smooth_ky)
+     smooth_kPAngle = ATAN(smooth_ky,smooth_kx)*!RADEG
+
+     IF KEYWORD_SET(kP__angleRange) THEN BEGIN
+
+        those = WHERE(smooth_kPAngle LT MIN(kP__angleRange),nThose)
+        IF nThose GT 0 THEN BEGIN
+           smooth_kPAngle[those] = (smooth_kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
+        ENDIF
+
+     ENDIF ELSE BEGIN
+        IF rotate_kPA THEN BEGIN
+           smooth_kPAngle = (smooth_kPAngle + 360) MOD 360
+        ENDIF
+     ENDELSE
+
+
+  ENDIF
 
   IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
   IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
      OPLOT,freq[inds], $
-           SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx[inds]) : kx[inds]),smInd, $
-                  EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap), $
+           smooth_kx[inds], $
            COLOR=250
   ENDIF
 
@@ -1887,8 +1934,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
   IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
      OPLOT,freq[inds], $
-           SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky[inds]) : ky[inds]),smInd, $
-                  EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap), $
+           smooth_ky[inds], $
            COLOR=250
   ENDIF
 
@@ -1901,8 +1947,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
      
-     smoothKx = SMOOTH(kx[inds],smInd)
-     smoothKy = SMOOTH(ky[inds],smInd)
+     ;; smoothKx = SMOOTH(kx[inds],smInd)
+     ;; smoothKy = SMOOTH(ky[inds],smInd)
 
      ;; smoothKx = kx[inds]
      ;; smoothKy = ky[inds]
@@ -1911,7 +1957,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ;; smoothKy = ky[inds]
 
      ;;Now kx vs ky
-     bound = MAX(ABS([smoothKx,smoothKy]))
+     ;; bound = MAX(ABS([smoothKx,smoothKy]))
+
+     bound = KEYWORD_SET(plot_smoothed_ks) ? MAX(ABS([smooth_kx[inds],smooth_ky[inds]])) : MAX(ABS([kx[inds],ky[inds]]))
+
      ;; PLOT,smoothKx,smoothKy, $
      PLOT,kx[inds],ky[inds], $
           ;; XTITLE='k!Dx!N  (m!U-1!N)', $
@@ -1928,7 +1977,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           CHARSIZE=cs
 
      IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-        OPLOT,smoothKx,smoothKy,COLOR=250,PSYM=1
+
+        OPLOT,smooth_kx[inds],smooth_ky[inds],COLOR=250,PSYM=1
+
      ENDIF
 
   ENDIF ELSE BEGIN
@@ -2001,6 +2052,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   ENDIF
 
+  perpSym = STRING(120B)
+  perpAll = '!9' + perpSym + '!X'
   ;;Old or new style?
   IF KEYWORD_SET(oo_plots) THEN BEGIN
      window = WINDOW(DIMENSIONS=[700,800])
@@ -2008,36 +2061,39 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      bro = PLOT(freq[inds],kP[inds], $
                 ;; XTITLE='Frequency (Hz)', $
                 ;; YTITLE='|k!Dperp!N (m$^{-1}$)', $
-                YTITLE='|k!Dperp!N (km$^{-1}$)', $
+                ;; YTITLE='|k!Dperp!N (km$^{-1}$)', $
+                YTITLE='|k!D' + perpAll +  '!N (km$^{-1}$)', $
                 CURRENT=window, $
                 LAYOUT=[1,2,1])
 
      ;; bro.axes
 
-     smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-     bro = PLOT(freq[inds],smkP, $
+     bro = PLOT(freq[inds],smooth_kP[inds], $
                 ;; XTITLE='Frequency (Hz)', $
                 ;; YTITLE='|k!Dperp!N (m$^{-1}$)', $
-                YTITLE='|k!Dperp!N (km$^{-1}$)', $
+                ;; YTITLE='|k!Dperp!N (km$^{-1}$)', $
+                YTITLE='|k!D' + perpAll +  '!N (km$^{-1}$)', $
                 COLOR='RED', $
                 /OVERPLOT, $
                 CURRENT=window)
 
      ;;Kperp angle plot
-     kPAngle = ATAN(ky,kx)*!RADEG
+     ;; kPAngle = ATAN(ky,kx)*!RADEG
      ;; kPAngle = ATAN(SMOOTH(ky,smInd),SMOOTH(kx,smInd))*!RADEG
 
      bro = PLOT(freq[inds],kPAngle[inds], $
                 XTITLE='Frequency (Hz)', $
                 ;; XTITLE='T since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-                YTITLE='|$\theta$(k!Dperp!N)', $
+                ;; YTITLE='|$\theta$(k!Dperp!N)', $
+                YTITLE='|$\theta$(k!D' +perpAll + '!N)', $
                 CURRENT=window, $
                 LAYOUT=[1,2,2])
 
-     smkPAngle = SMOOTH(kPAngle[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-     bro = PLOT(freq[inds],smkPAngle, $
+     ;; smkPAngle = SMOOTH(kPAngle[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+     bro = PLOT(freq[inds],smooth_kPAngle[inds], $
                 XTITLE='Frequency (Hz)', $
-                YTITLE='|$\theta$(k!Dperp!N)', $
+                ;; YTITLE='|$\theta$(k!Dperp!N)', $
+                YTITLE='|$\theta$(k!D' +perpAll + '!N)', $
                 COLOR='RED', $
                 /OVERPLOT)
   ENDIF ELSE BEGIN
@@ -2048,8 +2104,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      columns      = 1
      rows         = 3
+     !P.MULTI[0]  = 0
+     !P.MULTI[1]  = columns
+     !P.MULTI[2]  = rows
      !P.MULTI[3]  = 2 ;;Next page?
-     !P.MULTI[1]  = 1
      ;; !P.MULTI  = [0, columns, rows, 0, 0]
      ;; !P.MULTI  = [0, columns, rows]
      ;; !P.MULTI  = [0, columns, rows, 1, 0]
@@ -2063,12 +2121,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ENDELSE
      ENDIF
 
-     k__yRange = [4e-3,1e1]
+     ;; k__yRange = [4e-3,1e1]
+     kP__yRange = MINMAX(kP[inds])
      PLOT,freq[inds],kP[inds], $
           XTITLE='Frequency (Hz)', $
           ;; YRANGE=[4e-6,1e-2], $
           XRANGE=page2__freqRange, $
-          YRANGE=k__yRange, $
+          YRANGE=kP__yRange, $
           XSTYLE=1, $
           YSTYLE=1, $
           XTICKLEN=1.0, $
@@ -2078,13 +2137,16 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           ;; XLOG=1, $
           YLOG=1, $
           ;; YTITLE='!8k!Dperp!N (m!U-1!N)', $
-          YTITLE='!8k!Dperp!N (km!U-1!N)', $
+          ;; YTITLE='!8k!Dperp!N (km!U-1!N)', $
+          YTITLE='!8k!D' + perpAll + '!N (km!U-1!N)', $
           ;; XTICKFORMAT="(A1)", $
           CHARSIZE=cs
 
-      smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-      OPLOT,freq[inds],smkP, $
-            COLOR=250
+      ;; smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+        OPLOT,freq[inds],smooth_kP[inds], $
+              COLOR=250
+     ENDIF
 
       IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
          dbSmkP = SMOOTH(kP[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
@@ -2215,18 +2277,26 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
          ENDIF
       ENDIF
 
-     ;;Kperp angle plot
-     kPAngle = ATAN(ky,kx)*!RADEG
-     yRange  = [-180,180]
-     yTickV  = [-180,-90,0,90,180]
-     histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
-     IF (histo[0]+histo[3]) GT (histo[1]+histo[2]) THEN BEGIN
-        kPAngle = (kPAngle + 360) MOD 360
-        ;; histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=0,MAX=360,LOCATIONS=locs)
-        yRange += 180
-        yTickV += 180
-     ENDIF
-     
+     ;;Kperp angle plot     
+      IF KEYWORD_SET(kP__angleRange) THEN BEGIN
+
+         yARange  = kP__angleRange
+         nTickV  = (MAX(kP__angleRange)-MIN(kP__angleRange))/45
+         yTickV  = INDGEN(nTickV)*45
+
+      ENDIF ELSE BEGIN
+
+         yARange  = [-180,180]
+         yTickV  = [-180,-90,0,90,180]
+
+         IF rotate_kPA THEN BEGIN
+            yARange += 180
+            yTickV += 180
+         ENDIF
+
+      ENDELSE
+
+
      ;;We don't want any wrap
      ;; sm2    = smInd/2
      ;; startK = sm2
@@ -2241,12 +2311,12 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ;;    PRINT,''
      ;; ENDFOR
 
-
      PLOT,freq[inds],kPAngle[inds], $
           XTITLE='Frequency (Hz)', $
-          YTITLE='!4h!X!Dk!Dperp!N', $
+          ;; YTITLE='!4h!X!Dk!Dperp!N', $
+          YTITLE='!4h!X!Dk!D' + perpAll + '!N', $
           XRANGE=page2__freqRange, $
-          YRANGE=yRange, $
+          YRANGE=yARange, $
           XSTYLE=1, $
           YSTYLE=1, $
           XTICKLEN=1.0, $
@@ -2259,45 +2329,122 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           CHARSIZE=cs
           ;; YTITLE='|$\theta$(k!Dperp!N)'
 
-     smkPAngle = SMOOTH(kPAngle,smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-     OPLOT,freq[inds],smkPAngle[inds], $
-           COLOR=250
+     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+        OPLOT,freq[inds],smooth_kPAngle[inds], $
+              COLOR=250
+     ENDIF
 
-     OPLOT,freq[dopplInds],smkPAngle[dopplInds],COLOR=230,PSYM=1
+     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+        OPLOT,freq[dopplInds],smooth_kPAngle[dopplInds],COLOR=230,PSYM=1
+     ENDIF
 
      PRINT,"Mean theta exceeding doppl: ",MEAN(kPAngle[dopplInds])
      PRINT,"Medn theta exceeding doppl: ",MEDIAN(kPAngle[dopplInds])
 
 
      IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-        dbSmkPAngle = SMOOTH(kPAngle[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-        OPLOT,freq[inds],dbSmkPAngle, $
+        dbSmkPAngle = SMOOTH(kPAngle,dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+        OPLOT,freq[inds],dbSmkPAngle[inds], $
               COLOR=90
      ENDIF
 
-     IF KEYWORD_SET(save_ps) THEN BEGIN
-        CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page2', $
-        ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
-                        TO_PDF=to_pdf, $
-                        PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                        REMOVE_EPS=remove_eps
+     CASE 1 OF
+        KEYWORD_SET(third_page): BEGIN
+           IF KEYWORD_SET(save_ps) THEN BEGIN
+              CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page2', $
+                              ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
+                              TO_PDF=to_pdf, $
+                              PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
+                              REMOVE_EPS=remove_eps
 
-        ;;Smash pages together
-        IF KEYWORD_SET(to_pdf) THEN BEGIN
-           fPref = plotDir + suff
+              OUTPUT_SETUP,output_mode,plotDir,suff+'-page3',saveDir
+           ENDIF
 
-           SPAWN,'pdfunite ' + fPref + '.pdf' + ' ' + $
-                 fPref + '-page2' + '.pdf' + ' ' + $
-                 fPref + '-all' + '.pdf'
+           columns      = 1
+           rows         = 1
+           !P.MULTI[0]  = 0
+           !P.MULTI[1]  = columns
+           !P.MULTI[2]  = rows
+           !P.MULTI[3]  = 4 ;;Nextnext page?
 
-           SPAWN,'mv ' + fPref + '-all' + '.pdf' + ' ' + $
-                 fPref + '.pdf'
+           ;; kP__yRange = [4e-3,1e1]
+           PLOT,kPAngle[inds],kP[inds], $
+                ;; XTITLE='!4h!X!Dk!Dperp!N', $
+                ;; YTITLE='!8k!Dperp!N (km!U-1!N)', $
+                XTITLE='!4h!X!Dk!D' + perpAll + '!N', $
+                YTITLE='!8k!D' + perpAll + '!N (km!U-1!N)', $
+                XRANGE=yARange, $
+                YRANGE=kP__yRange, $
+                XSTYLE=1, $
+                YSTYLE=1, $
+                LINESTYLE=0, $
+                PSYM=2, $
+                XTICKLEN=1.0, $
+                YTICKLEN=1.0, $
+                XGRIDSTYLE=1, $
+                YGRIDSTYLE=1, $
+                CHARSIZE=cs
 
-           SPAWN,'rm ' + fPref + '-page2' + '.pdf'
-        ENDIF
 
-     ENDIF
+           IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+              OPLOT,smooth_kPAngle[inds],smooth_kP[inds], $
+                    COLOR=250, $
+                    LINESTYLE=0, $
+                    PSYM=2
+           ENDIF
 
+           IF KEYWORD_SET(save_ps) THEN BEGIN
+              CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page3', $
+                              ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
+                              TO_PDF=to_pdf, $
+                              PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
+                              REMOVE_EPS=remove_eps
+
+              ;;Smash pages together
+              IF KEYWORD_SET(to_pdf) THEN BEGIN
+                 fPref = plotDir + suff
+
+                 SPAWN,'pdfunite ' + fPref + '.pdf' + ' ' + $
+                       fPref + '-page2' + '.pdf' + ' ' + $
+                       fPref + '-page3' + '.pdf' + ' ' + $
+                       fPref + '-all' + '.pdf'
+
+                 SPAWN,'mv ' + fPref + '-all' + '.pdf' + ' ' + $
+                       fPref + '.pdf'
+
+                 SPAWN,'rm ' + fPref + '-page2' + '.pdf'
+                 SPAWN,'rm ' + fPref + '-page3' + '.pdf'
+              ENDIF
+
+           ENDIF
+
+        END
+        ELSE: BEGIN
+
+           IF KEYWORD_SET(save_ps) THEN BEGIN
+              CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page2', $
+                              ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
+                              TO_PDF=to_pdf, $
+                              PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
+                              REMOVE_EPS=remove_eps
+
+              ;;Smash pages together
+              IF KEYWORD_SET(to_pdf) THEN BEGIN
+                 fPref = plotDir + suff
+
+                 SPAWN,'pdfunite ' + fPref + '.pdf' + ' ' + $
+                       fPref + '-page2' + '.pdf' + ' ' + $
+                       fPref + '-all' + '.pdf'
+
+                 SPAWN,'mv ' + fPref + '-all' + '.pdf' + ' ' + $
+                       fPref + '.pdf'
+
+                 SPAWN,'rm ' + fPref + '-page2' + '.pdf'
+              ENDIF
+
+           ENDIF
+        END
+     ENDCASE
 
   ENDELSE
 
