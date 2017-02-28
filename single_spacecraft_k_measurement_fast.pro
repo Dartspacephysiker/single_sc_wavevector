@@ -2170,6 +2170,20 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
          OPLOT,fDoppl,(-1.)*kDoppl, $
                COLOR=110
 
+         kDopplDat = freq/avgSpeed
+         posii     = WHERE((yArg[inds] GT 0) AND (yArg[inds] GT kDopplDat[inds]),nPosii)
+         negii     = WHERE((yArg[inds] LT 0) AND (yArg[inds] LT (-1.)*kDopplDat[inds]),nNegii)
+
+         dopplInds = !NULL
+         IF nPosii GT 0 THEN BEGIN
+            dopplInds = [dopplInds,inds[posii]]
+         ENDIF
+         IF nNegii GT 0 THEN BEGIN
+            dopplInds = [dopplInds,inds[negii]]
+         ENDIF
+
+         OPLOT,freq[dopplInds],yArg[dopplInds],COLOR=230,PSYM=1
+
          add_Doppler_fit_string = 0
          IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
             fitInds      = CGSETINTERSECTION(fitInds,WHERE(kMajic GT 0.00))
@@ -2245,9 +2259,15 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           CHARSIZE=cs
           ;; YTITLE='|$\theta$(k!Dperp!N)'
 
-     smkPAngle = SMOOTH(kPAngle[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-     OPLOT,freq[inds],smkPAngle, $
+     smkPAngle = SMOOTH(kPAngle,smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+     OPLOT,freq[inds],smkPAngle[inds], $
            COLOR=250
+
+     OPLOT,freq[dopplInds],smkPAngle[dopplInds],COLOR=230,PSYM=1
+
+     PRINT,"Mean theta exceeding doppl: ",MEAN(kPAngle[dopplInds])
+     PRINT,"Medn theta exceeding doppl: ",MEDIAN(kPAngle[dopplInds])
+
 
      IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
         dbSmkPAngle = SMOOTH(kPAngle[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
