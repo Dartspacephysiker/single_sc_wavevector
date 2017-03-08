@@ -6,10 +6,15 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
 
   COMPILE_OPT IDL2
 
+  ;;Options for current
+  map_current     = 0B
+  mag_current     = 0B
+  esa_current     = 1B
+
   ;;Options for current threshold
   curThresh       = 10.
   ;; curThresh       = 2.
-  map_current     = 0B
+  abs_current     = 1B
 
   ;;Options for streaks
   min_streakLen_t = 10  ;min temporal length of streak
@@ -106,11 +111,32 @@ PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
   tagNames       = TAG_NAMES(maximus)
   
   ;;Apply current restriction
-  clean_i        = BASIC_DB_CLEANER(maximus, $
-                                    /CLEAN_NANS_AND_INFINITIES, $
-                                    CLEAN_THESE_INDS=clean_these_inds, $
-                                    /DISREGARD_SAMPLE_T)
-  clean_i        = CGSETINTERSECTION(WHERE(ABS(maximus.esa_current) GE curThresh), $
+  ;; clean_i        = BASIC_DB_CLEANER(maximus, $
+  ;;                                   /CLEAN_NANS_AND_INFINITIES, $
+  ;;                                   CLEAN_THESE_INDS=clean_these_inds, $
+  ;;                                   /DISREGARD_SAMPLE_T)
+  clean_i        = ALFVEN_DB_CLEANER(maximus, $
+                                     CLEAN_THESE_INDS=clean_these_inds, $
+                                     /DISREGARD_SAMPLE_T)
+
+  ;;And then do some current action
+  CASE 1 OF
+     KEYWORD_SET(esa_current) AND KEYWORD_SET(mag_current): BEGIN
+        PRINT,"Nope, try again."
+        STOP
+     END
+     KEYWORD_SET(esa_current): BEGIN
+        current  = maximus.esa_current
+     END
+     KEYWORD_SET(mag_current): BEGIN
+        current  = maximus.mag_current
+     END
+  ENDCASE
+
+  IF KEYWORD_SET(abs_current) THEN BEGIN
+     current     = ABS(current)
+  ENDIF
+  clean_i        = CGSETINTERSECTION(WHERE(current GE curThresh), $
                                      clean_i, $
                                      COUNT=nClean, $
                                      NORESULT=-1)
