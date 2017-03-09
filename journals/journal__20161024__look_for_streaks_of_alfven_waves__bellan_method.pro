@@ -4,7 +4,7 @@
 ;;That's where you got it.
 PRO JOURNAL__20161024__LOOK_FOR_STREAKS_OF_ALFVEN_WAVES__BELLAN_METHOD
 
-  COMPILE_OPT IDL2
+  COMPILE_OPT IDL2,STRICTARRSUBS
 
   ;;Options for current
   map_current     = 0B

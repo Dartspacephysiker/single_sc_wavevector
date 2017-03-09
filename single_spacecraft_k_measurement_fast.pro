@@ -36,7 +36,7 @@ END
 ; user should change to be appropriate for user's computer
 PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
 
-  COMPILE_OPT idl2
+  COMPILE_OPT idl2,strictarrsubs
 
   ;; prefix='D:\CORR\MNSCRPTS\2016-JGR-spacecraft-current-wavevector\2106-Vinas-kvect-revised\'
   saveDir = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
@@ -79,7 +79,7 @@ PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
                     PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
                     REMOVE_EPS=remove_eps
 
-  COMPILE_OPT idl2
+  COMPILE_OPT idl2,strictarrsubs
 
   hardcopy = mode
   IF hardcopy EQ 1 THEN DEVICE,/CLOSE
@@ -110,7 +110,7 @@ END
 PRO ADD_NOISE,Bx,By,Bz,Jx,Jy,Jz,T
   ;;create and add noise IF example = 3
 
-  COMPILE_OPT idl2
+  COMPILE_OPT idl2,strictarrsubs
 
   Bsqtotal = 0.0
   Jsqtotal = 0.0
@@ -185,7 +185,7 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                   SAVEDIR=saveDir, $
                   EXAMPLE=example
 
-  COMPILE_OPT idl2
+  COMPILE_OPT idl2,strictarrsubs
 
   T         = 200               ; number of elements in time domain vectors
   TArr      = INDGEN(T)
@@ -384,7 +384,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                     HAVE_EFIELD=have_EField, $
                     SRATES=sRates
 
-  COMPILE_OPT idl2
+  COMPILE_OPT idl2,strictarrsubs
 
   saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
 
@@ -1088,7 +1088,7 @@ END
 
 PRO DEAL_WITH_BADNESS,datSerie,improvSerie
 
-  COMPILE_OPT idl2
+  COMPILE_OPT idl2,strictarrsubs
 
   improvSerie  = datSerie
 
@@ -1135,7 +1135,7 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      ODDNESS_CHECK=oddness_check, $
                      DIAG=diag
 
-  COMPILE_OPT idl2
+  COMPILE_OPT idl2,strictarrsubs
 
   ;; diag         = 1
 
@@ -1357,7 +1357,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    FFTPERCENT=FFTpercent,$
    WHICH_FFTS=which_FFTs
 
-  COMPILE_OPT idl2
+  COMPILE_OPT idl2,strictarrsubs
 
   diag      = 1
   diagInd   = 0

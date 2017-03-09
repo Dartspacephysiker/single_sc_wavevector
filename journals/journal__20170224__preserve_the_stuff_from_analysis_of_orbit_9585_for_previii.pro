@@ -43,7 +43,7 @@ PRO JOURNAL__20170224__PRESERVE_THE_STUFF_FROM_ANALYSIS_OF_ORBIT_9585_FOR_PREVII
    FFTSIZE=FFTsize, $
    FFTPERCENT=FFTpercent
 
-  COMPILE_OPT IDL2
+  COMPILE_OPT IDL2,STRICTARRSUBS
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;The original Chaston et al. [2006] interval

@@ -12,7 +12,7 @@ PRO SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
    OUTPLOTNAME=outPlotName, $
    SAVEFILE=saveFile
    
-  COMPILE_OPT IDL2
+  COMPILE_OPT IDL2,STRICTARRSUBS
 
   IF ~KEYWORD_SET(eeb_or_ees) THEN BEGIN
      eeb_or_ees     = 'eeb'
