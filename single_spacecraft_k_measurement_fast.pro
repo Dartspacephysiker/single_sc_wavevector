@@ -34,9 +34,14 @@ END
 ; written by P. M. Bellan, April 2016, MS 128-95 Caltech, Pasadena CA 91125
 ; prefix gives file path for eps output, data input/output
 ; user should change to be appropriate for user's computer
-PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir
+PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir,font
 
   COMPILE_OPT idl2,strictarrsubs
+
+  defFont = '!8'
+  defFont = ''
+
+  font    = defFont
 
   ;; prefix='D:\CORR\MNSCRPTS\2016-JGR-spacecraft-current-wavevector\2106-Vinas-kvect-revised\'
   saveDir = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
@@ -241,9 +246,9 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      ysize  = 2
   ENDIF
 
-  PLOT,kx,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dx!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
-  PLOT,ky,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dy!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
-  PLOT,kz,XTITLE='!4x!3T/(2!4p!3)',YTITLE='!8k!Dz!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
+  PLOT,kx,XTITLE='!4x!3T/(2!4p!3)',YTITLE=font + 'k!Dx!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
+  PLOT,ky,XTITLE='!4x!3T/(2!4p!3)',YTITLE=font + 'k!Dy!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
+  PLOT,kz,XTITLE='!4x!3T/(2!4p!3)',YTITLE=font + 'k!Dz!N',CHARSIZE=cs,YRANGE=[-ysize,ysize]
 
   ;;store k components in a vector for use later
   FOR i=0,T/2 DO BEGIN
@@ -1358,6 +1363,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
    PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
    PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
+   KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
+   KP_ANGLE____PLOT_SMOOTHED=kP_angle__plot_smoothed, $
    PLOT_POSFREQ=plot_posFreq, $
    FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
    SAVE_PS=save_ps, $
@@ -1649,7 +1656,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                   ODDNESS_CHECK=oddness_check
                  this = ARRAY_INDICES(TRANSPOSE(fArr),(k*N_ELEMENTS(fArr[0,*])+LINDGEN(N_ELEMENTS(tmpI))))
                  ;; this = [this[1,*],this[0,*]]
-                 PRINT,this
+                 ;; PRINT,this
                  ;; fArr [k,*]  = freq
                  ;; kxArr[k,*] = kx
                  ;; kyArr[k,*] = ky
@@ -1823,7 +1830,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   ;;setup file management, filenames for selected output mode
   IF KEYWORD_SET(save_ps) THEN BEGIN
-     OUTPUT_SETUP,output_mode,plotDir,suff,saveDir
+     OUTPUT_SETUP,output_mode,plotDir,suff,saveDir,font
   ENDIF
   
   ;;plot components of calculated k vectors
@@ -1866,36 +1873,36 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   muLetter = '!4' + String('154'O) + '!X'
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Bx[usedInds], $
        XTITLE='t', $
-       YTITLE='!8B!Dx!N', $
+       YTITLE=font + 'B!Dx!N', $
        CHARSIZE=cs
 
   PLOT,TArr[usedInds]-TArr[usedInds[0]],By[usedInds], $
        XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-       YTITLE='!8B!Dy!N (nT)', $
+       YTITLE=font + 'B!Dy!N (nT)', $
        CHARSIZE=cs
 
 
   IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
      PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
           XTITLE='t', $
-          YTITLE='!8B!Dz!N', $
+          YTITLE=font + 'B!Dz!N', $
           CHARSIZE=cs
 
      PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
           XTITLE='t', $
-          YTITLE='!4l!3!D0 !N!8J!Dx!N', $
+          YTITLE='!4l!3!D0 !N' + font + 'J!Dx!N', $
           CHARSIZE=cs
 
      PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
           XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-          YTITLE='!4l!3!D0 !N!8J!Dy!N (!4l!N!8T/m)', $
+          YTITLE='!4l!3!D0 !N' + font + 'J!Dy!N (!4l!N' + font + 'T/m)', $
           CHARSIZE=cs
 
   ENDIF
 
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Jz[usedInds], $
        XTITLE='t', $
-       YTITLE='!4l!3!D0 !N!8J!Dz!N', $
+       YTITLE='!4l!3!D0 !N' + font + 'J!Dz!N', $
        CHARSIZE=cs
 
   CASE 1 OF
@@ -1969,7 +1976,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        CHARSIZE=cs
   ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
-  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
+  gimmeSmooths      = KEYWORD_SET(plot_smoothed_ks       ) OR KEYWORD_SET(plot_abs_smoothed_ks   ) OR $
+                      KEYWORD_SET(kx_vs_ky__plot_smoothed) OR KEYWORD_SET(kP_angle__plot_smoothed)
+
+  IF gimmeSmooths THEN BEGIN
 
      smooth_kx      = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx) : kx),smInd, $
                              EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
@@ -2054,7 +2064,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ;;Now kx vs ky
      ;; bound = MAX(ABS([smoothKx,smoothKy]))
 
-     bound = KEYWORD_SET(plot_smoothed_ks) ? MAX(ABS([smooth_kx[inds],smooth_ky[inds]])) : MAX(ABS([kx[inds],ky[inds]]))
+     ;; bound = KEYWORD_SET(plot_smoothed_ks) ? MAX(ABS([smooth_kx[inds],smooth_ky[inds]])) : MAX(ABS([kx[inds],ky[inds]]))
+     bound = MAX(ABS([kx[inds],ky[inds]]))
 
      ;; PLOT,smoothKx,smoothKy, $
      PLOT,kx[inds],ky[inds], $
@@ -2071,7 +2082,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           YGRIDSTYLE=1, $
           CHARSIZE=cs
 
-     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+     IF KEYWORD_SET(kx_vs_ky__plot_smoothed) THEN BEGIN
 
         OPLOT,smooth_kx[inds],smooth_ky[inds],COLOR=250,PSYM=1
 
@@ -2251,9 +2262,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
              YGRIDSTYLE=1, $
              ;; XLOG=1, $
              YLOG=1, $
-             ;; YTITLE='!8k!Dperp!N (m!U-1!N)', $
-             ;; YTITLE='!8k!Dperp!N (km!U-1!N)', $
-             YTITLE='!8k!D' + perpAll + '!N (km!U-1!N)', $
+             ;; YTITLE=font + 'k!Dperp!N (m!U-1!N)', $
+             ;; YTITLE=font + 'k!Dperp!N (km!U-1!N)', $
+             YTITLE=font + 'k!D' + perpAll + '!N (km!U-1!N)', $
              ;; XTICKFORMAT="(A1)", $
              CHARSIZE=cs
 
@@ -2448,14 +2459,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           CHARSIZE=cs
           ;; YTITLE='|$\theta$(k!Dperp!N)'
 
-     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+     IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
         OPLOT,freq[inds],smooth_kPAngle[inds], $
               COLOR=250
      ENDIF
 
      IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
 
-        IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+        IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
            OPLOT,freq[dopplInds],smooth_kPAngle[dopplInds],COLOR=230,PSYM=1
         ENDIF
 
@@ -2492,9 +2503,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            ;; kP__yRange = [4e-3,1e1]
            PLOT,kPAngle[inds],kP[inds], $
                 ;; XTITLE='!4h!X!Dk!Dperp!N', $
-                ;; YTITLE='!8k!Dperp!N (km!U-1!N)', $
+                ;; YTITLE=font + 'k!Dperp!N (km!U-1!N)', $
                 XTITLE='!4h!X!Dk!D' + perpAll + '!N', $
-                YTITLE='!8k!D' + perpAll + '!N (km!U-1!N)', $
+                YTITLE=font + 'k!D' + perpAll + '!N (km!U-1!N)', $
                 XRANGE=yARange, $
                 YRANGE=kP__yRange, $
                 XSTYLE=1, $
@@ -2507,12 +2518,12 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                 YGRIDSTYLE=1, $
                 CHARSIZE=cs
 
-
-           IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+           IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
               OPLOT,smooth_kPAngle[inds],smooth_kP[inds], $
                     COLOR=250, $
                     LINESTYLE=0, $
                     PSYM=2
+
            ENDIF
 
            IF KEYWORD_SET(save_ps) THEN BEGIN
