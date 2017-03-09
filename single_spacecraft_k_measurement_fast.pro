@@ -424,9 +424,44 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ENDIF
 
   ;;Just in case user is inclined to sparse provision of information
+  IF N_ELEMENTS(dB) EQ 0 THEN BEGIN
+
+     have_dB_fac   = N_ELEMENTS(dB_fac) NE 0
+     have_dB_fac_v = N_ELEMENTS(dB_fac_v) NE 0
+
+     CASE 1 OF
+        (have_dB_fac AND have_dB_fac_v): BEGIN
+           IF ~ARRAY_EQUAL(dB_fac.x,dB_fac_v.x) THEN BEGIN
+              PRINT,"What?"
+              STOP
+           ENDIF
+
+           dB = dB_fac
+
+        END
+        have_dB_fac: BEGIN
+
+           dB = dB_fac
+
+        END
+        have_dB_fac_v: BEGIN
+
+           dB = dB_fac_v
+           
+        END
+        ELSE: BEGIN
+
+           PRINT,"Got nothin!"
+           STOP
+
+        END
+     ENDCASE
+
+  ENDIF
+
   t1BKUP = N_ELEMENTS(t1Zoom) GT 0 ? t1Zoom : dB.x[0]
   t2BKUP = N_ELEMENTS(t2Zoom) GT 0 ? t2Zoom : dB.x[-1]
-
+  
   ;;Now custom times
   IF KEYWORD_SET(custom_t1) THEN BEGIN
      PRINT,FORMAT='(A0,T25,": ",A0)','Custom T1',SIZE(custom_t1,/TYPE) EQ 7 ? custom_t1 : TIME_TO_STR(custom_t1,/MS)
@@ -738,20 +773,25 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            sPeriod = DOUBLE(locs[ind])
            even_TS = Bt
 
+           origInterp = 0B
+           spline     = 1B
+           maxDelta_t = 1.5
+           interp = origInterp
            FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
                              {time:Je_z.x,comp1:Je_z.y}, $
                              RESULT=Je_z_interp, $
-                             ;; /INTERP, $
-                             /SPLINE, $
-                             DELT_T=1.5, $
+                             INTERP=interp, $
+                             SPLINE=spline, $
+                             DELT_T=maxDelta_t, $
                              /TALK
 
+           interp = origInterp
            FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
                              {time:Ji_z.x,comp1:Ji_z.y}, $
                              RESULT=Ji_z_interp, $
-                             ;; /INTERP, $
-                             /SPLINE, $
-                             DELT_T=1.5, $
+                             INTERP=interp, $
+                             SPLINE=spline, $
+                             DELT_T=maxDelta_t, $
                              /TALK
         ENDELSE
      END
@@ -1503,7 +1543,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   ;; cs        = 1.8
   IF KEYWORD_SET(pubSettings) THEN BEGIN
-     cs = 3.0
+     cs = 1.8
   ENDIF
 
   IF KEYWORD_SET(example_mode) THEN BEGIN
@@ -1621,11 +1661,26 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  ;; kzArr[this[0,*],this[1,*]] = kz
                  ;; kPArr[this[0,*],this[1,*]] = kP
 
-                 fArr [this] = freq
-                 kxArr[this] = kx
-                 kyArr[this] = ky
-                 kzArr[this] = kz
-                 ;; kPArr[this] = kP
+                 CASE NDIMEN(this) OF
+                    1: BEGIN
+
+                       fArr [this] = freq
+                       kxArr[this] = kx
+                       kyArr[this] = ky
+                       kzArr[this] = kz
+                       ;; kPArr[this] = kP
+
+                    END
+                    2: BEGIN
+
+                       fArr [this[1,*],this[0,*]] = freq
+                       kxArr[this[1,*],this[0,*]] = kx
+                       kyArr[this[1,*],this[0,*]] = ky
+                       kzArr[this[1,*],this[0,*]] = kz
+                       ;; kPArr[this] = kP
+
+                    END
+                 ENDCASE
 
               ENDFOR
 
@@ -1767,8 +1822,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDELSE
 
   ;;setup file management, filenames for selected output mode
-  OUTPUT_SETUP,output_mode,plotDir,suff,saveDir
-
+  IF KEYWORD_SET(save_ps) THEN BEGIN
+     OUTPUT_SETUP,output_mode,plotDir,suff,saveDir
+  ENDIF
+  
   ;;plot components of calculated k vectors
   IF example EQ 1 THEN BEGIN
      ysize = 10
