@@ -767,47 +767,56 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         even_TS = MAKE_EVENLY_SPACED_TIME_SERIES(START_T=ji_z.x[0], $
                                                  STOP_T=ji_z.x[-1], $
                                                  DELTA_T=sPeriod)
+        ;; even_TS = ji_z.x
 
         ;; even_TS = even_TS[60:-60]
+        origInterp = 0B
+        spline     = 1B
+        maxDelta_t = 0.2
 
+        interp = origInterp
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
                           {time:Bt,comp1:Bx}, $
                           RESULT=Bx_interp, $
-                          ;; /INTERP, $
-                          /SPLINE, $
-                          DELT_T=1.5, $
+                          INTERP=interp, $
+                          SPLINE=spline, $
+                          DELT_T=maxDelta_t, $
                           /TALK
 
+        interp = origInterp
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
                           {time:Bt,comp1:By}, $
                           RESULT=By_interp, $
-                          ;; /INTERP, $
-                          /SPLINE, $
-                          DELT_T=1.5, $
+                          INTERP=interp, $
+                          SPLINE=spline, $
+                          DELT_T=maxDelta_t, $
                           /TALK
 
+        interp = origInterp
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
                           {time:Bt,comp1:Bz}, $
                           RESULT=Bz_interp, $
-                          ;; /INTERP, $
-                          /SPLINE, $
-                          DELT_T=1.5, $
+                          INTERP=interp, $
+                          SPLINE=spline, $
+                          DELT_T=maxDelta_t, $
                           /TALK
 
+        interp = origInterp
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
                           {time:Je_z.x,comp1:Je_z.y}, $
                           RESULT=Je_z_interp, $
-                          ;; /INTERP, $
-                          /SPLINE, $
-                          DELT_T=1.5, $
+                          INTERP=interp, $
+                          SPLINE=spline, $
+                          DELT_T=maxDelta_t, $
                           /TALK
 
+        interp = origInterp
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
                           {time:Ji_z.x,comp1:Ji_z.y}, $
                           RESULT=Ji_z_interp, $
-                          ;; /INTERP, $
-                          /SPLINE, $
-                          DELT_T=1.5, $
+                          INTERP=interp, $
+                          SPLINE=spline, $
+                          DELT_T=maxDelta_t, $
                           /TALK
 
         Bx = Bx_interp
@@ -1123,9 +1132,12 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      DOUBLE_CALC=double_calc, $
                      HANNING=hanning, $
                      HAVE_EFIELD=have_EField, $
-                     ODDNESS_CHECK=oddness_check
+                     ODDNESS_CHECK=oddness_check, $
+                     DIAG=diag
 
   COMPILE_OPT idl2
+
+  ;; diag         = 1
 
   JxBtotal     = 0
   norm         = 0              ; check that avg J x B =0
@@ -1137,7 +1149,9 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
      ;; norm for denominator
      norm      = norm + SQRT(Jx[TT]^2+ Jy[TT]^2+ Jz[TT]^2)*SQRT(Bx[TT]^2+ By[TT]^2+ Bz[TT]^2)
 
-     PRINT,FORMAT='("avgJxBtotal/norm[",I0,"]: ",G12.5,T40,G12.5,T54,G10.5)',TT,JxBtotal/T/norm ; small (supposed to be zero)
+     IF KEYWORD_SET(diag) THEN BEGIN
+        PRINT,FORMAT='("avgJxBtotal/norm[",I0,"]: ",G12.5,T40,G12.5,T54,G10.5)',TT,JxBtotal/T/norm ; small (supposed to be zero)
+     ENDIF
 
   ENDFOR
 
@@ -1323,6 +1337,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
    KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
    KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+   FREQLIMS=freqLims, $
    PAGE1__FREQRANGE=page1__freqRange, $
    PAGE2__FREQRANGE=page2__freqRange, $
    KP__ANGLERANGE=kP__angleRange, $
@@ -1336,6 +1351,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    STREAKNUM=streakNum, $
    USE_ALL_STREAKS=use_all_streaks, $
    PUBLICATION_SETTINGS=pubSettings, $
+   PRE_VIII_LAYOUT=PRE_VIII_layout, $
    ODDNESS_CHECK=oddness_check, $
    FFTSIZE=FFTsize, $
    FFTPERCENT=FFTpercent,$
@@ -1487,7 +1503,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   ;; cs        = 1.8
   IF KEYWORD_SET(pubSettings) THEN BEGIN
-     cs = 2.5
+     cs = 3.0
   ENDIF
 
   IF KEYWORD_SET(example_mode) THEN BEGIN
@@ -1740,6 +1756,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         kPAngle[those] = (kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
      ENDIF
 
+     ;; kPAngle = UNWRAP(kPAngle,DIVISOR=360)
+
   ENDIF ELSE BEGIN
      histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
      rotate_kPA = (histo[0]+histo[3]) GT (histo[1]+histo[2])
@@ -1800,20 +1818,23 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        CHARSIZE=cs
 
 
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
-       XTITLE='t', $
-       YTITLE='!8B!Dz!N', $
-       CHARSIZE=cs
+  IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
+     PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
+          XTITLE='t', $
+          YTITLE='!8B!Dz!N', $
+          CHARSIZE=cs
 
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
-       XTITLE='t', $
-       YTITLE='!4l!3!D0 !N!8J!Dx!N', $
-       CHARSIZE=cs
+     PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
+          XTITLE='t', $
+          YTITLE='!4l!3!D0 !N!8J!Dx!N', $
+          CHARSIZE=cs
 
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
-       XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-       YTITLE='!4l!3!D0 !N!8J!Dy!N (!4l!N!8T/m)', $
-       CHARSIZE=cs
+     PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
+          XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
+          YTITLE='!4l!3!D0 !N!8J!Dy!N (!4l!N!8T/m)', $
+          CHARSIZE=cs
+
+  ENDIF
 
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Jz[usedInds], $
        XTITLE='t', $
@@ -1862,6 +1883,12 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      END
   ENDCASE
 
+  IF KEYWORD_SET(freqLims) THEN BEGIN
+     inds = WHERE(freq GE freqLims[0] AND freq LE freqLims[1],nInds)
+     IF nInds LE 1 THEN STOP
+  END
+
+
   ;;Rotation matrix?
   ;; angle      = 20.*!DTOR
   ;; kxprime    = kx*COS(angle) - ky*SIN(angle)
@@ -1878,6 +1905,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        YRANGE=[-kx_ysize,kx_ysize], $
        XSTYLE=1, $
        YSTYLE=1, $
+       XTICKLEN=1.0, $
+       YTICKLEN=1.0, $
+       XGRIDSTYLE=1, $
+       YGRIDSTYLE=1, $
        CHARSIZE=cs
   ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
@@ -1931,6 +1962,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
        YRANGE=[-ky_ysize,ky_ysize], $
        XSTYLE=1, $
        YSTYLE=1, $
+       XTICKLEN=1.0, $
+       YTICKLEN=1.0, $
+       XGRIDSTYLE=1, $
+       YGRIDSTYLE=1, $
        CHARSIZE=cs
   ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
@@ -2009,14 +2044,18 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
 
-  IF KEYWORD_SET(save_ps) THEN BEGIN
-     CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
-                     TO_PDF=to_pdf, $
-                     PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                     REMOVE_EPS=remove_eps
+  IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
 
-     ;;Don't conclude, just keep it movin'
-     ;; ERASE
+     IF KEYWORD_SET(save_ps) THEN BEGIN
+        CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
+                        TO_PDF=to_pdf, $
+                        PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
+                        REMOVE_EPS=remove_eps
+
+        ;;Don't conclude, just keep it movin'
+        ;; ERASE
+     ENDIF
+
   ENDIF
 
   ;;Show Hanning windowed?
@@ -2101,203 +2140,222 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                 /OVERPLOT)
   ENDIF ELSE BEGIN
 
-     IF KEYWORD_SET(save_ps) THEN BEGIN
-        OUTPUT_SETUP,output_mode,plotDir,suff+'-page2',saveDir
-     ENDIF
 
-     columns      = 1
-     rows         = 3
-     !P.MULTI[0]  = 0
-     !P.MULTI[1]  = columns
-     !P.MULTI[2]  = rows
-     !P.MULTI[3]  = 2 ;;Next page?
-     ;; !P.MULTI  = [0, columns, rows, 0, 0]
-     ;; !P.MULTI  = [0, columns, rows]
-     ;; !P.MULTI  = [0, columns, rows, 1, 0]
-     ;; !P.MULTI[0]  = 0
+     IF KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
 
-     IF ~KEYWORD_SET(save_ps) THEN BEGIN
-        IF columns EQ 1 THEN BEGIN
-           WINDOW,2,XSIZE=700,YSIZE=800
-        ENDIF ELSE BEGIN
-           WINDOW,2,XSIZE=1200,YSIZE=600
-        ENDELSE
-     ENDIF
+        columns      = 1
+        rows         = 3
+        !P.MULTI[0]  = 1
+        !P.MULTI[1]  = columns
+        !P.MULTI[2]  = rows
+        ;; !P.MULTI[3]  = 2 ;;Next page?
 
-     ;; k__yRange = [4e-3,1e1]
-     kP__yRange = MINMAX(kP[inds])
-     PLOT,freq[inds],kP[inds], $
-          XTITLE='Frequency (Hz)', $
-          ;; YRANGE=[4e-6,1e-2], $
-          XRANGE=page2__freqRange, $
-          YRANGE=kP__yRange, $
-          XSTYLE=1, $
-          YSTYLE=1, $
-          XTICKLEN=1.0, $
-          YTICKLEN=1.0, $
-          XGRIDSTYLE=1, $
-          YGRIDSTYLE=1, $
-          ;; XLOG=1, $
-          YLOG=1, $
-          ;; YTITLE='!8k!Dperp!N (m!U-1!N)', $
-          ;; YTITLE='!8k!Dperp!N (km!U-1!N)', $
-          YTITLE='!8k!D' + perpAll + '!N (km!U-1!N)', $
-          ;; XTICKFORMAT="(A1)", $
-          CHARSIZE=cs
+        page2Suff = ''
 
-      ;; smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-        OPLOT,freq[inds],smooth_kP[inds], $
-              COLOR=250
-     ENDIF
+     ENDIF ELSE BEGIN
 
-      IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-         dbSmkP = SMOOTH(kP[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-         OPLOT,freq[inds],dbSmkP, $
-               COLOR=90
-      ENDIF
+        page2Suff = '-page2'
 
-      overplot_k_turbulence = 1
-      IF KEYWORD_SET(overplot_k_turbulence) THEN BEGIN
-         ;; kDoppl = (freq[inds]^(1.7)/10000)
-         GET_FA_ORBIT,Tarr,/DEFINITIVE,/ALL,/TIME_ARRAY
-         GET_DATA,'fa_vel',DATA=vel
+        IF KEYWORD_SET(save_ps) THEN BEGIN
+           OUTPUT_SETUP,output_mode,plotDir,suff+page2Suff,saveDir
+        ENDIF
 
-         ;; speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
-         speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)
-         ;; avgSpeed = MEAN(speed)-6000.
-         avgSpeed = MEAN(speed)
+        columns      = 1
+        rows         = 3
+        !P.MULTI[0]  = 0
+        !P.MULTI[1]  = columns
+        !P.MULTI[2]  = rows
+        !P.MULTI[3]  = 2 ;;Next page?
+        ;; !P.MULTI  = [0, columns, rows, 0, 0]
+        ;; !P.MULTI  = [0, columns, rows]
+        ;; !P.MULTI  = [0, columns, rows, 1, 0]
+        ;; !P.MULTI[0]  = 0
 
-         kMajic = kx
-         ;; kxTemp = kx
+        IF ~KEYWORD_SET(save_ps) THEN BEGIN
+           IF columns EQ 1 THEN BEGIN
+              WINDOW,2,XSIZE=700,YSIZE=800
+           ENDIF ELSE BEGIN
+              WINDOW,2,XSIZE=1200,YSIZE=600
+           ENDELSE
+        ENDIF
 
-         ;; CASE 1 OF
-         IF KEYWORD_SET(fitline__use_abs) THEN BEGIN
-            kMajic = ABS(kMajic)
-         ENDIF ELSE BEGIN
-            chuck = WHERE(kMajic GT 0.0,nPosKx)
-            chuck = WHERE(kMajic LT 0.0,nNegKx)
-            IF nNegKx GT nPosKx THEN kMajic *= -1.
-         ENDELSE
-         IF KEYWORD_SET(fitline__use_smoothed) THEN BEGIN
-            kMajic = SMOOTH(kMajic,smInd)
-         END
-         ;; kMajic = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
-         ;;                  ABS(kP) : kP), $
-         ;;                 smInd, $
-         ;;                 EDGE_TRUNCATE=edge_truncate, $
-         ;;                 EDGE_MIRROR=edge_mirror, $
-         ;;                 EDGE_WRAP=edge_wrap)
+        ;; k__yRange = [4e-3,1e1]
+        kP__yRange = MINMAX(kP[inds])
+        PLOT,freq[inds],kP[inds], $
+             XTITLE='Frequency (Hz)', $
+             ;; YRANGE=[4e-6,1e-2], $
+             XRANGE=page2__freqRange, $
+             YRANGE=kP__yRange, $
+             XSTYLE=1, $
+             YSTYLE=1, $
+             XTICKLEN=1.0, $
+             YTICKLEN=1.0, $
+             XGRIDSTYLE=1, $
+             YGRIDSTYLE=1, $
+             ;; XLOG=1, $
+             YLOG=1, $
+             ;; YTITLE='!8k!Dperp!N (m!U-1!N)', $
+             ;; YTITLE='!8k!Dperp!N (km!U-1!N)', $
+             YTITLE='!8k!D' + perpAll + '!N (km!U-1!N)', $
+             ;; XTICKFORMAT="(A1)", $
+             CHARSIZE=cs
 
-         ;; wDoppl    = kMajic*(avgSpeed)/(2.*!PI)
-         ;; fDoppl    = wDoppl
+        ;; smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+        IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+           OPLOT,freq[inds],smooth_kP[inds], $
+                 COLOR=250
+        ENDIF
 
-         minDoppl  = FLOOR(MIN(freq))
-         maxDoppl  = CEIL(MAX(freq))
-         fDoppl    = FINDGEN((maxDoppl-minDoppl)*20.+1)*0.05+minDoppl
-         kDoppl    = fDoppl/avgSpeed
+        IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
+           dbSmkP = SMOOTH(kP[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+           OPLOT,freq[inds],dbSmkP, $
+                 COLOR=90
+        ENDIF
 
-         like_kx   = 1
-         IF KEYWORD_SET(like_kx) THEN BEGIN
-            ;; yArg   = ABS(kx)
-            yArg   = kx
-            yTito  = 'k!Dx!N (km!U-1!N)'
-         ENDIF ELSE BEGIN
-            yArg   = ABS(ky)
-            yTito  = 'k!Dy!N (km!U-1!N)'
-         ENDELSE
+        overplot_k_turbulence = 1
+        IF KEYWORD_SET(overplot_k_turbulence) THEN BEGIN
+           ;; kDoppl = (freq[inds]^(1.7)/10000)
+           GET_FA_ORBIT,Tarr,/DEFINITIVE,/ALL,/TIME_ARRAY
+           GET_DATA,'fa_vel',DATA=vel
 
-         k__yRange = [MIN(yArg),MAX(yArg)] 
-         PLOT,freq[inds],yArg[inds], $
-              XTITLE='Frequency (Hz)', $
-              YTITLE=yTito, $
-              XRANGE=page2__freqRange, $
-              ;; YRANGE=k__yRange, $
-              XSTYLE=1, $
-              ;; YSTYLE=1, $
-              ;; XLOG=1, $
-              ;; YLOG=1, $
-              ;;NWO
-              ;; YRANGE=[(-1.)*MIN(k__yRange),MAX(k__yRange)], $
-              YRANGE=k__yRange, $
-              YLOG=0, $
-              XTICKLEN=1.0, $
-              YTICKLEN=1.0, $
-              XGRIDSTYLE=1, $
-              YGRIDSTYLE=1, $
-              CHARSIZE=cs
+           ;; speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
+           speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)
+           ;; avgSpeed = MEAN(speed)-6000.
+           avgSpeed = MEAN(speed)
 
-         ;; OPLOT,fDoppl[inds],kMajic[inds], $
-         ;; OPLOT,freq[inds],kDoppl[inds], $
-         OPLOT,fDoppl,kDoppl, $
-               COLOR=110
+           kMajic = kx
+           ;; kxTemp = kx
 
-         OPLOT,fDoppl,(-1.)*kDoppl, $
-               COLOR=110
+           ;; CASE 1 OF
+           IF KEYWORD_SET(fitline__use_abs) THEN BEGIN
+              kMajic = ABS(kMajic)
+           ENDIF ELSE BEGIN
+              chuck = WHERE(kMajic GT 0.0,nPosKx)
+              chuck = WHERE(kMajic LT 0.0,nNegKx)
+              IF nNegKx GT nPosKx THEN kMajic *= -1.
+           ENDELSE
+           IF KEYWORD_SET(fitline__use_smoothed) THEN BEGIN
+              kMajic = SMOOTH(kMajic,smInd)
+           END
+           ;; kMajic = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
+           ;;                  ABS(kP) : kP), $
+           ;;                 smInd, $
+           ;;                 EDGE_TRUNCATE=edge_truncate, $
+           ;;                 EDGE_MIRROR=edge_mirror, $
+           ;;                 EDGE_WRAP=edge_wrap)
 
-         kDopplDat = freq/avgSpeed
-         posii     = WHERE((yArg[inds] GT 0) AND (yArg[inds] GT kDopplDat[inds]),nPosii)
-         negii     = WHERE((yArg[inds] LT 0) AND (yArg[inds] LT (-1.)*kDopplDat[inds]),nNegii)
+           ;; wDoppl    = kMajic*(avgSpeed)/(2.*!PI)
+           ;; fDoppl    = wDoppl
 
-         dopplInds = !NULL
-         IF nPosii GT 0 THEN BEGIN
-            dopplInds = [dopplInds,inds[posii]]
-         ENDIF
-         IF nNegii GT 0 THEN BEGIN
-            dopplInds = [dopplInds,inds[negii]]
-         ENDIF
+           minDoppl  = FLOOR(MIN(freq))
+           maxDoppl  = CEIL(MAX(freq))
+           fDoppl    = FINDGEN((maxDoppl-minDoppl)*20.+1)*0.05+minDoppl
+           kDoppl    = fDoppl/avgSpeed
 
-         OPLOT,freq[dopplInds],yArg[dopplInds],COLOR=230,PSYM=1
+           like_kx   = 1
+           IF KEYWORD_SET(like_kx) THEN BEGIN
+              ;; yArg   = ABS(kx)
+              yArg   = kx
+              yTito  = 'k!Dx!N (km!U-1!N)'
+           ENDIF ELSE BEGIN
+              yArg   = ABS(ky)
+              yTito  = 'k!Dy!N (km!U-1!N)'
+           ENDELSE
 
-         add_Doppler_fit_string = 0
-         IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
-            fitInds      = CGSETINTERSECTION(fitInds,WHERE(kMajic GT 0.00))
-            params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),YFIT=kxFitter)
-            corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),T_STAT=t_stat)
+           k__yRange = [MIN(yArg),MAX(yArg)] 
+           PLOT,freq[inds],yArg[inds], $
+                XTITLE='Frequency (Hz)', $
+                YTITLE=yTito, $
+                XRANGE=page2__freqRange, $
+                ;; YRANGE=k__yRange, $
+                XSTYLE=1, $
+                ;; YSTYLE=1, $
+                ;; XLOG=1, $
+                ;; YLOG=1, $
+                ;;NWO
+                ;; YRANGE=[(-1.)*MIN(k__yRange),MAX(k__yRange)], $
+                YRANGE=k__yRange, $
+                YLOG=0, $
+                XTICKLEN=1.0, $
+                YTICKLEN=1.0, $
+                XGRIDSTYLE=1, $
+                YGRIDSTYLE=1, $
+                CHARSIZE=cs
 
-            params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),YFIT=kxFitter)
-            corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),T_STAT=t_stat)
+           ;; OPLOT,fDoppl[inds],kMajic[inds], $
+           ;; OPLOT,freq[inds],kDoppl[inds], $
+           OPLOT,fDoppl,kDoppl, $
+                 COLOR=110
 
-            xFit         = 10.^((INDGEN(10))/ $
-                                10.*(ALOG10(MAX(freq[fitInds]))-ALOG10(MIN(freq[fitInds])))+$
-                                ALOG10(MIN(freq[fitInds])))
-            kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
-            kxFitter     = 10.^(params[1] * ALOG10(freq[fitInds]) + params[0])
+           OPLOT,fDoppl,(-1.)*kDoppl, $
+                 COLOR=110
 
-            ;; slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
-            ;; corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
-            ;; tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
-            ;; txOutSize    = cs
-            ;; XYOUTS,0.2,0.89,slopeString,/NORMAL,CHARSIZE=txOutSize
-            ;; XYOUTS,0.2,0.86,corrString,/NORMAL,CHARSIZE=txOutSize
-            ;; XYOUTS,0.2,0.83,tString,/NORMAL,CHARSIZE=txOutSize
-            ;; XYOUTS,0.2,0.59,slopeString,/NORMAL,CHARSIZE=txOutSize
-            ;; XYOUTS,0.2,0.56,corrString,/NORMAL,CHARSIZE=txOutSize
-            ;; XYOUTS,0.2,0.53,tString,/NORMAL,CHARSIZE=txOutSize
+           kDopplDat = freq/avgSpeed
+           posii     = WHERE((yArg[inds] GT 0) AND (yArg[inds] GT kDopplDat[inds]),nPosii)
+           negii     = WHERE((yArg[inds] LT 0) AND (yArg[inds] LT (-1.)*kDopplDat[inds]),nNegii)
 
-            ;; OPLOT,xFit,kxFit,COLOR=40
+           dopplInds = !NULL
+           IF nPosii GT 0 THEN BEGIN
+              dopplInds = [dopplInds,inds[posii]]
+           ENDIF
+           IF nNegii GT 0 THEN BEGIN
+              dopplInds = [dopplInds,inds[negii]]
+           ENDIF
 
-         ENDIF
-      ENDIF
+           OPLOT,freq[dopplInds],yArg[dopplInds],COLOR=230,PSYM=1
+
+           add_Doppler_fit_string = 0
+           IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
+              fitInds      = CGSETINTERSECTION(fitInds,WHERE(kMajic GT 0.00))
+              params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),YFIT=kxFitter)
+              corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),T_STAT=t_stat)
+
+              params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),YFIT=kxFitter)
+              corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),T_STAT=t_stat)
+
+              xFit         = 10.^((INDGEN(10))/ $
+                                  10.*(ALOG10(MAX(freq[fitInds]))-ALOG10(MIN(freq[fitInds])))+$
+                                  ALOG10(MIN(freq[fitInds])))
+              kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
+              kxFitter     = 10.^(params[1] * ALOG10(freq[fitInds]) + params[0])
+
+              ;; slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
+              ;; corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
+              ;; tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
+              ;; txOutSize    = cs
+              ;; XYOUTS,0.2,0.89,slopeString,/NORMAL,CHARSIZE=txOutSize
+              ;; XYOUTS,0.2,0.86,corrString,/NORMAL,CHARSIZE=txOutSize
+              ;; XYOUTS,0.2,0.83,tString,/NORMAL,CHARSIZE=txOutSize
+              ;; XYOUTS,0.2,0.59,slopeString,/NORMAL,CHARSIZE=txOutSize
+              ;; XYOUTS,0.2,0.56,corrString,/NORMAL,CHARSIZE=txOutSize
+              ;; XYOUTS,0.2,0.53,tString,/NORMAL,CHARSIZE=txOutSize
+
+              ;; OPLOT,xFit,kxFit,COLOR=40
+
+           ENDIF
+        ENDIF
+
+     ENDELSE
 
      ;;Kperp angle plot     
-      IF KEYWORD_SET(kP__angleRange) THEN BEGIN
+     IF KEYWORD_SET(kP__angleRange) THEN BEGIN
 
-         yARange  = kP__angleRange
-         nTickV  = (MAX(kP__angleRange)-MIN(kP__angleRange))/45
-         yTickV  = INDGEN(nTickV)*45
+        yARange  = kP__angleRange
+        nTickV  = (MAX(kP__angleRange)-MIN(kP__angleRange))/45
+        yTickV  = INDGEN(nTickV)*45+MIN(kP__angleRange) MOD 360
+        ;; yTickV  = INDGEN(nTickV)*45+MIN(kP__angleRange) MOD 360
+        yTickName = yTickV MOD 360
+     ENDIF ELSE BEGIN
 
-      ENDIF ELSE BEGIN
+        yARange  = [-180,180]
+        yTickV  = [-180,-90,0,90,180]
 
-         yARange  = [-180,180]
-         yTickV  = [-180,-90,0,90,180]
+        IF rotate_kPA THEN BEGIN
+           yARange += 180
+           yTickV += 180
+        ENDIF
 
-         IF rotate_kPA THEN BEGIN
-            yARange += 180
-            yTickV += 180
-         ENDIF
-
-      ENDELSE
+     ENDELSE
 
 
      ;;We don't want any wrap
@@ -2328,6 +2386,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
           YGRIDSTYLE=1, $
           YTICKS=N_ELEMENTS(yTickV)-1, $
           YTICKV=yTickV, $
+          YTICKNAME=yTickName, $
           YMINOR=6, $
           CHARSIZE=cs
           ;; YTITLE='|$\theta$(k!Dperp!N)'
@@ -2337,13 +2396,16 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               COLOR=250
      ENDIF
 
-     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-        OPLOT,freq[dopplInds],smooth_kPAngle[dopplInds],COLOR=230,PSYM=1
+     IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
+
+        IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+           OPLOT,freq[dopplInds],smooth_kPAngle[dopplInds],COLOR=230,PSYM=1
+        ENDIF
+
+        PRINT,"Mean theta exceeding doppl: ",MEAN(kPAngle[dopplInds])
+        PRINT,"Medn theta exceeding doppl: ",MEDIAN(kPAngle[dopplInds])
+
      ENDIF
-
-     PRINT,"Mean theta exceeding doppl: ",MEAN(kPAngle[dopplInds])
-     PRINT,"Medn theta exceeding doppl: ",MEDIAN(kPAngle[dopplInds])
-
 
      IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
         dbSmkPAngle = SMOOTH(kPAngle,dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
@@ -2352,9 +2414,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ENDIF
 
      CASE 1 OF
-        KEYWORD_SET(third_page): BEGIN
+        KEYWORD_SET(third_page) AND ~KEYWORD_SET(PRE_VIII_layout): BEGIN
            IF KEYWORD_SET(save_ps) THEN BEGIN
-              CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page2', $
+              CONCLUDE_OUTPUT,output_mode,plotDir,suff+page2Suff, $
                               ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
                               TO_PDF=to_pdf, $
                               PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
@@ -2425,7 +2487,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ELSE: BEGIN
 
            IF KEYWORD_SET(save_ps) THEN BEGIN
-              CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page2', $
+
+              CONCLUDE_OUTPUT,output_mode,plotDir,suff+page2suff, $
                               ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
                               TO_PDF=to_pdf, $
                               PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
@@ -2435,17 +2498,28 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               IF KEYWORD_SET(to_pdf) THEN BEGIN
                  fPref = plotDir + suff
 
-                 SPAWN,'pdfunite ' + fPref + '.pdf' + ' ' + $
-                       fPref + '-page2' + '.pdf' + ' ' + $
-                       fPref + '-all' + '.pdf'
+                 CASE 1 OF
+                    KEYWORD_SET(PRE_VIII_layout): BEGIN
 
-                 SPAWN,'mv ' + fPref + '-all' + '.pdf' + ' ' + $
-                       fPref + '.pdf'
+                    END
+                    ELSE: BEGIN
 
-                 SPAWN,'rm ' + fPref + '-page2' + '.pdf'
+                       SPAWN,'pdfunite ' + fPref + '.pdf' + ' ' + $
+                             fPref + '-page2' + '.pdf' + ' ' + $
+                             fPref + '-all' + '.pdf'
+
+                       SPAWN,'mv ' + fPref + '-all' + '.pdf' + ' ' + $
+                             fPref + '.pdf'
+
+                       SPAWN,'rm ' + fPref + '-page2' + '.pdf'
+
+                    END
+                 ENDCASE
+
               ENDIF
 
            ENDIF
+
         END
      ENDCASE
 
