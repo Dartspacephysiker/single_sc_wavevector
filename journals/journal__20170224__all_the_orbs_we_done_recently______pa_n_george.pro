@@ -28,19 +28,23 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
    SHIFT_NPTS=shift_nPts, $
+   BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
+   FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
+   USE_AVGED_FOR_SMOOTH=use_avged_for_smooth, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
    PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
    PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
    KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
-   KP_ANGLE____PLOT_SMOOTHED=kP_angle__plot_smoothed, $
+   KP_ANGLE__PLOT_SMOOTHED=kP_angle__plot_smoothed, $
    PLOT_POSFREQ=plot_posFreq, $
    FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
    SAVE_PS=save_ps, $
    TO_PDF=to_pdf, $
    PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
    REMOVE_EPS=remove_eps, $
+   NO_PLOTS=no_plots, $
    BONUS_SUFF=bonus_suff, $
    EXTRA_SUFFIX=extra_suffix, $
    DOUBLE_CALC=double_calc, $
@@ -73,7 +77,22 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
    FFTPERCENT=FFTpercent,$
-   WHICH_FFTS=which_FFTs
+   WHICH_FFTS=which_FFTs, $
+   OUT_FREQS=out_freqs, $
+   OUT_KX=out_kx, $
+   OUT_KY=out_ky, $
+   OUT_KZ=out_kz, $
+   OUT_KP=out_kP, $
+   OUT_ANGLE_KP=out_kPAngle, $
+   ;; OUT_INDS=out_inds, $
+   OUT_TARR=out_TArr, $
+   OUT_USEDINDS=out_usedInds, $
+   OUT_BX=out_Bx, $
+   OUT_BY=out_By, $
+   OUT_BZ=out_Bz, $
+   OUT_JX=out_Jx, $
+   OUT_JY=out_Jy, $
+   OUT_JZ=out_Jz
 
   COMPILE_OPT IDL2,STRICTARRSUBS
 
@@ -122,19 +141,23 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      CUSTOM_T1=custom_t1, $
      CUSTOM_T2=custom_t2, $
      SHIFT_NPTS=shift_nPts, $
+     BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
+     FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
+     USE_AVGED_FOR_SMOOTH=use_avged_for_smooth, $
      EXAMPLE_MODE=example_mode, $
      PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
      PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
      PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
      PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
      KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
-     KP_ANGLE____PLOT_SMOOTHED=kP_angle__plot_smoothed, $
+     KP_ANGLE__PLOT_SMOOTHED=kP_angle__plot_smoothed, $
      PLOT_POSFREQ=plot_posFreq, $
      FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
      SAVE_PS=save_ps, $
      TO_PDF=to_pdf, $
      PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
      REMOVE_EPS=remove_eps, $
+     NO_PLOTS=no_plots, $
      BONUS_SUFF=bonus_suff, $
      EXTRA_SUFFIX=extra_suffix, $
      DOUBLE_CALC=double_calc, $
@@ -167,6 +190,21 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      FFT__NEAREST_TWO_POWER=nearest_two_power, $
      FFTSIZE=FFTsize, $
      FFTPERCENT=FFTpercent,$
-     WHICH_FFTS=which_FFTs
+     WHICH_FFTS=which_FFTs, $
+     OUT_FREQS=out_freqs, $
+     OUT_KX=out_kx, $
+     OUT_KY=out_ky, $
+     OUT_KZ=out_kz, $
+     OUT_KP=out_kP, $
+     OUT_ANGLE_KP=out_kPAngle, $
+     ;; OUT_INDS=out_inds, $
+     OUT_TARR=out_TArr, $
+     OUT_USEDINDS=out_usedInds, $
+     OUT_BX=out_Bx, $
+     OUT_BY=out_By, $
+     OUT_BZ=out_Bz, $
+     OUT_JX=out_Jx, $
+     OUT_JY=out_Jy, $
+     OUT_JZ=out_Jz
 
 END

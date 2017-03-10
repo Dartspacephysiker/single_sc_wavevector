@@ -51,7 +51,7 @@ PRO SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
   ENDIF
 
   IF KEYWORD_SET(use_RepRetCal_file) THEN BEGIN
-     tmpSuff        = '-' + 'RepRetCalib'
+     tmpSuff        = '-' + 'RRC'
      saveFile       = saveFile.Replace('.sav',tmpSuff + '.sav')
      outPlotName   += tmpSuff
   ENDIF

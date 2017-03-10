@@ -31,87 +31,6 @@ FUNCTION CORRELATION,f,g,T
 END
 
 ;********************************************************************
-; written by P. M. Bellan, April 2016, MS 128-95 Caltech, Pasadena CA 91125
-; prefix gives file path for eps output, data input/output
-; user should change to be appropriate for user's computer
-PRO OUTPUT_SETUP,mode,plotDir,suff,saveDir,font
-
-  COMPILE_OPT idl2,strictarrsubs
-
-  defFont = '!8'
-  defFont = ''
-
-  font    = defFont
-
-  ;; prefix='D:\CORR\MNSCRPTS\2016-JGR-spacecraft-current-wavevector\2106-Vinas-kvect-revised\'
-  saveDir = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
-
-  filename = plotDir+ $
-             suff
-
-  PRINT,STRING(FORMAT='("plotFile : ",A0)',suff)
-  ;;SET UP FOR PLOTTING ON:
-  ;; SCREEN,          set hardcopy = 0
-  ;; PRINTER,         set hardcopy = 1
-  ;; POSTSCRIPT FILE, set hardcopy = 2
-  hardcopy = mode
-  IF hardcopy EQ 1 THEN SET_PLOT,'printer' ;PRINTER
-  IF hardcopy EQ 1 THEN DEVICE,YSIZE=25,YOFFSET=0
-  IF hardcopy EQ 0 THEN BEGIN
-     SET_PLOT,'X'
-     WINDOW,0,XSIZE=800,YSIZE=800
-  ENDIF
-  IF hardcopy EQ 2 THEN BEGIN      ;;POSTSCRIPT FILE
-     ;; !P.CHARSIZE  = 3
-     !P.CHARTHICK = 3
-     !P.THICK     = 3
-
-     ;; @startup
-     ;; POPEN,filename,XSIZE=10,YSIZE=10
-
-     SET_PLOT,'PS'
-     ;; DEVICE,FILE=filename+'.eps',/ENCAPSUL,XSIZE=10,YSIZE=10,/INCHES,YOFFSET=2,/COLOR
-     DEVICE,FILE=filename+'.eps',XSIZE=10,YSIZE=10,/INCHES,YOFFSET=2,/COLOR
-  ENDIF
-
-END
-
-;********************************************************************
-; written by P. M. Bellan, April 2016, MS 128-95 Caltech, Pasadena CA 91125
-; place at end of code to do housekeeping
-PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
-                    TO_PDF=to_pdf, $
-                    PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                    REMOVE_EPS=remove_eps
-
-  COMPILE_OPT idl2,strictarrsubs
-
-  hardcopy = mode
-  IF hardcopy EQ 1 THEN DEVICE,/CLOSE
-  IF hardcopy EQ 1 THEN SET_PLOT,'X'
-  IF hardcopy EQ 2 THEN BEGIN
-     DEVICE,/CLOSE
-     ;; PCLOSE
-     SET_PLOT,'X'
-
-     IF KEYWORD_SET(to_pdf) THEN BEGIN
-        filename = plotDir+ $
-                   suff
-
-        EPS2PDF,filename, $
-                ;; /PS, $
-                TRANSPARENCY_LEVEL=pdf_transparency, $
-                REMOVE_EPS=remove_eps, $
-                /QUIET
-     ENDIF
-  ENDIF
-  IF hardcopy EQ 1 THEN SET_PLOT,'printer'
-  IF hardcopy EQ 1 THEN DEVICE,YSIZE=25,YOFFSET=5
-  IF hardcopy NE 1 THEN SET_PLOT,'X'
-  ;; PRINT, 'FINISHED'
-END
-
-;********************************************************************
 PRO ADD_NOISE,Bx,By,Bz,Jx,Jy,Jz,T
   ;;create and add noise IF example = 3
 
@@ -202,7 +121,7 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   omega     = INDGEN(T/2+1)*2*!Pi/T
 
   ;;setup k vectors for either example 1 or 2
-                                ;first example
+  ;;first example
   IF example EQ 1 THEN BEGIN
      kx      = FLTARR(T/2+1)
      ky      = kx
@@ -374,6 +293,7 @@ END
 
 FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                          B_AND_J_FILE=saveFile, $
+                         SAVEDIR=saveDir, $
                          USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                          CUSTOM_T1=custom_t1, $
                          CUSTOM_T2=custom_t2, $
@@ -392,8 +312,6 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                          SRATES=sRates
 
   COMPILE_OPT idl2,strictarrsubs
-
-  saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
 
   PRINT,"Restoring " + saveFile + ' ...'
   RESTORE,saveDir+saveFile
@@ -552,14 +470,14 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   ;; jFactor  *= mu_0
 
   ;;Now decide on magField
-  saveVar  = 'dB_fac_V'
-  IF KEYWORD_SET(use_dB_fac) THEN saveVar = 'dB_fac'
+  saveVar  = 'fac_V'
+  IF KEYWORD_SET(use_dB_fac) THEN saveVar = 'fac'
   ;; saveVar  = 'dB_fac_V'
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;Align time series
   CASE STRUPCASE(saveVar) OF
-     'DB_FAC_V': BEGIN
+     'FAC_V': BEGIN
 
         ;; From UCLA_MAG_DESPIN:
         ;; "Field-aligned velocity-based coordinates defined as:    "
@@ -570,7 +488,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         dB = dB_fac_v
 
      END
-     'DB_FAC': BEGIN
+     'FAC': BEGIN
 
         ;; From UCLA_MAG_DESPIN:
         ;; Field-aligned coordinates defined as:
@@ -1486,19 +1404,23 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
    SHIFT_NPTS=shift_nPts, $
+   BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
+   FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
+   USE_AVGED_FOR_SMOOTH=use_avged_for_smooth, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
    PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
    PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
    KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
-   KP_ANGLE____PLOT_SMOOTHED=kP_angle__plot_smoothed, $
+   KP_ANGLE__PLOT_SMOOTHED=kP_angle__plot_smoothed, $
    PLOT_POSFREQ=plot_posFreq, $
    FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
    SAVE_PS=save_ps, $
    TO_PDF=to_pdf, $
    PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
    REMOVE_EPS=remove_eps, $
+   NO_PLOTS=no_plots, $
    BONUS_SUFF=bonus_suff, $
    EXTRA_SUFFIX=extra_suffix, $
    DOUBLE_CALC=double_calc, $
@@ -1531,36 +1453,37 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
    FFTPERCENT=FFTpercent,$
-   WHICH_FFTS=which_FFTs
+   WHICH_FFTS=which_FFTs, $
+   OUT_FREQS=out_freqs, $
+   OUT_KX=out_kx, $
+   OUT_KY=out_ky, $
+   OUT_KZ=out_kz, $
+   OUT_KP=out_kP, $
+   OUT_ANGLE_KP=out_kPAngle, $
+   OUT_INDS=out_inds, $
+   OUT_TARR=out_TArr, $
+   OUT_USEDINDS=out_usedInds, $
+   OUT_BX=out_Bx, $
+   OUT_BY=out_By, $
+   OUT_BZ=out_Bz, $
+   OUT_JX=out_Jx, $
+   OUT_JY=out_Jy, $
+   OUT_JZ=out_Jz
+
 
   COMPILE_OPT idl2,strictarrsubs
 
-  diag      = 1
-  diagInd   = 0
+  doPlot    = ~KEYWORD_SET(no_plots)
+
+  ;;diagnostics?
+  ;; diag      = 1
+  ;; diagInd   = 0
   
   splitFFTs = ~KEYWORD_SET(combine_and_average_intervals)
 
   IF N_ELEMENTS(extra_suffix) EQ 0 THEN extra_suffix = ''
 
-  CASE N_ELEMENTS(shift_nPts) OF
-     0: BEGIN
-        shift_nPts = [0,0]
-     END
-     1: BEGIN
-        shift_nPts = [shift_nPts,shift_nPts]
-     END
-     2: BEGIN
-        ;;You're good, don't touch
-     END
-     ELSE: BEGIN
-        PRINT,"Bogus! No more than two shifties"
-        STOP
-     END
-  ENDCASE
   ;; IF N_ELEMENTS(double_calc) EQ 0 THEN double_calc = 1
-
-  ;;select output mode,
-  ;;set output_mode =0 for screen, 1 for printer, 2 for postscript file
 
   ;;N points to smooth k components with
   smInd         = KEYWORD_SET(smInd                 ) ? smInd                  : 5
@@ -1568,19 +1491,6 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   edge_truncate = KEYWORD_SET(kSmooth__edge_truncate) ? kSmooth__edge_truncate : 0
   edge_mirror   = KEYWORD_SET(kSmooth__edge_mirror  ) ? kSmooth__edge_mirror   : 1
   edge_wrap     = KEYWORD_SET(kSmooth__edge_wrap    ) ? kSmooth__edge_wrap     : 0
-
-  CASE 1 OF
-     KEYWORD_SET(save_ps): BEGIN
-        output_mode = 2
-
-        SET_PLOT_DIR,plotDir,/FOR_SINGLE_SC_WVEC,/ADD_TODAY
-        PRINT,STRING(FORMAT='("plotDir  : ",A0)',plotDir)
-     END
-     ELSE: BEGIN
-        output_mode = 0
-     END
-  ENDCASE
-  ;; output_mode = 0
 
   IF N_ELEMENTS(oddness_check) EQ 0 THEN oddness_check = 1
 
@@ -1591,53 +1501,21 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   ;; example   = 3
 
+  saveVar  = 'dB_fac_V'
+  IF KEYWORD_SET(use_dB_fac) THEN saveVar = 'dB_fac'
+
   suff = 'TEST'
-  IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
-     IF ~CHUNK_SAVE_FILE(T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
-                         B_AND_J_FILE=saveFile, $
-                         USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
-                         CUSTOM_T1=custom_t1, $
-                         CUSTOM_T2=custom_t2, $
-                         SHIFT_NPTS=shift_nPts, $
-                         USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
-                         USE_J_TIME_SERIES=use_J_time_series, $
-                         SMOOTH_J_DAT_TO_B=smooth_J_dat, $
-                         PRESMOOTH_MAG=presmooth_mag, $
-                         PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
-                         STREAKNUM=streakNum, $
-                         OUT_STREAKNUM=streakInd, $
-                         USE_ALL_STREAKS=use_all_streaks, $
-                         USE_DB_FAC=use_dB_fac, $
-                         HAVE_EFIELD=have_EField, $
-                         FFT__NEAREST_TWO_POWER=nearest_two_power, $
-                         SRATES=sRates) $
-     THEN BEGIN
-        MESSAGE,"Failed to parse!",/CONT
-        RETURN
-     ENDIF
+  CASE 1 OF
+     KEYWORD_SET(use_all_streaks): BEGIN
+     END
+     ELSE: BEGIN
+        suff = 'Bellan'+'-'+ $
+               extra_suffix+'-'+ $
+               saveVar
+     END
+  ENDCASE
 
-     CASE 1 OF
-        KEYWORD_SET(use_all_streaks): BEGIN
-           sRate = !NULL 
-           FOR k=0,N_ELEMENTS(Bx)-1 DO BEGIN
-              sRate = [sRate,1./( (TArr[k])[1:-1]-(TArr[k])[0:-2] )]
-           ENDFOR
-        END
-        ELSE: BEGIN
-           sRate = 1./(TArr[1:-1]-TArr[0:-2])
-
-           suff = 'Bellan'+'-'+ $
-                  extra_suffix+'-'+ $
-                  saveVar
-        END
-     ENDCASE
-
-     maxFreq = (MIN([MEDIAN(sRates.mag),MEDIAN(sRates.eESA),MEDIAN(sRates.iESA)]))/2.
-     maxFreq = 4.
-
-  ENDIF ELSE BEGIN
-     unitFactor = 1 ;Don't adjust k in this case
-  ENDELSE
+  saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
 
   CASE 1 OF
      KEYWORD_SET(use_all_streaks): BEGIN
@@ -1653,7 +1531,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ;;Aligned to mag or j time series?
   CASE 1 OF
      KEYWORD_SET(use_lowRes_time_series): BEGIN
-        suff += '-lowRes_ts'
+        suff += '-lR_ts'
      END
      KEYWORD_SET(use_J_time_series): BEGIN
         suff += '-jz_ts'
@@ -1663,6 +1541,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      END
   ENDCASE
 
+  IF KEYWORD_SET(use_avged_for_smooth) THEN BEGIN
+     suff += '-avgd_iSm'
+  ENDIF
 
   IF KEYWORD_SET(smooth_J_dat) THEN BEGIN
      suff += '-sm_je'
@@ -1672,233 +1553,366 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      ;; suff += '-kPerp'
   ENDIF
 
+  IF KEYWORD_SET(tmpFFTsize) THEN BEGIN
+     suff += '-FFTsize_' + STRCOMPRESS(FFTsize,/REMOVE_ALL)
+  ENDIF
+
   IF KEYWORD_SET(hanning    ) THEN BEGIN
      PRINT,"You shouldn't apply a window to correlation functions ..."
      WAIT,2
      suff += '-hanning'
   ENDIF
   IF KEYWORD_SET(double_calc) THEN suff += '-double_arithmetic'
-  IF KEYWORD_SET(bonus_suff ) THEN suff += bonus_suff
+  IF KEYWORD_SET(bonus_suff ) THEN suff += (STRMATCH(bonus_suff,'-*') ? '' : '-' ) + bonus_suff
 
   example = 1
 
-  ;;setup graphic layout
-  columns   = 3
-  rows      = 3 + KEYWORD_SET(example_mode)
-  !P.MULTI  = [0, columns, rows, 0, 0]
-  ;; !P.MULTI  = [0, columns, rows, 1, 0]
-
-
-  ;;setup frequency, and wavevector arrays if in example mode
-
-  ;; construct array of frequencies for time domain,
-  ;; zero frequency will not be used
-
-  ;; cs        = 1.8
-  IF KEYWORD_SET(pubSettings) THEN BEGIN
-     cs = 1.8
-  ENDIF
-
-  IF KEYWORD_SET(example_mode) THEN BEGIN
-     SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
-                   SAVEDIR=saveDir, $
-                   EXAMPLE=example
-  ENDIF
-
-  ;;read data from file
-  IF ~KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
-     filename = saveDir+B_J_file
-
-     OPENR,1,filename
-     PRINT,'opening ', filename
-     READF,1,example,T_read,FORMAT='(I5,1x,I5,1x)'
-     Bx = FLTARR(T_read) & By = Bx & Bz = Bx &Jx = Bx &Jy =Bx & Jz = Bx
-     readf,1,Bx
-     readf,1,By
-     readf,1,Bz
-     readf,1,Jx
-     readf,1,Jy
-     readf,1,Jz
-     CLOSE,1
-     PRINT,'closing ',filename
-  ENDIF
-
-  ;;Now do some calcs
-  defFFTsize = T[0]
-  IF ( N_ELEMENTS(FFTsize) EQ 0 ) AND KEYWORD_SET(splitFFTs) THEN BEGIN
-     FFTsize = defFFTsize
-  ENDIF
-
-  IF KEYWORD_SET(FFTpercent) THEN BEGIN
-     IF FFTpercent GT 1 THEN FFTpercent /= 100.
-     FFTsize = FIX(T[0]*FFTpercent)
-  ENDIF
 
   CASE 1 OF
-     KEYWORD_SET(FFTsize): BEGIN
-        suff += '-FFTsize_' + STRCOMPRESS(FFTsize,/REMOVE_ALL)
+     KEYWORD_SET(shift_nPts): BEGIN
+        CASE N_ELEMENTS(shift_nPts) OF
+           1: BEGIN
+              shift_nPts = [shift_nPts,shift_nPts]
+              backShifts_for_avging = shift_nPts
+              fwdShifts_for_avging  = shift_nPts
+           END
+           2: BEGIN
+              backShifts_for_avging = shift_nPts[0]
+              fwdShifts_for_avging  = shift_nPts[1]
+           END
+           ELSE: BEGIN
+              PRINT,"Bogus! No more than two shifties"
+              STOP
+           END
+        ENDCASE
+     END
+     ELSE: BEGIN
+        IF N_ELEMENTS(backShifts_for_avging) EQ 0 THEN BEGIN
+           backShifts_for_avging = 0
+      ENDIF
+        
+        IF N_ELEMENTS(fwdShifts_for_avging) EQ 0 THEN BEGIN
+           fwdShifts_for_avging = 0
+        ENDIF
+     END
+  ENDCASE
 
-        IF KEYWORD_SET(use_all_streaks) THEN BEGIN
+  nBack = N_ELEMENTS(backShifts_for_avging)
+  nFwd  = N_ELEMENTS(fwdShifts_for_avging)
 
-           ;;First get the total number of FFTs we're going to do
-           nFFTsArr = !NULL
-           FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
-              TTmp     = T[kk]
-              lastInd  = TTmp-1
+  IF nBack GT 1 THEN BEGIN
+     junk       = MIN(ABS(backShifts_for_avging),minJJInd)
+  ENDIF ELSE BEGIN
+     minJJInd   = 0
+  ENDELSE
+  IF nFwd GT 1 THEN BEGIN
+     junk       = MIN(ABS(fwdShifts_for_avging),minKKInd)
+  ENDIF ELSE BEGIN
+     minKKInd   = 0
+  ENDELSE
+  
+  TArrList      = LIST()
+  freqList      = LIST()
+  fDiffList     = LIST()
+  kxList        = LIST()
+  kyList        = LIST()
+  kzList        = LIST()
+  ;; kPList        = LIST()
+  ;; kPAngleList   = LIST()
+  indsList      = LIST()
+  kzList        = LIST()
+  kzList        = LIST()
+  kzList        = LIST()
+  avgCount      = 0
+  FOR jj=0,nBack-1 DO BEGIN
+     FOR kk=0,nFwd-1 DO BEGIN
 
-              nFFTsArr = [nFFTsArr,TTmp/FFTsize]
-              ;; FOR k=0,nFFTs-1 DO BEGIN
-              ;;    tmpI = [(k*FFTsize):( ((k+1)*FFTsize-1) < lastInd )]                 
-              ;; ENDFOR
-           ENDFOR
-           nFFTs     = TOTAL(nFFTsArr)
+        tmpFFTSize = KEYWORD_SET(FFTSize) ? FFTSize : !NULL
+        tmpSuff = STRING(FORMAT='("__shft_",I0,"_",I0)',backShifts_for_avging[jj],fwdShifts_for_avging[kk])
+        PRINT,FORMAT='("********",T10,I0,T20,A0,T40,"*********")',avgCount,tmpSuff
 
-           fArr      = MAKE_ARRAY(nFFTs,FFTsize)
-           kxArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           kyArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           kzArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           ;; kpArr     = MAKE_ARRAY(nFFTs,FFTsize)
+        shift_nPts = [backShifts_for_avging[jj],fwdShifts_for_avging[kk]]
 
-           FFTCount  = 0
-           include_i = !NULL
-           prevFFTs  = 0
-           FFTi_list = LIST()
+        IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
 
-           FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
+           IF ~CHUNK_SAVE_FILE(T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                               B_AND_J_FILE=saveFile, $
+                               SAVEDIR=saveDir, $
+                               USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+                               CUSTOM_T1=custom_t1, $
+                               CUSTOM_T2=custom_t2, $
+                               SHIFT_NPTS=shift_nPts, $
+                               USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
+                               USE_J_TIME_SERIES=use_J_time_series, $
+                               SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+                               PRESMOOTH_MAG=presmooth_mag, $
+                               PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+                               STREAKNUM=streakNum, $
+                               OUT_STREAKNUM=streakInd, $
+                               USE_ALL_STREAKS=use_all_streaks, $
+                               USE_DB_FAC=use_dB_fac, $
+                               HAVE_EFIELD=have_EField, $
+                               FFT__NEAREST_TWO_POWER=nearest_two_power, $
+                               SRATES=sRates) $
+           THEN BEGIN
+              MESSAGE,"Failed to parse!",/CONT
+              RETURN
+           ENDIF
 
-              TTmp  = T[kk]
-              TArrTmp = TArr[kk]
+           CASE 1 OF
+              KEYWORD_SET(use_all_streaks): BEGIN
+                 sRate = !NULL 
+                 FOR k=0,N_ELEMENTS(Bx)-1 DO BEGIN
+                    sRate = [sRate,1./( (TArr[k])[1:-1]-(TArr[k])[0:-2] )]
+                 ENDFOR
+              END
+              ELSE: BEGIN
+                 sRate = 1./(TArr[1:-1]-TArr[0:-2])
 
-              BxTmp = Bx[kk]
-              ByTmp = By[kk]
-              BzTmp = Bz[kk]
+              END
+           ENDCASE
 
-              JxTmp = Jx[kk]
-              JyTmp = Jy[kk]
-              JzTmp = Jz[kk]
-              
-              ;; lastInd  = TTmp-1
-              lastInd  = TTmp-1
-              nArr     = !NULL
-              PRINT,"Interval: ",kk
-              FOR k=FFTCount,FFTCount+nFFTsArr[kk]-1 DO BEGIN
-                 tmpI = [((k-prevFFTs)*FFTsize):( ((k-prevFFTs+1)*FFTsize-1) < lastInd )]
-                 nTmp = N_ELEMENTS(tmpI)
-                 nArr = [nArr,nTmp]
-                 PRINT,k," ",nTmp
-
-                 IF nTmp LT FFTsize THEN CONTINUE
-                 include_i = [include_i,k]
-
-                 BELLAN_2016__BRO,nTmp,JxTmp[tmpI],JyTmp[tmpI],JzTmp[tmpI], $
-                                  BxTmp[tmpI],ByTmp[tmpI],BzTmp[tmpI], $
-                                  freq,kx,ky,kz,kP, $
-                                  SPERIOD=sPeriod, $
-                                  UNITFACTOR=unitFactor, $
-                                  PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-                                  DOUBLE_CALC=double_calc, $
-                                  HANNING=hanning, $
-                                  HAVE_EFIELD=have_EField, $
-                                  ODDNESS_CHECK=oddness_check
-                 this = ARRAY_INDICES(TRANSPOSE(fArr),(k*N_ELEMENTS(fArr[0,*])+LINDGEN(N_ELEMENTS(tmpI))))
-                 ;; this = [this[1,*],this[0,*]]
-                 ;; PRINT,this
-                 ;; fArr [k,*]  = freq
-                 ;; kxArr[k,*] = kx
-                 ;; kyArr[k,*] = ky
-                 ;; kzArr[k,*] = kz
-                 ;; kPArr[k,*] = kP
-                 ;; fArr [this[0,*],this[1,*]]  = freq
-                 ;; kxArr[this[0,*],this[1,*]] = kx
-                 ;; kyArr[this[0,*],this[1,*]] = ky
-                 ;; kzArr[this[0,*],this[1,*]] = kz
-                 ;; kPArr[this[0,*],this[1,*]] = kP
-
-                 CASE NDIMEN(this) OF
-                    1: BEGIN
-
-                       fArr [this] = freq
-                       kxArr[this] = kx
-                       kyArr[this] = ky
-                       kzArr[this] = kz
-                       ;; kPArr[this] = kP
-
-                    END
-                    2: BEGIN
-
-                       fArr [this[1,*],this[0,*]] = freq
-                       kxArr[this[1,*],this[0,*]] = kx
-                       kyArr[this[1,*],this[0,*]] = ky
-                       kzArr[this[1,*],this[0,*]] = kz
-                       ;; kPArr[this] = kP
-
-                    END
-                 ENDCASE
-
-              ENDFOR
-
-              FFTCount += nFFTsArr[kk]
-              prevFFTs = FFTCount
-              FFTi_list.Add,TEMPORARY(tmpI)
-           ENDFOR
-
-           fArr      = fArr[include_i,*]
-           kxArr     = kxArr[include_i,*]
-           kyArr     = kyArr[include_i,*]
-           kzArr     = kzArr[include_i,*]
-
-           freq      = MEAN(fArr ,DIMENSION=1)
-           kx        = MEAN(kxArr,DIMENSION=1)
-           ky        = MEAN(kyArr,DIMENSION=1)
-           kz        = MEAN(kzArr,DIMENSION=1)
-           kP        = SQRT(kx*kx+ky*ky)
-           ;; kP        = MEAN(kPArr,DIMENSION=1)
-
-           usedInds  = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
+           maxFreq = (MIN([MEDIAN(sRates.mag),MEDIAN(sRates.eESA),MEDIAN(sRates.iESA)]))/2.
+           maxFreq = 4.
 
         ENDIF ELSE BEGIN
+           unitFactor = 1       ;Don't adjust k in this case
+        ENDELSE
 
-           eMulieribus   = T/FFTsize
-           IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
+        IF KEYWORD_SET(example_mode) THEN BEGIN
+           SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+                         SAVEDIR=saveDir, $
+                         EXAMPLE=example
+        ENDIF
 
-              IF (N_ELEMENTS(which_FFTs) GT eMulieribus) OR which_FFTs[0] GT eMulieribus THEN BEGIN
-                 PRINT,"You're WRONG"
-                 STOP
-              ENDIF
+        ;;read data from file
+        IF ~KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
+           filename = saveDir+B_J_file
 
-              nFFTs = N_ELEMENTS(which_FFTs)
+           OPENR,1,filename
+           PRINT,'opening ', filename
+           READF,1,example,T_read,FORMAT='(I5,1x,I5,1x)'
+           Bx = FLTARR(T_read) & By = Bx & Bz = Bx &Jx = Bx &Jy =Bx & Jz = Bx
+           readf,1,Bx
+           readf,1,By
+           readf,1,Bz
+           readf,1,Jx
+           readf,1,Jy
+           readf,1,Jz
+           CLOSE,1
+           PRINT,'closing ',filename
+        ENDIF
 
-              FFTSuff = '-FFT_itvls'
-              FOR k=0,nFFTs-1 DO FFTSuff += STRING(FORMAT='("_",I0)',which_FFTs[k])
-              suff   += FFTSuff
+        ;;Now do some calcs
+        defFFTsize = T[0]
+        IF ( N_ELEMENTS(tmpFFTsize) EQ 0 ) AND KEYWORD_SET(splitFFTs) THEN BEGIN
+           tmpFFTsize = defFFTsize
+        ENDIF
 
-           ENDIF ELSE BEGIN
+        IF KEYWORD_SET(FFTpercent) THEN BEGIN
+           IF FFTpercent GT 1 THEN FFTpercent /= 100.
+           tmpFFTsize = FIX(T[0]*FFTpercent)
+        ENDIF
 
-              nFFTs = eMulieribus
+        CASE 1 OF
+           KEYWORD_SET(tmpFFTsize): BEGIN
 
-           ENDELSE
+              IF KEYWORD_SET(use_all_streaks) THEN BEGIN
 
-           lastInd   = T-1
-           nArr      = !NULL
-           fArr      = MAKE_ARRAY(nFFTs,FFTsize)
-           kxArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           kyArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           kzArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           ;; kpArr     = MAKE_ARRAY(nFFTs,FFTsize)
-           FFTCount  = 0
-           FFTi_list = LIST()
-           FOR k=0,eMulieribus-1 DO BEGIN
+                 ;;First get the total number of FFTs we're going to do
+                 nFFTsArr = !NULL
+                 FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
+                    TTmp     = T[kk]
+                    lastInd  = TTmp-1
 
-              IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
-                 IF (WHERE(k EQ which_FFTs))[0] EQ -1 THEN CONTINUE
-              ENDIF
+                    nFFTsArr = [nFFTsArr,TTmp/tmpFFTSize]
+                    ;; FOR k=0,nFFTs-1 DO BEGIN
+                    ;;    tmpI = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]                 
+                    ;; ENDFOR
+                 ENDFOR
+                 nFFTs     = TOTAL(nFFTsArr)
 
-              tmpI = [(k*FFTsize):( ((k+1)*FFTsize-1) < lastInd )]
-              nTmp = N_ELEMENTS(tmpI)
-              nArr = [nArr,nTmp]
-              PRINT,FORMAT='(A0,T10,A0,T20,A0,T45,A0)',"Itvl","nPts","Start T","Stop T"
-              PRINT,FORMAT='(I0,T10,I0,T20,A0,T45,A0)',k,nTmp,TIME_TO_STR(TArr[tmpI[0]],/MS),TIME_TO_STR(TArr[tmpI[-1]],/MS)
-              BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
+                 fArr      = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kxArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kyArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+
+                 FFTCount  = 0
+                 include_i = !NULL
+                 prevFFTs  = 0
+                 FFTi_list = LIST()
+
+                 FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
+
+                    TTmp  = T[kk]
+                    TArrTmp = TArr[kk]
+
+                    BxTmp = Bx[kk]
+                    ByTmp = By[kk]
+                    BzTmp = Bz[kk]
+
+                    JxTmp = Jx[kk]
+                    JyTmp = Jy[kk]
+                    JzTmp = Jz[kk]
+                    
+                    ;; lastInd  = TTmp-1
+                    lastInd  = TTmp-1
+                    nArr     = !NULL
+                    PRINT,"Interval: ",kk
+                    FOR k=FFTCount,FFTCount+nFFTsArr[kk]-1 DO BEGIN
+                       tmpI = [((k-prevFFTs)*tmpFFTSize):( ((k-prevFFTs+1)*tmpFFTSize-1) < lastInd )]
+                       nTmp = N_ELEMENTS(tmpI)
+                       nArr = [nArr,nTmp]
+                       PRINT,k," ",nTmp
+
+                       IF nTmp LT tmpFFTSize THEN CONTINUE
+                       include_i = [include_i,k]
+
+                       BELLAN_2016__BRO,nTmp,JxTmp[tmpI],JyTmp[tmpI],JzTmp[tmpI], $
+                                        BxTmp[tmpI],ByTmp[tmpI],BzTmp[tmpI], $
+                                        freq,kx,ky,kz,kP, $
+                                        SPERIOD=sPeriod, $
+                                        UNITFACTOR=unitFactor, $
+                                        PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+                                        DOUBLE_CALC=double_calc, $
+                                        HANNING=hanning, $
+                                        HAVE_EFIELD=have_EField, $
+                                        ODDNESS_CHECK=oddness_check
+                       this = ARRAY_INDICES(TRANSPOSE(fArr),(k*N_ELEMENTS(fArr[0,*])+LINDGEN(N_ELEMENTS(tmpI))))
+                       ;; this = [this[1,*],this[0,*]]
+                       ;; PRINT,this
+                       ;; fArr [k,*]  = freq
+                       ;; kxArr[k,*] = kx
+                       ;; kyArr[k,*] = ky
+                       ;; kzArr[k,*] = kz
+                       ;; kPArr[k,*] = kP
+                       ;; fArr [this[0,*],this[1,*]]  = freq
+                       ;; kxArr[this[0,*],this[1,*]] = kx
+                       ;; kyArr[this[0,*],this[1,*]] = ky
+                       ;; kzArr[this[0,*],this[1,*]] = kz
+                       ;; kPArr[this[0,*],this[1,*]] = kP
+
+                       CASE NDIMEN(this) OF
+                          1: BEGIN
+
+                             fArr [this] = freq
+                             kxArr[this] = kx
+                             kyArr[this] = ky
+                             kzArr[this] = kz
+                             ;; kPArr[this] = kP
+
+                          END
+                          2: BEGIN
+
+                             fArr [this[1,*],this[0,*]] = freq
+                             kxArr[this[1,*],this[0,*]] = kx
+                             kyArr[this[1,*],this[0,*]] = ky
+                             kzArr[this[1,*],this[0,*]] = kz
+                             ;; kPArr[this] = kP
+
+                          END
+                       ENDCASE
+
+                    ENDFOR
+
+                    FFTCount += nFFTsArr[kk]
+                    prevFFTs = FFTCount
+                    FFTi_list.Add,TEMPORARY(tmpI)
+                 ENDFOR
+
+                 fArr      = fArr[include_i,*]
+                 kxArr     = kxArr[include_i,*]
+                 kyArr     = kyArr[include_i,*]
+                 kzArr     = kzArr[include_i,*]
+
+                 freq      = MEAN(fArr ,DIMENSION=1)
+                 kx        = MEAN(kxArr,DIMENSION=1)
+                 ky        = MEAN(kyArr,DIMENSION=1)
+                 kz        = MEAN(kzArr,DIMENSION=1)
+                 kP        = SQRT(kx*kx+ky*ky)
+                 ;; kP        = MEAN(kPArr,DIMENSION=1)
+
+                 usedInds  = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
+
+              ENDIF ELSE BEGIN
+
+                 eMulieribus   = T/tmpFFTSize
+                 IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
+
+                    IF (N_ELEMENTS(which_FFTs) GT eMulieribus) OR which_FFTs[0] GT eMulieribus THEN BEGIN
+                       PRINT,"You're WRONG"
+                       STOP
+                    ENDIF
+
+                    nFFTs = N_ELEMENTS(which_FFTs)
+
+                    FFTSuff = '-FFT_itvls'
+                    FOR k=0,nFFTs-1 DO FFTSuff += STRING(FORMAT='("_",I0)',which_FFTs[k])
+                    suff   += FFTSuff
+
+                 ENDIF ELSE BEGIN
+
+                    nFFTs = eMulieribus
+
+                 ENDELSE
+
+                 lastInd   = T-1
+                 nArr      = !NULL
+                 fArr      = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kxArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kyArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 FFTCount  = 0
+                 FFTi_list = LIST()
+                 FOR k=0,eMulieribus-1 DO BEGIN
+
+                    IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
+                       IF (WHERE(k EQ which_FFTs))[0] EQ -1 THEN CONTINUE
+                    ENDIF
+
+                    tmpI = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]
+                    nTmp = N_ELEMENTS(tmpI)
+                    nArr = [nArr,nTmp]
+                    PRINT,FORMAT='(A0,T10,A0,T20,A0,T45,A0)',"Itvl","nPts","Start T","Stop T"
+                    PRINT,FORMAT='(I0,T10,I0,T20,A0,T45,A0)',k,nTmp,TIME_TO_STR(TArr[tmpI[0]],/MS),TIME_TO_STR(TArr[tmpI[-1]],/MS)
+                    BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
+                                     freq,kx,ky,kz,kP, $
+                                     SPERIOD=sPeriod, $
+                                     UNITFACTOR=unitFactor, $
+                                     PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+                                     DOUBLE_CALC=double_calc, $
+                                     HANNING=hanning, $
+                                     HAVE_EFIELD=have_EField, $
+                                     ODDNESS_CHECK=oddness_check
+
+                    fArr [FFTCount,*] = freq
+                    kxArr[FFTCount,*] = kx
+                    kyArr[FFTCount,*] = ky
+                    kzArr[FFTCount,*] = kz
+                    ;; kPArr[FFTCount,*] = kP
+
+                    FFTCount++
+
+                    FFTi_list.Add,TEMPORARY(tmpI)
+                 ENDFOR
+
+                 keepEm        = WHERE(nArr EQ MEDIAN(nArr),nKeep)
+                 freq          = MEAN(fArr ,DIMENSION=1)
+                 kx            = MEAN(kxArr,DIMENSION=1)
+                 ky            = MEAN(kyArr,DIMENSION=1)
+                 kz            = MEAN(kzArr,DIMENSION=1)
+
+                 ;;This makes kP seem larger than he is. Don't do it. Recalculate instead.
+                 ;; kP            = MEAN(kPArr,DIMENSION=1)
+                 kP            = SQRT(kx*kx+ky*ky)
+                 usedInds      = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
+
+              ENDELSE
+           END
+           ELSE: BEGIN
+              BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                                freq,kx,ky,kz,kP, $
                                SPERIOD=sPeriod, $
                                UNITFACTOR=unitFactor, $
@@ -1908,861 +1922,251 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                HAVE_EFIELD=have_EField, $
                                ODDNESS_CHECK=oddness_check
 
-              fArr [FFTCount,*] = freq
-              kxArr[FFTCount,*] = kx
-              kyArr[FFTCount,*] = ky
-              kzArr[FFTCount,*] = kz
-              ;; kPArr[FFTCount,*] = kP
+              usedInds         = LINDGEN(T)
 
-              FFTCount++
-
-              FFTi_list.Add,TEMPORARY(tmpI)
-           ENDFOR
-
-           keepEm        = WHERE(nArr EQ MEDIAN(nArr),nKeep)
-           freq          = MEAN(fArr ,DIMENSION=1)
-           kx            = MEAN(kxArr,DIMENSION=1)
-           ky            = MEAN(kyArr,DIMENSION=1)
-           kz            = MEAN(kzArr,DIMENSION=1)
-
-           ;;This makes kP seem larger than he is. Don't do it. Recalculate instead.
-           ;; kP            = MEAN(kPArr,DIMENSION=1)
-           kP            = SQRT(kx*kx+ky*ky)
-           usedInds      = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
-
-        ENDELSE
-     END
-     ELSE: BEGIN
-        BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
-                         freq,kx,ky,kz,kP, $
-                         SPERIOD=sPeriod, $
-                         UNITFACTOR=unitFactor, $
-                         PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-                         DOUBLE_CALC=double_calc, $
-                         HANNING=hanning, $
-                         HAVE_EFIELD=have_EField, $
-                         ODDNESS_CHECK=oddness_check
-
-        usedInds         = LINDGEN(T)
-
-     END
-  ENDCASE
-
-  ;;Get time string
-  milli = 1
-  CASE SIZE(Tarr,/TYPE) OF
-     11: BEGIN
-        tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
-                  ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
-     END
-     ELSE: BEGIN
-        tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
-                  ((STRSPLIT(TIME_TO_STR(TArr[usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
-     END
-  ENDCASE
-  tString = tString.Replace('.','_')
-  suff   += tString
-
-  kx     *= 1000.
-  ky     *= 1000.
-  kz     *= 1000.
-  kP     *= 1000.
-
-  ;;Kperp angle
-  kPAngle = ATAN(ky,kx)*!RADEG
-  IF KEYWORD_SET(kP__angleRange) THEN BEGIN
-
-     rotate_kPA = 0
-
-     kPAngle    = NORMALIZE_ANGLE(kPAngle,MIN(kP__angleRange),MAX(kP__angleRange), $
-                                  /DEGREE)
-
-     ;; those = WHERE(kPAngle LT MIN(kP__angleRange),nThose)
-     ;; IF nThose GT 0 THEN BEGIN
-     ;;    kPAngle[those] = (kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
-     ;; ENDIF
-
-     ;; kPAngle = UNWRAP(kPAngle,DIVISOR=360)
-
-  ENDIF ELSE BEGIN
-     histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
-     rotate_kPA = (histo[0]+histo[3]) GT (histo[1]+histo[2])
-     IF rotate_kPA THEN BEGIN
-        kPAngle = (kPAngle + 360) MOD 360
-     ENDIF
-  ENDELSE
-
-  ;;setup file management, filenames for selected output mode
-  IF KEYWORD_SET(save_ps) THEN BEGIN
-     OUTPUT_SETUP,output_mode,plotDir,suff,saveDir,font
-  ENDIF
-  
-  ;;plot components of calculated k vectors
-  IF example EQ 1 THEN BEGIN
-     ysize = 10
-  ENDIF
-  IF example EQ 2 or example EQ 3 THEN BEGIN
-     ysize = 2
-  ENDIF
-  kx_ysize = ysize
-  ky_ysize = ysize
-  kz_ysize = ysize
-
-  IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
-     kx_ysize = MAX(ABS(kx))
-     ky_ysize = MAX(ABS(ky))
-     kz_ysize = MAX(ABS(kz))
-  ENDIF
-
-  bro = 1
-  IF KEYWORD_SET(bro) THEN BEGIN
-     tmp  = SORT(freq)
-     freq = freq[tmp]
-     kx   = kx[tmp]
-     ky   = ky[tmp]
-     kz   = kz[tmp]
-     kP   = kP[tmp]
-  ENDIF
-
-  IF KEYWORD_SET(use_all_streaks) THEN BEGIN
-     Tarr = LIST_TO_1DARRAY(Tarr)
-     Bx   = LIST_TO_1DARRAY(Bx)
-     By   = LIST_TO_1DARRAY(By)
-     Bz   = LIST_TO_1DARRAY(Bz)
-     Jx   = LIST_TO_1DARRAY(Jx)
-     Jy   = LIST_TO_1DARRAY(Jy)
-     Jz   = LIST_TO_1DARRAY(Jz)
-  END
-
-  muLetter = '!4' + String('154'O) + '!X'
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],Bx[usedInds], $
-       XTITLE='t', $
-       YTITLE=font + 'B!Dx!N', $
-       XSTYLE=1, $
-       CHARSIZE=cs
-
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],By[usedInds], $
-       XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-       YTITLE=font + 'B!Dy!N (nT)', $
-       XSTYLE=1, $
-       CHARSIZE=cs
-
-
-  IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
-     PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
-          XTITLE='t', $
-          YTITLE=font + 'B!Dz!N', $
-          XSTYLE=1, $
-          CHARSIZE=cs
-
-     PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
-          XTITLE='t', $
-          YTITLE='!4l!3!D0 !N' + font + 'J!Dx!N', $
-          XSTYLE=1, $
-          CHARSIZE=cs
-
-     PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
-          XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-          YTITLE='!4l!3!D0 !N' + font + 'J!Dy!N (!4l!N' + font + 'T/m)', $
-          XSTYLE=1, $
-          CHARSIZE=cs
-
-  ENDIF
-
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],Jz[usedInds], $
-       XTITLE='t', $
-       YTITLE='!4l!3!D0 !N' + font + 'J!Dz!N', $
-       XSTYLE=1, $
-       CHARSIZE=cs
-
-  CASE 1 OF
-     KEYWORD_SET(plot_posFreq): BEGIN
-        inds = WHERE(freq GT 0.0 AND freq LE maxFreq)
-        ;; fitInds = WHERE(freq GT (freq[inds])[2] AND freq LE maxFreq)
-        ;; fitInds = WHERE(freq GT (0.01 < (freq[inds])[1]) AND freq LE maxFreq*1.1)
-        fitInds = WHERE(freq GT (0.1 < (freq[inds])[1]) AND freq LE maxFreq*1.1)
-     END
-     KEYWORD_SET(fold_negFreq): BEGIN
-        indNeg = [0:(where(freq EQ 0.00)-1)] 
-        ;; indPos = ([where(freq EQ 0.00,/NULL):N_ELEMENTS(freq)-1])[0:(N_ELEMENTS(indNeg)-1)]
-        indPos = ([(where(freq GT 0.00))[0]:(N_ELEMENTS(freq)-1)])[0:(N_ELEMENTS(indNeg)-1)]
-
-        ;; this = plot(kx[indpos]) 
-        ;; this = plot((-1.)*REVERSE(kx[indneg]),/OVERPLOT,COLOR='RED') 
-
-        divFactor = 2.
-        kx   = (kx[indPos]-REVERSE(kx[indNeg])) / divFactor 
-
-        ky   = (ky[indPos]-REVERSE(ky[indNeg])) / divFactor 
-        kz   = (kz[indPos]-REVERSE(kz[indNeg])) / divFactor
-        kP   = (kP[indPos]+REVERSE(kP[indNeg])) / divFactor
-        freq = freq[indPos]
-        ;; inds = WHERE(freq GT 0.0)
-
-        ;; this = plot(kx,/OVERPLOT,COLOR='BLUE')
-
-        IF freq[0] EQ 0.00 THEN BEGIN
-           freq = freq[1:-1]
-           kx = kx[1:-1]
-           ky = ky[1:-1]
-           kz = kz[1:-1]
-           kP = kP[1:-1]
-        ENDIF
-
-        inds = INDGEN(N_ELEMENTS(freq))
-     END
-     ELSE: BEGIN
-        ;; inds = INDGEN(N_ELEMENTS(freq))
-        inds = WHERE(ABS(freq) LE 10.0)
-     END
-  ENDCASE
-
-  IF KEYWORD_SET(freqLims) THEN BEGIN
-     inds = WHERE(freq GE freqLims[0] AND freq LE freqLims[1],nInds)
-     IF nInds LE 1 THEN STOP
-  END
-
-
-  ;;Rotation matrix?
-  ;; angle      = 20.*!DTOR
-  ;; kxprime    = kx*COS(angle) - ky*SIN(angle)
-  ;; kyprime    = kx*SIN(angle) + ky*COS(angle)
-  ;; kx         = TEMPORARY(kxprime)
-  ;; ky         = TEMPORARY(kyprime)
-  
-
-  PLOT,freq[inds],kx[inds], $
-       ;; YTITLE='k!Dx!N (m!U-1!N)', $
-       YTITLE='k!Dx!N (km!U-1!N)', $
-       XTITLE='', $
-       XRANGE=page1__freqRange, $
-       YRANGE=[-kx_ysize,kx_ysize], $
-       XSTYLE=1, $
-       YSTYLE=1, $
-       XTICKLEN=1.0, $
-       YTICKLEN=1.0, $
-       XGRIDSTYLE=1, $
-       YGRIDSTYLE=1, $
-       CHARSIZE=cs
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
-
-  gimmeSmooths      = KEYWORD_SET(plot_smoothed_ks       ) OR KEYWORD_SET(plot_abs_smoothed_ks   ) OR $
-                      KEYWORD_SET(kx_vs_ky__plot_smoothed) OR KEYWORD_SET(kP_angle__plot_smoothed)
-
-  IF gimmeSmooths THEN BEGIN
-
-     smooth_kx      = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx) : kx),smInd, $
-                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-
-     smooth_ky      = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky) : ky),smInd, $
-                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-
-     ;; smooth_kP      = SMOOTH(kP,smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-     ;; smooth_kPAngle = SMOOTH(kPAngle,smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-
-     smooth_kP      = SQRT(smooth_kx*smooth_kx+smooth_ky*smooth_ky)
-     smooth_kPAngle = ATAN(smooth_ky,smooth_kx)*!RADEG
-
-     IF KEYWORD_SET(kP__angleRange) THEN BEGIN
-
-        those = WHERE(smooth_kPAngle LT MIN(kP__angleRange),nThose)
-        IF nThose GT 0 THEN BEGIN
-           smooth_kPAngle[those] = (smooth_kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
-        ENDIF
-
-     ENDIF ELSE BEGIN
-        IF rotate_kPA THEN BEGIN
-           smooth_kPAngle = (smooth_kPAngle + 360) MOD 360
-        ENDIF
-     ENDELSE
-
-
-  ENDIF
-
-  IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
-  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
-     OPLOT,freq[inds], $
-           smooth_kx[inds], $
-           COLOR=250
-  ENDIF
-
-  IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-     OPLOT,freq[inds],SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(kx[inds]) : kx[inds]),dbSmInd, $
-                             EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
-  ENDIF
-
-  PLOT,freq[inds],ky[inds], $
-       ;; YTITLE='k!Dy!N (m!U-1!N)', $
-       YTITLE='k!Dy!N (km!U-1!N)', $
-       XTITLE='Frequency (Hz)', $
-       XRANGE=page1__freqRange, $
-       YRANGE=[-ky_ysize,ky_ysize], $
-       XSTYLE=1, $
-       YSTYLE=1, $
-       XTICKLEN=1.0, $
-       YTICKLEN=1.0, $
-       XGRIDSTYLE=1, $
-       YGRIDSTYLE=1, $
-       CHARSIZE=cs
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
-
-  IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
-  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
-     OPLOT,freq[inds], $
-           smooth_ky[inds], $
-           COLOR=250
-  ENDIF
-
-  IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-     OPLOT,freq[inds], $
-           SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? ABS(ky[inds]) : ky[inds]),dbSmInd, $
-                  EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap), $
-           COLOR=90
-  ENDIF
-
-  IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
-     
-     ;; smoothKx = SMOOTH(kx[inds],smInd)
-     ;; smoothKy = SMOOTH(ky[inds],smInd)
-
-     ;; smoothKx = kx[inds]
-     ;; smoothKy = ky[inds]
-
-     ;; smoothKx = kx[inds]
-     ;; smoothKy = ky[inds]
-
-     ;;Now kx vs ky
-     ;; bound = MAX(ABS([smoothKx,smoothKy]))
-
-     ;; bound = KEYWORD_SET(plot_smoothed_ks) ? MAX(ABS([smooth_kx[inds],smooth_ky[inds]])) : MAX(ABS([kx[inds],ky[inds]]))
-     bound = MAX(ABS([kx[inds],ky[inds]]))
-
-     ;; PLOT,smoothKx,smoothKy, $
-     PLOT,kx[inds],ky[inds], $
-          ;; XTITLE='k!Dx!N  (m!U-1!N)', $
-          ;; YTITLE='k!Dy!N  (m!U-1!N)', $
-          XTITLE='k!Dx!N  (km!U-1!N)', $
-          YTITLE='k!Dy!N  (km!U-1!N)', $
-          PSYM=2, $
-          YRANGE=[-bound,bound], $
-          XRANGE=[-bound,bound], $
-          XTICKLEN=1.0, $
-          YTICKLEN=1.0, $
-          XGRIDSTYLE=1, $
-          YGRIDSTYLE=1, $
-          CHARSIZE=cs
-
-     IF KEYWORD_SET(kx_vs_ky__plot_smoothed) THEN BEGIN
-
-        OPLOT,smooth_kx[inds],smooth_ky[inds],COLOR=250,PSYM=1
-
-     ENDIF
-
-  ENDIF ELSE BEGIN
-
-     PLOT,freq[inds],kz[inds], $
-          ;; YTITLE='k!Dz!N (m!U-1!N)', $
-          YTITLE='k!Dz!N (km!U-1!N)', $
-          XTITLE='', $
-          XRANGE=page1__freqRange, $
-          YRANGE=[-kz_ysize,kz_ysize], $
-          XSTYLE=1, $
-          YSTYLE=1, $
-          CHARSIZE=cs
-     IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
-     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-        OPLOT,freq[inds],SMOOTH(kz[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
-     ENDIF
-
-     IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-        OPLOT,freq[inds],SMOOTH(kz[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
-     ENDIF
-
-  ENDELSE
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
-
-
-  IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
-
-     IF KEYWORD_SET(save_ps) THEN BEGIN
-        CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
-                        TO_PDF=to_pdf, $
-                        PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                        REMOVE_EPS=remove_eps
-
-        ;;Don't conclude, just keep it movin'
-        ;; ERASE
-     ENDIF
-
-  ENDIF
-
-  ;;Show Hanning windowed?
-  IF KEYWORD_SET(hanning) THEN BEGIN
-
-     IF ~KEYWORD_SET(save_ps) THEN BEGIN
-        WINDOW,3,XSIZE=700,YSIZE=800
-     ENDIF
-
-     ;; !P.MULTI  = [0, columns, rows, 0, 0]
-     !P.MULTI[0]  = 0
-     !P.MULTI[3]  = 1 ;;Next page?
-
-     PLOT,freq[inds],kx[inds], $
-          YTITLE='x component', $
-          XTITLE='FFT argument', $
-          CHARSIZE=cs, $
-          YRANGE=[-kx_ysize,kx_ysize]
-     IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
-
-     PLOT,freq[inds],ky[inds], $
-          YTITLE='y component', $
-          XTITLE='FFT argument', $
-          CHARSIZE=cs, $
-          YRANGE=[-ky_ysize,ky_ysize]
-     IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
-
-     PLOT,freq[inds],kz[inds], $
-          YTITLE='z component', $
-          XTITLE='FFT argument', $
-          CHARSIZE=cs, $
-          YRANGE=[-kz_ysize,kz_ysize]
-     IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
-
-
-
-  ENDIF
-
-  perpSym = STRING(120B)
-  perpAll = '!9' + perpSym + '!X'
-  ;;Old or new style?
-  IF KEYWORD_SET(oo_plots) THEN BEGIN
-     window = WINDOW(DIMENSIONS=[700,800])
-
-     bro = PLOT(freq[inds],kP[inds], $
-                ;; XTITLE='Frequency (Hz)', $
-                ;; YTITLE='|k!Dperp!N (m$^{-1}$)', $
-                ;; YTITLE='|k!Dperp!N (km$^{-1}$)', $
-                YTITLE='|k!D' + perpAll +  '!N (km$^{-1}$)', $
-                CURRENT=window, $
-                LAYOUT=[1,2,1])
-
-     ;; bro.axes
-
-     bro = PLOT(freq[inds],smooth_kP[inds], $
-                ;; XTITLE='Frequency (Hz)', $
-                ;; YTITLE='|k!Dperp!N (m$^{-1}$)', $
-                ;; YTITLE='|k!Dperp!N (km$^{-1}$)', $
-                YTITLE='|k!D' + perpAll +  '!N (km$^{-1}$)', $
-                COLOR='RED', $
-                /OVERPLOT, $
-                CURRENT=window)
-
-     ;;Kperp angle plot
-     ;; kPAngle = ATAN(ky,kx)*!RADEG
-     ;; kPAngle = ATAN(SMOOTH(ky,smInd),SMOOTH(kx,smInd))*!RADEG
-
-     bro = PLOT(freq[inds],kPAngle[inds], $
-                XTITLE='Frequency (Hz)', $
-                ;; XTITLE='T since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-                ;; YTITLE='|$\theta$(k!Dperp!N)', $
-                YTITLE='|$\theta$(k!D' +perpAll + '!N)', $
-                CURRENT=window, $
-                LAYOUT=[1,2,2])
-
-     ;; smkPAngle = SMOOTH(kPAngle[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-     bro = PLOT(freq[inds],smooth_kPAngle[inds], $
-                XTITLE='Frequency (Hz)', $
-                ;; YTITLE='|$\theta$(k!Dperp!N)', $
-                YTITLE='|$\theta$(k!D' +perpAll + '!N)', $
-                COLOR='RED', $
-                /OVERPLOT)
-  ENDIF ELSE BEGIN
-
-
-     IF KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
-
-        columns      = 1
-        rows         = 3
-        !P.MULTI[0]  = 1
-        !P.MULTI[1]  = columns
-        !P.MULTI[2]  = rows
-        ;; !P.MULTI[3]  = 2 ;;Next page?
-
-        page2Suff = ''
-
-     ENDIF ELSE BEGIN
-
-        page2Suff = '-page2'
-
-        IF KEYWORD_SET(save_ps) THEN BEGIN
-           OUTPUT_SETUP,output_mode,plotDir,suff+page2Suff,saveDir
-        ENDIF
-
-        columns      = 1
-        rows         = 3
-        !P.MULTI[0]  = 0
-        !P.MULTI[1]  = columns
-        !P.MULTI[2]  = rows
-        !P.MULTI[3]  = 2 ;;Next page?
-        ;; !P.MULTI  = [0, columns, rows, 0, 0]
-        ;; !P.MULTI  = [0, columns, rows]
-        ;; !P.MULTI  = [0, columns, rows, 1, 0]
-        ;; !P.MULTI[0]  = 0
-
-        IF ~KEYWORD_SET(save_ps) THEN BEGIN
-           IF columns EQ 1 THEN BEGIN
-              WINDOW,2,XSIZE=700,YSIZE=800
-           ENDIF ELSE BEGIN
-              WINDOW,2,XSIZE=1200,YSIZE=600
-           ENDELSE
-        ENDIF
-
-        ;; k__yRange = [4e-3,1e1]
-        kP__yRange = MINMAX(kP[inds])
-        PLOT,freq[inds],kP[inds], $
-             XTITLE='Frequency (Hz)', $
-             ;; YRANGE=[4e-6,1e-2], $
-             XRANGE=page2__freqRange, $
-             YRANGE=kP__yRange, $
-             XSTYLE=1, $
-             YSTYLE=1, $
-             XTICKLEN=1.0, $
-             YTICKLEN=1.0, $
-             XGRIDSTYLE=1, $
-             YGRIDSTYLE=1, $
-             ;; XLOG=1, $
-             YLOG=1, $
-             ;; YTITLE=font + 'k!Dperp!N (m!U-1!N)', $
-             ;; YTITLE=font + 'k!Dperp!N (km!U-1!N)', $
-             YTITLE=font + 'k!D' + perpAll + '!N (km!U-1!N)', $
-             ;; XTICKFORMAT="(A1)", $
-             CHARSIZE=cs
-
-        ;; smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-        IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-           OPLOT,freq[inds],smooth_kP[inds], $
-                 COLOR=250
-        ENDIF
-
-        IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-           dbSmkP = SMOOTH(kP[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-           OPLOT,freq[inds],dbSmkP, $
-                 COLOR=90
-        ENDIF
-
-        overplot_k_turbulence = 1
-        IF KEYWORD_SET(overplot_k_turbulence) THEN BEGIN
-           ;; kDoppl = (freq[inds]^(1.7)/10000)
-           GET_FA_ORBIT,Tarr,/DEFINITIVE,/ALL,/TIME_ARRAY
-           GET_DATA,'fa_vel',DATA=vel
-
-           ;; speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
-           speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)
-           ;; avgSpeed = MEAN(speed)-6000.
-           avgSpeed = MEAN(speed)
-
-           kMajic = kx
-           ;; kxTemp = kx
-
-           ;; CASE 1 OF
-           IF KEYWORD_SET(fitline__use_abs) THEN BEGIN
-              kMajic = ABS(kMajic)
-           ENDIF ELSE BEGIN
-              chuck = WHERE(kMajic GT 0.0,nPosKx)
-              chuck = WHERE(kMajic LT 0.0,nNegKx)
-              IF nNegKx GT nPosKx THEN kMajic *= -1.
-           ENDELSE
-           IF KEYWORD_SET(fitline__use_smoothed) THEN BEGIN
-              kMajic = SMOOTH(kMajic,smInd)
            END
-           ;; kMajic = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
-           ;;                  ABS(kP) : kP), $
-           ;;                 smInd, $
-           ;;                 EDGE_TRUNCATE=edge_truncate, $
-           ;;                 EDGE_MIRROR=edge_mirror, $
-           ;;                 EDGE_WRAP=edge_wrap)
+        ENDCASE
 
-           ;; wDoppl    = kMajic*(avgSpeed)/(2.*!PI)
-           ;; fDoppl    = wDoppl
+        kx     *= 1000.
+        ky     *= 1000.
+        kz     *= 1000.
+        kP     *= 1000.
 
-           minDoppl  = FLOOR(MIN(freq))
-           maxDoppl  = CEIL(MAX(freq))
-           fDoppl    = FINDGEN((maxDoppl-minDoppl)*20.+1)*0.05+minDoppl
-           kDoppl    = fDoppl/avgSpeed
-
-           like_kx   = 1
-           IF KEYWORD_SET(like_kx) THEN BEGIN
-              ;; yArg   = ABS(kx)
-              yArg   = kx
-              yTito  = 'k!Dx!N (km!U-1!N)'
-           ENDIF ELSE BEGIN
-              yArg   = ABS(ky)
-              yTito  = 'k!Dy!N (km!U-1!N)'
-           ENDELSE
-
-           k__yRange = [MIN(yArg),MAX(yArg)] 
-           PLOT,freq[inds],yArg[inds], $
-                XTITLE='Frequency (Hz)', $
-                YTITLE=yTito, $
-                XRANGE=page2__freqRange, $
-                ;; YRANGE=k__yRange, $
-                XSTYLE=1, $
-                ;; YSTYLE=1, $
-                ;; XLOG=1, $
-                ;; YLOG=1, $
-                ;;NWO
-                ;; YRANGE=[(-1.)*MIN(k__yRange),MAX(k__yRange)], $
-                YRANGE=k__yRange, $
-                YLOG=0, $
-                XTICKLEN=1.0, $
-                YTICKLEN=1.0, $
-                XGRIDSTYLE=1, $
-                YGRIDSTYLE=1, $
-                CHARSIZE=cs
-
-           ;; OPLOT,fDoppl[inds],kMajic[inds], $
-           ;; OPLOT,freq[inds],kDoppl[inds], $
-           OPLOT,fDoppl,kDoppl, $
-                 COLOR=110
-
-           OPLOT,fDoppl,(-1.)*kDoppl, $
-                 COLOR=110
-
-           kDopplDat = freq/avgSpeed
-           posii     = WHERE((yArg[inds] GT 0) AND (yArg[inds] GT kDopplDat[inds]),nPosii)
-           negii     = WHERE((yArg[inds] LT 0) AND (yArg[inds] LT (-1.)*kDopplDat[inds]),nNegii)
-
-           dopplInds = !NULL
-           IF nPosii GT 0 THEN BEGIN
-              dopplInds = [dopplInds,inds[posii]]
-           ENDIF
-           IF nNegii GT 0 THEN BEGIN
-              dopplInds = [dopplInds,inds[negii]]
-           ENDIF
-
-           OPLOT,freq[dopplInds],yArg[dopplInds],COLOR=230,PSYM=1
-
-           add_Doppler_fit_string = 0
-           IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
-              fitInds      = CGSETINTERSECTION(fitInds,WHERE(kMajic GT 0.00))
-              params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),YFIT=kxFitter)
-              corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),T_STAT=t_stat)
-
-              params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),YFIT=kxFitter)
-              corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),T_STAT=t_stat)
-
-              xFit         = 10.^((INDGEN(10))/ $
-                                  10.*(ALOG10(MAX(freq[fitInds]))-ALOG10(MIN(freq[fitInds])))+$
-                                  ALOG10(MIN(freq[fitInds])))
-              kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
-              kxFitter     = 10.^(params[1] * ALOG10(freq[fitInds]) + params[0])
-
-              ;; slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
-              ;; corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
-              ;; tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
-              ;; txOutSize    = cs
-              ;; XYOUTS,0.2,0.89,slopeString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.86,corrString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.83,tString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.59,slopeString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.56,corrString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.53,tString,/NORMAL,CHARSIZE=txOutSize
-
-              ;; OPLOT,xFit,kxFit,COLOR=40
-
-           ENDIF
+        bro = 1
+        IF KEYWORD_SET(bro) THEN BEGIN
+           tmp  = SORT(freq)
+           freq = freq[tmp]
+           kx   = kx[tmp]
+           ky   = ky[tmp]
+           kz   = kz[tmp]
+           kP   = kP[tmp]
         ENDIF
 
-     ENDELSE
+        IF KEYWORD_SET(use_all_streaks) THEN BEGIN
+           Tarr = LIST_TO_1DARRAY(Tarr)
+           Bx   = LIST_TO_1DARRAY(Bx)
+           By   = LIST_TO_1DARRAY(By)
+           Bz   = LIST_TO_1DARRAY(Bz)
+           Jx   = LIST_TO_1DARRAY(Jx)
+           Jy   = LIST_TO_1DARRAY(Jy)
+           Jz   = LIST_TO_1DARRAY(Jz)
+        END
 
-     ;;Kperp angle plot     
-     IF KEYWORD_SET(kP__angleRange) THEN BEGIN
+        ;;Kperp angle
+        kPAngle = ATAN(ky,kx)*!RADEG
+        IF KEYWORD_SET(kP__angleRange) THEN BEGIN
 
-        yARange  = kP__angleRange
-        nTickV  = (MAX(kP__angleRange)-MIN(kP__angleRange))/45
-        yTickV  = INDGEN(nTickV)*45+MIN(kP__angleRange) MOD 360
-        ;; yTickV  = INDGEN(nTickV)*45+MIN(kP__angleRange) MOD 360
-        yTickName = yTickV MOD 360
-     ENDIF ELSE BEGIN
+           rotate_kPA = 0
 
-        yARange  = [-180,180]
-        yTickV  = [-180,-90,0,90,180]
+           kPAngle    = NORMALIZE_ANGLE(kPAngle,MIN(kP__angleRange),MAX(kP__angleRange), $
+                                        /DEGREE)
 
-        IF rotate_kPA THEN BEGIN
-           yARange += 180
-           yTickV += 180
+           ;; those = WHERE(kPAngle LT MIN(kP__angleRange),nThose)
+           ;; IF nThose GT 0 THEN BEGIN
+           ;;    kPAngle[those] = (kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
+           ;; ENDIF
+
+           ;; kPAngle = UNWRAP(kPAngle,DIVISOR=360)
+
+        ENDIF ELSE BEGIN
+           histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
+           rotate_kPA = (histo[0]+histo[3]) GT (histo[1]+histo[2])
+           IF rotate_kPA THEN BEGIN
+              kPAngle = (kPAngle + 360) MOD 360
+           ENDIF
+        ENDELSE
+
+        ;;Rotation matrix?
+        ;; angle      = 20.*!DTOR
+        ;; kxprime    = kx*COS(angle) - ky*SIN(angle)
+        ;; kyprime    = kx*SIN(angle) + ky*COS(angle)
+        ;; kx         = TEMPORARY(kxprime)
+        ;; ky         = TEMPORARY(kyprime)
+        
+        freqList.Add,freq
+        fDiffList.Add,freq[1]-freq[0]
+        kxList.Add,kx
+        kyList.Add,ky
+        kzList.Add,kz
+        ;; kPList.Add,kP
+        ;; kPAngleList.Add,kPAngle
+        ;; indsList.Add,inds
+        kzList.Add,kz
+
+        IF (kk EQ minKKInd) AND (jj EQ minJJInd) THEN BEGIN
+
+           ;;Get time string
+           milli = 1
+           CASE SIZE(Tarr,/TYPE) OF
+              11: BEGIN
+                 tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
+                           ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
+              END
+              ELSE: BEGIN
+                 tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
+                           ((STRSPLIT(TIME_TO_STR(TArr[usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
+              END
+           ENDCASE
+           tString = tString.Replace('.','_')
+           suff   += tString
+
+           orig_freq      = freq
+           orig_kx        = kx
+           orig_ky        = ky
+           orig_kz        = kz
+           orig_kP        = kP
+           orig_kPAngle   = kPAngle
+           ;; orig_inds      = inds
+
+           send_TArr      = TArr
+           send_usedInds  = usedInds
+           send_Bx        = Bx
+           send_By        = By
+           send_Bz        = Bz
+           send_Jx        = Jx
+           send_Jy        = Jy
+           send_Jz        = Jz
+
         ENDIF
 
-     ENDELSE
+        avgCount++
+     ENDFOR
+  ENDFOR
+  
+  CASE avgCount OF
+     1: BEGIN
 
+     END
+     ELSE: BEGIN
 
-     ;;We don't want any wrap
-     ;; sm2    = smInd/2
-     ;; startK = sm2
-     ;; FOR k=startK,(N_ELEMENTS(inds)-sm2-1) DO BEGIN
-     ;;    tmpInds = inds[(k-sm2):(k+sm2)]
-     ;;    histo   = HISTOGRAM(kPAngle[tmpInds],BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
-     ;;    print,'k: ',k
-     ;;    PRINT,histo
-     ;;    PRINT,locs
-     ;;    junk = MAX(histo,ind)
-     ;;    PRINT,locs[ind],histo[ind]
-     ;;    PRINT,''
-     ;; ENDFOR
+        freqs     = LIST_TO_1DARRAY(freqList,/WARN)
+        kxs       = LIST_TO_1DARRAY(kxList,/WARN)
+        kys       = LIST_TO_1DARRAY(kyList,/WARN)
+        kzs       = LIST_TO_1DARRAY(kzList,/WARN)
+        ;; kPs       = LIST_TO_1DARRAY(kPList,/WARN)
+        ;; kPAngles  = LIST_TO_1DARRAY(kPAngleList,/WARN)
+        ;; indss  = LIST_TO_1DARRAY(indsList,/WARN)
+        ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
+        ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
+        ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
 
-     PLOT,freq[inds],kPAngle[inds], $
-          XTITLE='Frequency (Hz)', $
-          ;; YTITLE='!4h!X!Dk!Dperp!N', $
-          YTITLE='!4h!X!Dk!D' + perpAll + '!N', $
-          XRANGE=page2__freqRange, $
-          YRANGE=yARange, $
-          XSTYLE=1, $
-          YSTYLE=1, $
-          XTICKLEN=1.0, $
-          YTICKLEN=1.0, $
-          XGRIDSTYLE=1, $
-          YGRIDSTYLE=1, $
-          YTICKS=N_ELEMENTS(yTickV)-1, $
-          YTICKV=yTickV, $
-          YTICKNAME=yTickName, $
-          YMINOR=6, $
-          CHARSIZE=cs
-          ;; YTITLE='|$\theta$(k!Dperp!N)'
+        binSz     = 0.2
+        ;; binSz     = orig_freq[1]-orig_freq[0]
+        ;; binSz     = MAX(LIST_TO_1DARRAY(fDiffList,/WARN))
+        kx        = HIST1D(freqs,kxs,BINSIZE=binSz,OBIN=freq)/avgCount
+        ky        = HIST1D(freqs,kys,BINSIZE=binSz,OBIN=freq)/avgCount
+        kz        = HIST1D(freqs,kzs,BINSIZE=binSz,OBIN=freq)/avgCount
+        ;; kP        = HIST1D(freqs,kPs,BINSIZE=binSz,OBIN=freq)/avgCount
+        ;; kPAngle   = HIST1D(freqs,kPAngles,BINSIZE=binSz)/avgCount
+        kP        = SQRT(kx*kx+ky*ky)
+        kPAngle = ATAN(ky,kx)*!RADEG
 
-     IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
-        OPLOT,freq[inds],smooth_kPAngle[inds], $
-              COLOR=250
-     ENDIF
+     END
+  ENDCASE
 
-     IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
+  IF doPlot THEN BEGIN
+
+     IF KEYWORD_SET(use_avged_for_smooth) THEN BEGIN
+
+        IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+           plot_smoothed_ks = {freq:freq, $
+                               kx:kx, $
+                               ky:ky}
+
+        ENDIF
+
+        IF KEYWORD_SET(kx_vs_ky__plot_smoothed) THEN BEGIN
+
+           kx_vs_ky__plot_smoothed = {kx:kx, $
+                                      ky:ky}
+
+        ENDIF
 
         IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
-           OPLOT,freq[dopplInds],smooth_kPAngle[dopplInds],COLOR=230,PSYM=1
+
+           kP_angle__plot_smoothed = {freq:freq, $
+                                      angle:kPAngle}
+
         ENDIF
-
-        PRINT,"Mean theta exceeding doppl: ",MEAN(kPAngle[dopplInds])
-        PRINT,"Medn theta exceeding doppl: ",MEDIAN(kPAngle[dopplInds])
+        
+        ;;Now give 'em what we got
+        freq       =  orig_freq   
+        kx         =  orig_kx     
+        ky         =  orig_ky     
+        kz         =  orig_kz     
+        kP         =  orig_kP     
+        kPAngle    =  orig_kPAngle
+        ;; inds       =  orig_inds   
 
      ENDIF
 
-     IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-        dbSmkPAngle = SMOOTH(kPAngle,dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-        OPLOT,freq[inds],dbSmkPAngle[inds], $
-              COLOR=90
-     ENDIF
+     PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,send_TArr,freq, $
+                                          send_Bx,send_By,send_Bz, $
+                                          send_Jx,send_Jy,send_Jz, $
+                                          kx,ky,kz, $
+                                          kP,kPAngle, $
+                                          ;; inds, $
+                                          send_usedInds, $
+                                          example, $
+                                          EXAMPLE_MODE=example_mode, $
+                                          PLOTDIR=plotDir, $
+                                          SUFF=suff, $
+                                          PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
+                                          SAVE_PS=save_ps, $
+                                          TO_PDF=to_pdf, $
+                                          PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
+                                          REMOVE_EPS=remove_eps, $
+                                          PLOT_POSFREQ=plot_posFreq, $
+                                          FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
+                                          PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+                                          PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
+                                          PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
+                                          PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
+                                          KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
+                                          KP_ANGLE__PLOT_SMOOTHED=kP_angle__plot_smoothed, $
+                                          KSMOOTH__NSMOOTHS=smInd, $
+                                          KSMOOTH__DOUBLENSMOOTHS=dbSmInd, $
+                                          KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
+                                          KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
+                                          KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+                                          FREQLIMS=freqLims, $
+                                          PAGE1__FREQRANGE=page1__freqRange, $
+                                          PAGE2__FREQRANGE=page2__freqRange, $
+                                          KP__ANGLERANGE=kP__angleRange, $
+                                          THIRD_PAGE=third_page, $
+                                          OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
+                                          PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+                                          FITLINE__USE_ABS=fitline__use_abs, $
+                                          FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
+                                          PUBLICATION_SETTINGS=pubSettings, $
+                                          PRE_VIII_LAYOUT=PRE_VIII_layout
 
-     CASE 1 OF
-        KEYWORD_SET(third_page) AND ~KEYWORD_SET(PRE_VIII_layout): BEGIN
-           IF KEYWORD_SET(save_ps) THEN BEGIN
-              CONCLUDE_OUTPUT,output_mode,plotDir,suff+page2Suff, $
-                              ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
-                              TO_PDF=to_pdf, $
-                              PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                              REMOVE_EPS=remove_eps
+  ENDIF
 
-              OUTPUT_SETUP,output_mode,plotDir,suff+'-page3',saveDir
-           ENDIF
+        out_inds      = TEMPORARY(inds   ) 
+        out_freqs     = TEMPORARY(freq   )
+        out_kx        = TEMPORARY(kx     )
+        out_ky        = TEMPORARY(ky     )
+        out_kz        = TEMPORARY(kz     )
+        out_kP        = TEMPORARY(kP     )
+        out_kPAngle   = TEMPORARY(kPAngle)
 
-           columns      = 1
-           rows         = 1
-           !P.MULTI[0]  = 0
-           !P.MULTI[1]  = columns
-           !P.MULTI[2]  = rows
-           !P.MULTI[3]  = 4 ;;Nextnext page?
+        ;; out_inds      = (TEMPORARY(inds   ))[inds] 
+        ;; out_freqs     = (TEMPORARY(freq   ))[inds]
+        ;; out_kx        = (TEMPORARY(kx     ))[inds]
+        ;; out_ky        = (TEMPORARY(ky     ))[inds]
+        ;; out_kz        = (TEMPORARY(kz     ))[inds]
+        ;; out_kP        = (TEMPORARY(kP     ))[inds]
+        ;; out_kPAngle   = (TEMPORARY(kPAngle))[inds]
 
-           ;; kP__yRange = [4e-3,1e1]
-           PLOT,kPAngle[inds],kP[inds], $
-                ;; XTITLE='!4h!X!Dk!Dperp!N', $
-                ;; YTITLE=font + 'k!Dperp!N (km!U-1!N)', $
-                XTITLE='!4h!X!Dk!D' + perpAll + '!N', $
-                YTITLE=font + 'k!D' + perpAll + '!N (km!U-1!N)', $
-                XRANGE=yARange, $
-                YRANGE=kP__yRange, $
-                XSTYLE=1, $
-                YSTYLE=1, $
-                LINESTYLE=0, $
-                PSYM=2, $
-                XTICKLEN=1.0, $
-                YTICKLEN=1.0, $
-                XGRIDSTYLE=1, $
-                YGRIDSTYLE=1, $
-                CHARSIZE=cs
+        out_usedInds  = TEMPORARY(usedInds)
+        out_TArr      = TEMPORARY(TArr    )
+        out_Bx        = TEMPORARY(Bx      )
+        out_By        = TEMPORARY(By      )
+        out_Bz        = TEMPORARY(Bz      )
+        out_Jx        = TEMPORARY(Jx      )
+        out_Jy        = TEMPORARY(Jy      )
+        out_Jz        = TEMPORARY(Jz      )
 
-           IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
-              OPLOT,smooth_kPAngle[inds],smooth_kP[inds], $
-                    COLOR=250, $
-                    LINESTYLE=0, $
-                    PSYM=2
 
-           ENDIF
-
-           IF KEYWORD_SET(save_ps) THEN BEGIN
-              CONCLUDE_OUTPUT,output_mode,plotDir,suff+'-page3', $
-                              ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
-                              TO_PDF=to_pdf, $
-                              PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                              REMOVE_EPS=remove_eps
-
-              ;;Smash pages together
-              IF KEYWORD_SET(to_pdf) THEN BEGIN
-                 fPref = plotDir + suff
-
-                 SPAWN,'pdfunite ' + fPref + '.pdf' + ' ' + $
-                       fPref + '-page2' + '.pdf' + ' ' + $
-                       fPref + '-page3' + '.pdf' + ' ' + $
-                       fPref + '-all' + '.pdf'
-
-                 SPAWN,'mv ' + fPref + '-all' + '.pdf' + ' ' + $
-                       fPref + '.pdf'
-
-                 SPAWN,'rm ' + fPref + '-page2' + '.pdf'
-                 SPAWN,'rm ' + fPref + '-page3' + '.pdf'
-              ENDIF
-
-           ENDIF
-
-        END
-        ELSE: BEGIN
-
-           IF KEYWORD_SET(save_ps) THEN BEGIN
-
-              CONCLUDE_OUTPUT,output_mode,plotDir,suff+page2suff, $
-                              ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
-                              TO_PDF=to_pdf, $
-                              PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                              REMOVE_EPS=remove_eps
-
-              ;;Smash pages together
-              IF KEYWORD_SET(to_pdf) THEN BEGIN
-                 fPref = plotDir + suff
-
-                 CASE 1 OF
-                    KEYWORD_SET(PRE_VIII_layout): BEGIN
-
-                    END
-                    ELSE: BEGIN
-
-                       SPAWN,'pdfunite ' + fPref + '.pdf' + ' ' + $
-                             fPref + '-page2' + '.pdf' + ' ' + $
-                             fPref + '-all' + '.pdf'
-
-                       SPAWN,'mv ' + fPref + '-all' + '.pdf' + ' ' + $
-                             fPref + '.pdf'
-
-                       SPAWN,'rm ' + fPref + '-page2' + '.pdf'
-
-                    END
-                 ENDCASE
-
-              ENDIF
-
-           ENDIF
-
-        END
-     ENDCASE
-
-  ENDELSE
-
-  ;; print to screen, printer, or file depending on mode=0,1,2
-  ;; CONCLUDE_OUTPUT,output_mode
 END
