@@ -160,6 +160,14 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                                          TO_PDF=to_pdf, $
                                          PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
                                          REMOVE_EPS=remove_eps, $
+                                         KX_SPECIALFREQS=kx_specialFreqs, $
+                                         KY_SPECIALFREQS=ky_specialFreqs, $
+                                         KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
+                                         KX_SPECIALBOUNDS=kx_specialBounds, $
+                                         KY_SPECIALBOUNDS=ky_specialBounds, $
+                                         KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
+                                         MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
+                                         MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
                                          PLOT_POSFREQ=plot_posFreq, $
                                          FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
                                          PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
@@ -190,6 +198,12 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   IF KEYWORD_SET(pubSettings) THEN BEGIN
      cs = 1.8
   ENDIF
+
+  ;;Only for special people (see Beck)
+  specialColor   = 70
+  specialThick   = 3.0
+  specialLineSty = 5
+  kPA_specialSty = 5
 
   GET_FREQ_INDS,freq,kx,ky,kz, $
                 kP,kPAngle, $
@@ -391,6 +405,34 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                              EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
   ENDIF
 
+  IF KEYWORD_SET(kx_specialFreqs) THEN BEGIN
+
+     kx_totSpecial_i = !NULL
+     FOR jD=0,N_ELEMENTS(kx_specialFreqs)/2-1 DO BEGIN
+
+        tmpSpFreq = kx_specialFreqs[*,jD]
+
+        ;;Special markers
+        line1_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[0])
+        line1_kx   = [-kx_ysize,kx_ysize]
+        line2_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[1])
+        line2_kx   = [-kx_ysize,kx_ysize]
+
+        ;;Plot a special line, if there's any helping it
+        special_i  = WHERE(freq GE tmpSpFreq[0] AND freq LE tmpSpFreq[1],nSpecial)
+        ;; IF nSpecial GT 0 THEN BEGIN
+        ;;    OPLOT,freq[special_i],kx[special_i],COLOR=specialColor
+        ;; ENDIF
+
+        ;;Now plot all those special people
+        OPLOT,line1_freq,line1_kx,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
+        OPLOT,line2_freq,line2_kx,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
+
+        kx_totSpecial_i = [kx_totSpecial_i,special_i]
+     ENDFOR
+
+  ENDIF
+
   PLOT,freq[inds],ky[inds], $
        ;; YTITLE='k!Dy!N (m!U-1!N)', $
        YTITLE='k!Dy!N (km!U-1!N)', $
@@ -419,6 +461,96 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                   EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap), $
            COLOR=90
   ENDIF
+
+  IF KEYWORD_SET(ky_specialFreqs) THEN BEGIN
+
+     ky_totSpecial_i = !NULL
+     FOR jD=0,N_ELEMENTS(ky_specialFreqs)/2-1 DO BEGIN
+
+        tmpSpFreq = ky_specialFreqs[*,jD]
+
+        ;;Special markers
+        line1_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[0])
+        line1_ky   = [-ky_ysize,ky_ysize]
+        line2_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[1])
+        line2_ky   = [-ky_ysize,ky_ysize]
+
+        ;;Plot a special line, if there's any helping it
+        special_i  = WHERE(freq GE tmpSpFreq[0] AND freq LE tmpSpFreq[1],nSpecial)
+        ;; IF nSpecial GT 0 THEN BEGIN
+        ;;    OPLOT,freq[special_i],ky[special_i],COLOR=specialColor
+        ;; ENDIF
+
+        ;;Now plot all those special people
+        OPLOT,line1_freq,line1_ky,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
+        OPLOT,line2_freq,line2_ky,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
+
+        ky_totSpecial_i = [ky_totSpecial_i,special_i]
+     ENDFOR
+
+
+  ENDIF
+
+  IF KEYWORD_SET(make_kx_vs_ky_special) OR KEYWORD_SET(make_kPAngle_special) THEN BEGIN
+
+     specialB_i  = !NULL
+     IF KEYWORD_SET(kx_specialBounds) THEN BEGIN
+
+        FOR jD=0,N_ELEMENTS(kx_specialBounds)/2-1 DO BEGIN
+
+           tmpSpB     = kx_specialBounds[*,jD]
+           
+           special_i  = WHERE(kx GE tmpSpB[0] AND kx LE tmpSpB[1],nSpecial,/NULL)
+
+           specialB_i = [specialB_i,special_i]
+        ENDFOR
+
+     ENDIF
+
+     IF KEYWORD_SET(ky_specialBounds) THEN BEGIN
+
+        FOR jD=0,N_ELEMENTS(ky_specialBounds)/2-1 DO BEGIN
+
+           tmpSpB     = ky_specialBounds[*,jD]
+           
+           special_i  = WHERE(ky GE tmpSpB[0] AND ky LE tmpSpB[1],nSpecial,/NULL)
+
+           specialB_i = [specialB_i,special_i]
+        ENDFOR
+
+     ENDIF
+
+     CASE 1 OF
+        KEYWORD_SET(kx_totSpecial_i) AND KEYWORD_SET(ky_totSpecial_i): BEGIN
+           kxvky_spI = CGSETUNION(kx_totSpecial_i,ky_totSpecial_i)
+        END
+        KEYWORD_SET(kx_totSpecial_i): BEGIN
+           kxvky_spI = kx_totSpecial_i
+        END
+        KEYWORD_SET(kx_totSpecial_i): BEGIN
+           kxvky_spI = ky_totSpecial_i
+        END
+        ELSE:
+     ENDCASE
+
+     kxvky_spF_spB_i = kxvky_spI
+
+     IF N_ELEMENTS(specialB_i) NE 0 THEN BEGIN
+
+        specialB_i       = specialB_i[UNIQ(specialB_i,SORT(specialB_i))]
+        kxvky_spF_spB_i  = CGSETINTERSECTION(kxvky_spF_spB_i,specialB_i,COUNT=nkxvky)
+
+        IF nkxvky EQ 0 THEN STOP
+
+     ENDIF
+
+     kxy_spI         = kxvky_spF_spB_i
+
+     ;;For special angles
+     kPA_spI         = kxvky_spI
+
+  ENDIF
+
 
   IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
      
@@ -453,6 +585,15 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
               PSYM=1
         ;;    END
         ;; ENDCASE
+
+     ENDIF
+
+     IF KEYWORD_SET(make_kx_vs_ky_special) THEN BEGIN
+
+        OPLOT,kx[kxy_spI],ky[kxy_spI], $
+              PSYM=1, $
+              COLOR=specialColor, $
+              LINESTYLE=0
 
      ENDIF
 
@@ -594,7 +735,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
         page2Suff = '-page2'
 
         IF KEYWORD_SET(save_ps) THEN BEGIN
-           OUTPUT_SETUP,output_mode,plotDir,suff+page2Suff,saveDir
+           OUTPUT_SETUP,output_mode,plotDir,suff+page2Suff
         ENDIF
 
         columns      = 1
@@ -829,6 +970,28 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
         ENDCASE
 
      ENDIF
+
+     IF KEYWORD_SET(make_kPAngle_special) THEN BEGIN
+
+        GET_STREAKS,kPA_spI, $
+                    START_I=strt_ii, $
+                    STOP_I=stop_ii, $
+                    MIN_STREAK_TO_KEEP=2, $
+                    N_STREAKS=nStreaks
+
+        FOR jj=0,nStreaks-1 DO BEGIN
+
+           tmpI = [kPA_spI[strt_ii[jj]]:kPA_spI[stop_ii[jj]]]
+
+           OPLOT,freq[tmpI],kPAngle[tmpI], $
+                 ;; PSYM=1, $
+                 LINESTYLE=kPA_specialSty, $
+                 COLOR=specialColor
+
+        ENDFOR
+
+     ENDIF
+
 
      IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
 

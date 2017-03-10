@@ -737,7 +737,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         ;; even_TS = even_TS[60:-60]
         origInterp = 0B
         spline     = 1B
-        maxDelta_t = 0.2
+        maxDelta_t = 0.8
 
         interp = origInterp
         FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
@@ -824,7 +824,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         analysis_times = [analysis_t1,analysis_t2]
 
-        good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
+        good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood,COMPLEMENT=bad_i)
         IF nGood EQ 0 THEN STOP
 
         FOR k=0,N_ELEMENTS(analysis_t1)-1 DO BEGIN
@@ -1406,7 +1406,17 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    SHIFT_NPTS=shift_nPts, $
    BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
    FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
+   LOCK_FWDSHIFT_TO_BACKSHIFT=lock_shifts, $
    USE_AVGED_FOR_SMOOTH=use_avged_for_smooth, $
+   AVG_BINSIZE=avg_binSize, $
+   KX_SPECIALFREQS=kx_specialFreqs, $
+   KY_SPECIALFREQS=ky_specialFreqs, $
+   KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
+   KX_SPECIALBOUNDS=kx_specialBounds, $
+   KY_SPECIALBOUNDS=ky_specialBounds, $
+   KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
+   MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
+   MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
@@ -1598,7 +1608,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ENDCASE
 
   nBack = N_ELEMENTS(backShifts_for_avging)
-  nFwd  = N_ELEMENTS(fwdShifts_for_avging)
+  IF KEYWORD_SET(lock_shifts) THEN BEGIN
+     nFwd  = 1
+  ENDIF ELSE BEGIN
+     nFwd  = N_ELEMENTS(fwdShifts_for_avging)
+  ENDELSE
 
   IF nBack GT 1 THEN BEGIN
      junk       = MIN(ABS(backShifts_for_avging),minJJInd)
@@ -1627,11 +1641,16 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   FOR jj=0,nBack-1 DO BEGIN
      FOR kk=0,nFwd-1 DO BEGIN
 
+        IF KEYWORD_SET(lock_shifts) THEN BEGIN
+           shift_nPts = [backShifts_for_avging[jj],backShifts_for_avging[jj]]
+        ENDIF ELSE BEGIN
+           shift_nPts = [backShifts_for_avging[jj],fwdShifts_for_avging[kk]]
+        ENDELSE
+
         tmpFFTSize = KEYWORD_SET(FFTSize) ? FFTSize : !NULL
         tmpSuff = STRING(FORMAT='("__shft_",I0,"_",I0)',backShifts_for_avging[jj],fwdShifts_for_avging[kk])
         PRINT,FORMAT='("********",T10,I0,T20,A0,T40,"*********")',avgCount,tmpSuff
 
-        shift_nPts = [backShifts_for_avging[jj],fwdShifts_for_avging[kk]]
 
         IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
 
@@ -1875,8 +1894,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                     tmpI = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]
                     nTmp = N_ELEMENTS(tmpI)
                     nArr = [nArr,nTmp]
-                    PRINT,FORMAT='(A0,T10,A0,T20,A0,T45,A0)',"Itvl","nPts","Start T","Stop T"
-                    PRINT,FORMAT='(I0,T10,I0,T20,A0,T45,A0)',k,nTmp,TIME_TO_STR(TArr[tmpI[0]],/MS),TIME_TO_STR(TArr[tmpI[-1]],/MS)
+                    PRINT,FORMAT='(A0,T10,A0,T20,A0,T45,A0,T72,A0)',"Itvl","nPts","Start T","Stop T","sFreq"
+                    PRINT,FORMAT='(I0,T10,I0,T20,A0,T45,A0,T72,F0.3)',k,nTmp, $
+                          TIME_TO_STR(TArr[tmpI[0]],/MS),TIME_TO_STR(TArr[tmpI[-1]],/MS), $
+                          1.D/(TArr[1]-TArr[0])
                     BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
                                      freq,kx,ky,kz,kP, $
                                      SPERIOD=sPeriod, $
@@ -2050,9 +2071,18 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
         ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
 
-        binSz     = 0.2
+        IF KEYWORD_SET(avg_binSize) THEN BEGIN
+
+           binSz  = avg_binSize
+
+        ENDIF ELSE BEGIN
+
+        ;; binSz     = 0.2
         ;; binSz     = orig_freq[1]-orig_freq[0]
-        ;; binSz     = MAX(LIST_TO_1DARRAY(fDiffList,/WARN))
+           binSz     = MAX(LIST_TO_1DARRAY(fDiffList,/WARN))
+
+        ENDELSE
+
         kx        = HIST1D(freqs,kxs,BINSIZE=binSz,OBIN=freq)/avgCount
         ky        = HIST1D(freqs,kys,BINSIZE=binSz,OBIN=freq)/avgCount
         kz        = HIST1D(freqs,kzs,BINSIZE=binSz,OBIN=freq)/avgCount
@@ -2116,6 +2146,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                           TO_PDF=to_pdf, $
                                           PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
                                           REMOVE_EPS=remove_eps, $
+                                          KX_SPECIALFREQS=kx_specialFreqs, $
+                                          KY_SPECIALFREQS=ky_specialFreqs, $
+                                          KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
+                                          KX_SPECIALBOUNDS=kx_specialBounds, $
+                                          KY_SPECIALBOUNDS=ky_specialBounds, $
+                                          KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
+                                          MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
+                                          MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
                                           PLOT_POSFREQ=plot_posFreq, $
                                           FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
                                           PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
