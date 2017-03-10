@@ -373,21 +373,23 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 END
 
 FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
-                    B_AND_J_FILE=saveFile, $
-                    USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
-                    CUSTOM_T1=custom_t1, $
-                    CUSTOM_T2=custom_t2, $
-                    USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
-                    USE_J_TIME_SERIES=use_J_time_series, $
-                    SMOOTH_J_DAT_TO_B=smooth_J_dat, $
-                    PRESMOOTH_MAG=presmooth_mag, $
-                    PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
-                    STREAKNUM=streakNum, $
-                    OUT_STREAKNUM=longestInd, $
-                    USE_ALL_STREAKS=use_all_streaks, $
-                    USE_DB_FAC=use_dB_fac, $
-                    HAVE_EFIELD=have_EField, $
-                    SRATES=sRates
+                         B_AND_J_FILE=saveFile, $
+                         USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+                         CUSTOM_T1=custom_t1, $
+                         CUSTOM_T2=custom_t2, $
+                         SHIFT_NPTS=shift_nPts, $
+                         USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
+                         USE_J_TIME_SERIES=use_J_time_series, $
+                         SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+                         PRESMOOTH_MAG=presmooth_mag, $
+                         PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+                         STREAKNUM=streakNum, $
+                         OUT_STREAKNUM=longestInd, $
+                         USE_ALL_STREAKS=use_all_streaks, $
+                         USE_DB_FAC=use_dB_fac, $
+                         HAVE_EFIELD=have_EField, $
+                         FFT__NEAREST_TWO_POWER=nearest_two_power, $
+                         SRATES=sRates
 
   COMPILE_OPT idl2,strictarrsubs
 
@@ -871,6 +873,11 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      END
   ENDCASE
 
+  ;;And adjust analysis_t1 and analysis_t2, based on shift_nPts
+  analysis_t1 += shift_nPts[0]*sPeriod
+  analysis_t2 += shift_nPts[1]*sPeriod
+
+
   ;;Interp over gaps if the space isn't very big
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -897,6 +904,8 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
      (KEYWORD_SET(analysis_t1) AND KEYWORD_SET(analysis_t2)): BEGIN
         ;; IF N_ELEMENTS(analysis_t1) GT 1 THEN BEGIN
 
+        analysis_times = [analysis_t1,analysis_t2]
+
         good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
         IF nGood EQ 0 THEN STOP
 
@@ -908,12 +917,52 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            GET_STREAKS,good_iTmp,START_i=strt_iiTmp,STOP_I=stop_iiTmp, $
                        OUT_STREAKLENS=streakLensTmp,/QUIET,/NO_PRINT_SUMMARY
            IF streakLensTmp[0] GT 1 THEN BEGIN
-              ;; FOR kk=0,N_ELEMENTS(streakLensTmp)-1 DO BEGIN
-              ;; strt_i = [strt_i,good_iTmp[strt_iiTmp]]
-              ;; stop_i = [stop_i,good_iTmp[stop_iiTmp]]
+
+              IF KEYWORD_SET(nearest_two_power) THEN BEGIN
+
+                 nHere     = N_ELEMENTS(good_iTmp)
+                 n2power   = ROUND(ALOG2(nHere))
+                 need      = 2^n2power - nHere
+                 origStrt  = good_iTmp[MIN(strt_iiTmp)]
+
+                 CASE 1 OF
+                    need LT 0: BEGIN
+
+                       ;;So we're trimming
+                       maxGoBack = stop_iiTmp - strt_iiTmp
+                       moveBack  = ABS(need) < maxGoBack
+                       moveFwd   = ABS(need) - moveBack
+                       stop_iiTmp -= moveBack
+                       strt_iiTmp += moveFwd
+
+                    END
+                    need GT 0: BEGIN
+
+                       ;;So we're adding
+                       maxGoFwd = (N_ELEMENTS(good_i)-1) - stop_iiTmp
+                       moveFwd  = ABS(need) < maxGoFwd
+                       maxMoveBack = strt_iiTmp
+                       moveBack    = (ABS(need) - moveFwd) < maxMoveBack
+                       stop_iiTmp += moveFwd
+                       strt_iiTmp -= moveBack
+
+                    END
+                    ELSE     : 
+                 ENDCASE
+
+                 ;;Check to make sure it's legit
+                 IF N_ELEMENTS(WHERE((stop_iiTmp-strt_iiTmp) EQ (2^n2power-1),/NULL)) NE N_ELEMENTS(stop_iiTmp) THEN BEGIN
+                    PRINT,'Wrong again'
+                    STOP
+                 ENDIF
+
+                 good_iTmp = origStrt + [MIN(strt_iiTmp):MAX(stop_iiTmp)]
+
+              ENDIF
+
               strt_i_list.Add,good_iTmp[strt_iiTmp]
               stop_i_list.Add,good_iTmp[stop_iiTmp]
-              ;; ENDFOR
+
            ENDIF
 
         ENDFOR
@@ -928,6 +977,9 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
      END
      KEYWORD_SET(analysis_t1): BEGIN
+
+        analysis_times = analysis_t1
+
         IF N_ELEMENTS(analysis_t1) GT 1 THEN BEGIN
 
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
@@ -967,6 +1019,9 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
      END
      KEYWORD_SET(analysis_t2): BEGIN
+
+        analysis_times = analysis_t2
+
         IF N_ELEMENTS(analysis_t2) GT 1 THEN BEGIN
 
            good_i      = WHERE(FINITE(je_z_improv) AND FINITE(ji_z_improv),nGood)
@@ -1114,9 +1169,9 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         By = By[good_i]
         Bz = Bz[good_i]
 
-        Bx = Bx - Bx[0]
-        By = By - By[0]
-        Bz = Bz - Bz[0]
+        ;; Bx = Bx - Bx[0]
+        ;; By = By - By[0]
+        ;; Bz = Bz - Bz[0]
 
         ;;Sorry, Jx and Jy
         Jx = MAKE_ARRAY(T,VALUE=0.) * jFactor
@@ -1126,6 +1181,78 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
      END
   ENDCASE
+
+  b_is_list         = SIZE(Bx,/TYPE) EQ 11
+  can_convert       = b_is_list ? (NDIMEN(Bx[0]) EQ 1) : NDIMEN(Bx) EQ 1
+  IF KEYWORD_SET(nearest_two_power) AND can_convert THEN BEGIN
+
+     ;;Temporarily unpack, if need be
+     IF b_is_list THEN BEGIN
+
+        Bx    = Bx[0]
+        By    = By[0]
+        Bz    = Bz[0]
+        T     = T[0]
+        TArr  = TArr[0]
+        Jx    = Jx[0]
+        Jy    = Jy[0]
+        Jz    = Jz[0]
+
+     ENDIF
+     
+     nPoints   = N_ELEMENTS(Bx)
+     n2power   = ROUND(ALOG2(nPoints))
+     newPoints = 2^n2power
+
+     ;;Shrink or else expand
+     CASE 1 OF
+        newPoints GT nPoints: BEGIN
+
+           ;;pad with zeros
+           padding = MAKE_ARRAY(newPoints - nPoints,/DOUBLE,VALUE=0.D)
+
+           Bx   = [Bx,padding]
+           By   = [By,padding]
+           Bz   = [Bz,padding]
+           T    = newPoints
+           TArr = [TArr,(DINDGEN(newPoints - nPoints)+1)*(TArr[-1]-TArr[-2])+TArr[-1]]
+           Jx   = [Jx,padding]
+           Jy   = [Jy,padding]
+           Jz   = [Jz,padding]
+
+        END
+        newPoints LT nPoints: BEGIN
+
+           dropEm = newPoints - nPoints
+
+           Bx   = Bx[0:dropEm]
+           By   = By[0:dropEm]
+           Bz   = Bz[0:dropEm]
+           T    = newPoints
+           TArr = TArr[0:dropEm]
+           Jx   = Jx[0:dropEm]
+           Jy   = Jy[0:dropEm]
+           Jz   = Jz[0:dropEm]
+
+        END
+        ELSE: 
+     ENDCASE
+
+     ;;Repack, if need be
+     IF b_is_list THEN BEGIN
+
+        Bx    = LIST(Bx  ) 
+        By    = LIST(By  )
+        Bz    = LIST(Bz  )
+        T     = LIST(T   )
+        TArr  = LIST(TArr)
+        Jx    = LIST(Jx  )
+        Jy    = LIST(Jy  )
+        Jz    = LIST(Jz  )
+
+     ENDIF
+
+  ENDIF
 
   RETURN,1
 
@@ -1358,6 +1485,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
+   SHIFT_NPTS=shift_nPts, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
@@ -1400,6 +1528,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PUBLICATION_SETTINGS=pubSettings, $
    PRE_VIII_LAYOUT=PRE_VIII_layout, $
    ODDNESS_CHECK=oddness_check, $
+   FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
    FFTPERCENT=FFTpercent,$
    WHICH_FFTS=which_FFTs
@@ -1413,6 +1542,21 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   IF N_ELEMENTS(extra_suffix) EQ 0 THEN extra_suffix = ''
 
+  CASE N_ELEMENTS(shift_nPts) OF
+     0: BEGIN
+        shift_nPts = [0,0]
+     END
+     1: BEGIN
+        shift_nPts = [shift_nPts,shift_nPts]
+     END
+     2: BEGIN
+        ;;You're good, don't touch
+     END
+     ELSE: BEGIN
+        PRINT,"Bogus! No more than two shifties"
+        STOP
+     END
+  ENDCASE
   ;; IF N_ELEMENTS(double_calc) EQ 0 THEN double_calc = 1
 
   ;;select output mode,
@@ -1454,6 +1598,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                          USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                          CUSTOM_T1=custom_t1, $
                          CUSTOM_T2=custom_t2, $
+                         SHIFT_NPTS=shift_nPts, $
                          USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
                          USE_J_TIME_SERIES=use_J_time_series, $
                          SMOOTH_J_DAT_TO_B=smooth_J_dat, $
@@ -1464,6 +1609,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                          USE_ALL_STREAKS=use_all_streaks, $
                          USE_DB_FAC=use_dB_fac, $
                          HAVE_EFIELD=have_EField, $
+                         FFT__NEAREST_TWO_POWER=nearest_two_power, $
                          SRATES=sRates) $
      THEN BEGIN
         MESSAGE,"Failed to parse!",/CONT
@@ -1802,6 +1948,21 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      END
   ENDCASE
 
+  ;;Get time string
+  milli = 1
+  CASE SIZE(Tarr,/TYPE) OF
+     11: BEGIN
+        tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
+                  ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
+     END
+     ELSE: BEGIN
+        tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
+                  ((STRSPLIT(TIME_TO_STR(TArr[usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
+     END
+  ENDCASE
+  tString = tString.Replace('.','_')
+  suff   += tString
+
   kx     *= 1000.
   ky     *= 1000.
   kz     *= 1000.
@@ -1813,10 +1974,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
      rotate_kPA = 0
 
-     those = WHERE(kPAngle LT MIN(kP__angleRange),nThose)
-     IF nThose GT 0 THEN BEGIN
-        kPAngle[those] = (kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
-     ENDIF
+     kPAngle    = NORMALIZE_ANGLE(kPAngle,MIN(kP__angleRange),MAX(kP__angleRange), $
+                                  /DEGREE)
+
+     ;; those = WHERE(kPAngle LT MIN(kP__angleRange),nThose)
+     ;; IF nThose GT 0 THEN BEGIN
+     ;;    kPAngle[those] = (kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
+     ;; ENDIF
 
      ;; kPAngle = UNWRAP(kPAngle,DIVISOR=360)
 
@@ -1874,11 +2038,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Bx[usedInds], $
        XTITLE='t', $
        YTITLE=font + 'B!Dx!N', $
+       XSTYLE=1, $
        CHARSIZE=cs
 
   PLOT,TArr[usedInds]-TArr[usedInds[0]],By[usedInds], $
        XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
        YTITLE=font + 'B!Dy!N (nT)', $
+       XSTYLE=1, $
        CHARSIZE=cs
 
 
@@ -1886,16 +2052,19 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
           XTITLE='t', $
           YTITLE=font + 'B!Dz!N', $
+          XSTYLE=1, $
           CHARSIZE=cs
 
      PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
           XTITLE='t', $
           YTITLE='!4l!3!D0 !N' + font + 'J!Dx!N', $
+          XSTYLE=1, $
           CHARSIZE=cs
 
      PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
           XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
           YTITLE='!4l!3!D0 !N' + font + 'J!Dy!N (!4l!N' + font + 'T/m)', $
+          XSTYLE=1, $
           CHARSIZE=cs
 
   ENDIF
@@ -1903,6 +2072,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Jz[usedInds], $
        XTITLE='t', $
        YTITLE='!4l!3!D0 !N' + font + 'J!Dz!N', $
+       XSTYLE=1, $
        CHARSIZE=cs
 
   CASE 1 OF

@@ -8,6 +8,7 @@ PRO SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
    PLOTPREF=plotPref, $
    SAVESUFF=saveSuff, $
    BONUSSUFF=bonusSuff, $
+   USE_REPRETCAL_FILE=use_RepRetCal_file,$
    ANCILLARY_PLOTS=ancillary_plots, $
    OUTPLOTNAME=outPlotName, $
    SAVEFILE=saveFile
@@ -49,4 +50,10 @@ PRO SUMPLOTS_AND_B_PLUS_J__GET_FILENAME, $
      saveFile         += bonusSuff
   ENDIF
 
+  IF KEYWORD_SET(use_RepRetCal_file) THEN BEGIN
+     tmpSuff        = '-' + 'RepRetCalib'
+     saveFile       = saveFile.Replace('.sav',tmpSuff + '.sav')
+     outPlotName   += tmpSuff
+  ENDIF
+  
 END

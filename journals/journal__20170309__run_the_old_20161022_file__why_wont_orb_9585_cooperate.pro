@@ -49,6 +49,7 @@ PRO JOURNAL__20170309__RUN_THE_OLD_20161022_FILE__WHY_WONT_ORB_9585_COOPERATE, $
    PUBLICATION_SETTINGS=pubSettings, $
    PRE_VIII_LAYOUT=PRE_VIII_layout, $
    ODDNESS_CHECK=oddness_check, $
+   FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
    FFTPERCENT=FFTpercent,$
    WHICH_FFTS=which_FFTs
@@ -62,10 +63,20 @@ PRO JOURNAL__20170309__RUN_THE_OLD_20161022_FILE__WHY_WONT_ORB_9585_COOPERATE, $
   ;; saveFile               = 'Orbit_9585--B_and_J--20161024--fixed_currents--with_sc_pot--bro.sav--alt_timebar'
   ;; bonus_suff             = '-try_to_reproduce_PRE_VIII_orig_result'
 
-  saveFile               = 'Orbit_9585-B_and_J-20170309-eeb-ieb-with_sc_pot.sav-20170225journal__1minLoaded'
-  ;; saveFile               = 'Orbit_9585-B_and_J-20170309-eeb-ieb-with_sc_pot.sav-20170225journal__50minLoaded'
+  ;; saveFile               = 'Orbit_9585-B_and_J-20170309-eeb-ieb-with_sc_pot.sav-20170225journal__1minLoaded'
+  saveFile               = 'Orbit_9585-B_and_J-20170309-eeb-ieb-with_sc_pot.sav-20170225journal__50minLoaded'
 
   bonus_suff             = '-' + (STRSPLIT(saveFile,'__',/EXTRACT))[-1] + '_in_SDT'
+
+  IF KEYWORD_SET(use_DB_fac) THEN BEGIN
+
+     bonus_suff         += '-' + 'dB_fac'
+
+  ENDIF ELSE BEGIN
+
+     bonus_suff         += '-' + 'dB_fac_v'
+
+  ENDELSE
 
   SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
      PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
@@ -115,6 +126,7 @@ PRO JOURNAL__20170309__RUN_THE_OLD_20161022_FILE__WHY_WONT_ORB_9585_COOPERATE, $
      PUBLICATION_SETTINGS=pubSettings, $
      PRE_VIII_LAYOUT=PRE_VIII_layout, $
      ODDNESS_CHECK=oddness_check, $
+     FFT__NEAREST_TWO_POWER=nearest_two_power, $
      FFTSIZE=FFTsize, $
      FFTPERCENT=FFTpercent,$
      WHICH_FFTS=which_FFTs
