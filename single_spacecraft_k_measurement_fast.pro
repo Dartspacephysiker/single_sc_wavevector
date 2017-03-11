@@ -291,6 +291,256 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
 END
 
+PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
+                          KZ_IS_KPERP=kz_is_kPerp
+
+  sort_i = SORT(freq)
+  freqT  = freq[sort_i]
+  kxT  = kx[sort_i]
+  kyT  = ky[sort_i]
+  kzT  = kz[sort_i]
+
+  indNeg = WHERE(freqT LE 0.00,nNeg)
+  indPos = WHERE(freqT GT 0.00,nPos)
+  IF nNeg NE nPos THEN BEGIN
+     IF nNeg GT nPos THEN BEGIN
+        indNeg = indNeg[0:-2]
+     ENDIF ELSE BEGIN
+        indPos = indPos[0:-2]
+     ENDELSE
+  ENDIF
+  
+  PRINT,'avg freq oddness : ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
+  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3,T50,A0)','avg k oddness    : ', $
+        MEAN((DOUBLE(kxT))[indPos]+REVERSE((DOUBLE(kxT))[indNeg]),/DOUBLE), $
+        MEAN((DOUBLE(kyT))[indPos]+REVERSE((DOUBLE(kyT))[indNeg]),/DOUBLE), $
+        MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE), $
+        (KEYWORD_SET(kz_is_kPerp) ? "(kz is kPerp, you know)" : '')
+
+END
+
+PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,kx,ky,kz,freq ;,freq_sp,inds
+
+  ;; omega_sp        = freq_sp * 2. * !PI
+  omega_sp        = freq * 2. * !PI
+
+  Bx_om           = FFT(Bx)
+  By_om           = FFT(By)
+  Bz_om           = FFT(Bz)
+
+  Ex_om           = FFT(Ex_sp)
+  Ey_om           = FFT(Ey_sp)
+  Ez_om           = FFT(Ez_sp)
+
+  omegaBtotal     = 0
+  kxEtotal        = 0
+  norm            = 0           ; check that avg (k x E) = 0
+  diffs           = MAKE_ARRAY(3,N_ELEMENTS(freq),/DOUBLE)
+  FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
+     kvectemp     = [kx[k], ky[k], kz[k]]
+     Evectemp     = [Ex_sp[k], Ey_sp[k], Ez_sp[k]]
+     Bvectemp     = [Bx_om[k], By_om[k], Bz_om[k]]
+     kxEtotal     = kxEtotal+CROSSP(kvectemp,Evectemp)
+     omegaBtotal  = omegaBtotal + omega_sp[k]*Bvectemp
+     diffs[*,k]   = CROSSP(kvectemp,Evectemp)-omega_sp[k]*Bvectemp
+
+     ;; norm for denominator
+     ;; norm         = norm + SQRT(kx[k]^2+ ky[k]^2+ kz[k]^2)*SQRT(Ex[k]^2+ Ey[k]^2+ Ez[k]^2)
+  ENDFOR
+  
+  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
+
+  PRINT,'norm     : ',norm
+  avgkxEtotal     = kxEtotal/T
+  PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
+
+END
+
+PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactor
+
+  IF N_ELEMENTS(unitFactor) EQ 0 THEN unitFactor = 1.D
+
+  mu_0            = DOUBLE(4.0D*!PI*1e-7)
+  iCmplx          = DCOMPLEX(0,1)
+
+  Bx_om           = FFT(Bx)
+  By_om           = FFT(By)
+  Bz_om           = FFT(Bz)
+
+  Jx_om           = FFT(Jx)
+  Jy_om           = FFT(Jy)
+  Jz_om           = FFT(Jz)
+
+  
+  nHere           = N_ELEMENTS(freq)
+  
+  omegaBtotal     = 0
+  kxEtotal        = 0
+  norm            = 0           ; check that avg (k x E) = 0
+  diffs           = MAKE_ARRAY(3,nHere,/DCOMPLEX)
+  JPred           = MAKE_ARRAY(3,nHere,/DCOMPLEX)
+  errAngle        = MAKE_ARRAY(nHere,/DCOMPLEX)
+  magErr          = MAKE_ARRAY(nHere,/DCOMPLEX)
+  FOR k=0,nHere-1 DO BEGIN
+
+     ;;Measured J
+     Jvectemp     = [Jx_om[k], Jy_om[k], Jz_om[k]]
+
+     ;;Measured B and derived k
+     Bvectemp     = [Bx_om[k], By_om[k], Bz_om[k]]
+     kvectemp     = [kx[k], ky[k], kz[k]] / unitFactor ;back into units native for J and B
+
+     ;;Predicted J
+     Jpred[*,k]   = iCmplx * CROSSP(kvectemp,Bvectemp) / mu_0
+
+     diffs[*,k]   = Jpred[*,k]-Jvectemp
+     tmpSum       = Jpred[*,k]+Jvectemp
+
+     ;;Error angle
+     errAngle[k]  = ACOS(DOT(Jpred[*,k],Jvectemp)/(SQRT(DOT(Jpred[*,k],CONJ(Jpred[*,k])))*SQRT(DOT(Jvectemp,CONJ(Jvectemp)))))
+
+     ;;Magnitude error
+     magErr[k]    = SQRT(DOT(diffs[*,k],CONJ(diffs[*,k])))/SQRT(DOT(tmpSum,CONJ(tmpSum)))
+
+  ENDFOR
+  
+  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
+
+  ;; PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
+  
+
+END
+
+PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
+                     freq,kx,ky,kz,kP, $
+                     SPERIOD=sPeriod, $
+                     UNITFACTOR=unitFactor, $
+                     PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+                     DOUBLE_CALC=double_calc, $
+                     HANNING=hanning, $
+                     EFIELD=EField, $
+                     ODDNESS_CHECK=oddness_check, $
+                     OUT_NORM=norm, $
+                     OUT_AVGJXB=avgJxBtotal, $
+                     DIAG=diag
+
+  COMPILE_OPT idl2,strictarrsubs
+
+  ;; diag         = 1
+
+  JxBtotal     = 0
+  norm         = 0              ; check that avg J x B =0
+  FOR TT=0,T-1 DO BEGIN         ; integrate over time
+     Jvectemp  = [Jx[TT], Jy[TT], Jz[TT]]
+     Bvectemp  = [Bx[TT], By[TT], Bz[TT]]
+     JxBtotal  = JxBtotal+CROSSP(Jvectemp,Bvectemp)
+
+     ;; norm for denominator
+     norm      = norm + SQRT(Jx[TT]^2+ Jy[TT]^2+ Jz[TT]^2)*SQRT(Bx[TT]^2+ By[TT]^2+ Bz[TT]^2)
+
+     IF KEYWORD_SET(diag) THEN BEGIN
+        PRINT,FORMAT='("avgJxBtotal/norm[",I0,"]: ",G12.5,T40,G12.5,T54,G10.5)',TT,JxBtotal/T/norm ; small (supposed to be zero)
+     ENDIF
+
+  ENDFOR
+
+  PRINT,'norm             : ',norm
+  avgJxBtotal = JxBtotal/T
+  PRINT,'avgJxBtotal/norm : ',avgJxBtotal/norm ; small (supposed to be zero)
+
+  ;; auto-correlation of B, i.e, <B_VEC(t) dot B_VEC(t+tau)>
+  BBautocorr = CORRELATION(Bx,Bx,T) + CORRELATION(By,By,T) + CORRELATION(Bz,Bz,T)
+
+  ;;components of cross correlation <J_VEC(t) cross B_vec (t+tau)>
+  JxB_xcomponent_corr  = CORRELATION(Jy,Bz,T) - CORRELATION(Jz,By,T)
+
+  JxB_ycomponent_corr  = CORRELATION(Jz,Bx,T) - CORRELATION(Jx,Bz,T)
+  JxB_zcomponent_corr  = CORRELATION(Jx,By,T) - CORRELATION(Jy,Bx,T)
+
+  ;; Fourier transform of <B_vec(t) dot B_vec(t+tau)>
+  CASE 1 OF
+     KEYWORD_SET(hanning): BEGIN
+        hWindow              = HANNING(N_ELEMENTS(BBautocorr),/DOUBLE)
+        BB_FFT               = FFT(BBautocorr*hWindow)
+     END
+     ELSE: BEGIN
+        BB_FFT               = FFT(BBautocorr)
+     END
+  ENDCASE
+
+  ;; Fourier transform of components of <B_vec(t) dot B_vec(t+tau)>
+  CASE 1 OF
+     KEYWORD_SET(hanning): BEGIN
+        hWindow              = HANNING(N_ELEMENTS(JxB_xcomponent_corr),/DOUBLE)
+        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr*hWindow)
+        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr*hWindow)
+        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr*hWindow)
+     END
+     ELSE: BEGIN
+        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr)
+        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr)
+        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr)
+     END
+  ENDCASE
+
+  ;; calculate k components, put 0.001 in denom to avoid dividing zero by zero
+  ;; ikx                  = -JxB_xcomponent_FFT/(BB_FFT+.001)
+  ;; iky                  = -JxB_ycomponent_FFT/(BB_FFT+.001)
+  ;; ikz                  = -JxB_zcomponent_FFT/(BB_FFT+.001)
+
+  IF KEYWORD_SET(double_calc) THEN nonZ = DOUBLE(1.e-10) ELSE nonZ = .001
+  ;; nonZ = COMPLEX(1.e-10,1.e-10)
+  ikx                  = -JxB_xcomponent_FFT/(BB_FFT+nonZ)
+  iky                  = -JxB_ycomponent_FFT/(BB_FFT+nonZ)
+  ikz                  = -JxB_zcomponent_FFT/(BB_FFT+nonZ)
+
+  ;;extract imaginary part
+  kx                   = IMAGINARY(ikx)
+  ky                   = IMAGINARY(iky)
+  kz                   = IMAGINARY(ikz)
+
+  ;;Multiply by unit factor to get k in m^-1, if it exists
+  IF unitFactor NE 1 THEN BEGIN
+     kx               *= unitFactor
+     ky               *= unitFactor
+     kz               *= unitFactor
+  ENDIF
+
+  kP = SQRT(kx^2+ky^2)
+
+  IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
+     kz = kP
+  ENDIF
+
+  ;;Frequencies
+  ;; T is an integer giving the number of elements in a particular dimension
+  ;; sPeriod is a floating-point number giving the sampling interval
+  X = FINDGEN((T - 1)/2) + 1
+  is_T_even = (T MOD 2) EQ 0
+  IF (is_T_even) THEN BEGIN
+     freq = [0.0, X, T/2, -T/2 + X]/(T*sPeriod)
+  ENDIF ELSE BEGIN
+     freq = [0.0, X, -(T/2 + 1) + X]/(T*sPeriod)
+  ENDELSE
+
+  IF KEYWORD_SET(Efield) THEN BEGIN
+     CHECK_E_OMEGA_B_THING,Bx,By,Bz,EField[0,*],EField[1,*],EField[2,*],kx,ky,kz,freq
+  ENDIF
+
+  IF KEYWORD_SET(oddness_check) THEN BEGIN
+     CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
+                          KZ_IS_KPERP=plot_kperp_magnitude_for_kz
+  ENDIF
+
+  ;;Calculate error thing?
+  predict_current = 1
+  IF KEYWORD_SET(predict_current) THEN BEGIN
+     PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactor
+  ENDIF
+
+
+END
+
 PRO DEAL_WITH_BADNESS,datSerie,improvSerie
 
   COMPILE_OPT idl2,strictarrsubs
@@ -321,7 +571,7 @@ PRO DEAL_WITH_BADNESS,datSerie,improvSerie
            CONTINUE
         ENDIF
 
-        ;;Just zero this chunk
+        ;;Just zero this bit
         improvSerie[strtTmp:stopTmp] = 0.
      ENDFOR
 
@@ -345,7 +595,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                          OUT_STREAKNUM=longestInd, $
                          USE_ALL_STREAKS=use_all_streaks, $
                          USE_DB_FAC=use_dB_fac, $
-                         HAVE_EFIELD=have_EField, $
+                         EFIELD=EField, $
                          FFT__NEAREST_TWO_POWER=nearest_two_power, $
                          SRATES=sRates
 
@@ -422,8 +672,8 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
   ENDIF
 
-  t1BKUP = N_ELEMENTS(t1Zoom) GT 0 ? t1Zoom : dB.x[0]
-  t2BKUP = N_ELEMENTS(t2Zoom) GT 0 ? t2Zoom : dB.x[-1]
+  t1BKUP      = N_ELEMENTS(t1Zoom) GT 0 ? t1Zoom : dB.x[0]
+  t2BKUP      = N_ELEMENTS(t2Zoom) GT 0 ? t2Zoom : dB.x[-1]
   
   ;;Now custom times
   IF KEYWORD_SET(custom_t1) THEN BEGIN
@@ -492,14 +742,17 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
   ;; bFactor = 1.e-9 ;Get 'em out of nT
   ;; bFactor = 1.e3
-  bFactor = 1.D
+  bFactor     = 1.D
 
-  jFactor = 1.D
+  jFactor     = 1.D
   ;; jFactor = 1.e-6 ;;Put it in A/m^2
   ;; jFactor = mu_0
 
+  EFactor     = 1.D
+
   bUnitFactor = (bFactor EQ 1.D) ? -9.D : -9. /ALOG10(bFactor) ;'cause nT
   jUnitFactor = (jFactor EQ 1.D) ? -6.D : -6 / ALOG10(jFactor) ;'cause microA/m^2
+  EUnitFactor = (EFactor EQ 1.D) ? -3.D : -3 / ALOG10(EFactor) ;'cause mV/m
 
   mu_0        = DOUBLE(4.0D*!PI*1e-7)
   unitFactor  = (10.D)^(jUnitFactor)/(10.D)^(bUnitFactor)*mu_0
@@ -525,6 +778,10 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         dB = dB_fac_v
 
+        ;;EField too?
+        ;;Presumed to be in FAC_V coordinates
+        have_EField =  N_ELEMENTS(EField) GT 0
+
      END
      'FAC': BEGIN
 
@@ -534,14 +791,23 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         dB = dB_fac
 
+        have_EField = 0B ;Doesn't matter if you do; you're in the wrong coordinate system
+        EField      = !NULL ;Don't want to mess anyone else up
+
      END
   ENDCASE
 
   ;;Now make 'em Bellan-useable
-  Bx   = dB.y[*,0] * bFactor
-  By   = dB.y[*,1] * bFactor
-  Bz   = dB.y[*,2] * bFactor
-  Bt   = dB.x
+  Bx      = dB.y[*,0] * bFactor
+  By      = dB.y[*,1] * bFactor
+  Bz      = dB.y[*,2] * bFactor
+  Bt      = dB.x
+
+  IF have_EField THEN BEGIN
+     Ex   = EField.y[*,0] * EFactor
+     Ey   = EField.y[*,1] * EFactor
+     Ez   = EField.y[*,2] * EFactor
+  ENDIF
 
   IF KEYWORD_SET(presmooth_mag) THEN BEGIN
 
@@ -699,6 +965,10 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            je_z_interp = DATA_CUT({x:je_z.x,y:je_z_interp},Bt)
            ji_z_interp = DATA_CUT({x:ji_z.x,y:ji_z_interp},Bt)
 
+           ;; IF KEYWORD_SET(have_EField) THEN BEGIN
+              
+           ;; ENDIF
+
            ;;The old way
            ;; GET_DOUBLE_STREAKS__NTH_DECIMAL_PLACE,je_z.x,-2,NPTS=100, $
            ;;                                       GAP_TIME=0.3, $
@@ -727,19 +997,23 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
         ENDIF ELSE BEGIN
 
-           bro = ROUND_TO_NTH_DECIMAL_PLACE(Bt[1:-1]-Bt[0:-2],-5)
-           bro = bro[WHERE(ABS(bro) LT 1)]
-           distFreq = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
+           IF KEYWORD_SET(have_EField) THEN BEGIN
+              
+           ENDIF
+
+           bro        = ROUND_TO_NTH_DECIMAL_PLACE(Bt[1:-1]-Bt[0:-2],-5)
+           bro        = bro[WHERE(ABS(bro) LT 1)]
+           distFreq   = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
                                 REVERSE_INDICES=ri, $
                                 LOCATIONS=locs)
-           junk = MAX(distFreq,ind)
-           sPeriod = DOUBLE(locs[ind])
-           even_TS = Bt
+           junk       = MAX(distFreq,ind)
+           sPeriod    = DOUBLE(locs[ind])
+           even_TS    = Bt
 
            origInterp = 0B
            spline     = 1B
            maxDelta_t = 1.5
-           interp = origInterp
+           interp     = origInterp
            FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
                              {time:Je_z.x,comp1:Je_z.y}, $
                              RESULT=Je_z_interp, $
@@ -756,6 +1030,38 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                              SPLINE=spline, $
                              DELT_T=maxDelta_t, $
                              /TALK
+
+           IF KEYWORD_SET(have_EField) THEN BEGIN
+
+              interp = origInterp
+              FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
+                                {time:EField.x,comp1:Ex}, $
+                                RESULT=Ex_interp, $
+                                INTERP=interp, $
+                                SPLINE=spline, $
+                                DELT_T=maxDelta_t, $
+                                /TALK
+
+              interp = origInterp
+              FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
+                                {time:EField.x,comp1:Ey}, $
+                                RESULT=Ey_interp, $
+                                INTERP=interp, $
+                                SPLINE=spline, $
+                                DELT_T=maxDelta_t, $
+                                /TALK
+
+              interp = origInterp
+              FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
+                                {time:EField.x,comp1:Ez}, $
+                                RESULT=Ez_interp, $
+                                INTERP=interp, $
+                                SPLINE=spline, $
+                                DELT_T=maxDelta_t, $
+                                /TALK
+
+           ENDIF
+           
         ENDELSE
      END
      2: BEGIN
@@ -821,6 +1127,41 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                           SPLINE=spline, $
                           DELT_T=maxDelta_t, $
                           /TALK
+
+        IF KEYWORD_SET(have_EField) THEN BEGIN
+
+           interp = origInterp
+           FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
+                             {time:Bt,comp1:Ex}, $
+                             RESULT=Ex_interp, $
+                             INTERP=interp, $
+                             SPLINE=spline, $
+                             DELT_T=maxDelta_t, $
+                             /TALK
+
+           interp = origInterp
+           FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
+                             {time:Bt,comp1:Ey}, $
+                             RESULT=Ey_interp, $
+                             INTERP=interp, $
+                             SPLINE=spline, $
+                             DELT_T=maxDelta_t, $
+                             /TALK
+
+           interp = origInterp
+           FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
+                             {time:Bt,comp1:Ez}, $
+                             RESULT=Ez_interp, $
+                             INTERP=interp, $
+                             SPLINE=spline, $
+                             DELT_T=maxDelta_t, $
+                             /TALK
+
+           Ex = Ex_interp
+           Ey = Ey_interp
+           Ez = Ez_interp
+
+        ENDIF
 
         Bx = Bx_interp
         By = By_interp
@@ -1053,6 +1394,10 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jx_list     = LIST()
         Jy_list     = LIST()
         Jz_list     = LIST()
+
+        Ex_list     = LIST()
+        Ey_list     = LIST()
+        Ez_list     = LIST()
         FOR k=0,N_ELEMENTS(strt_i_list)-1 DO BEGIN
            strt_iTmp = strt_i_list[k]
            stop_iTmp = stop_i_list[k]
@@ -1087,6 +1432,18 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
               Jz_list.Add,(Ji_zTmp + Je_zTmp) * jFactor
 
+              IF KEYWORD_SET(have_EField) THEN BEGIN
+
+                 ExTmp = Ex[good_i_list[-1]]
+                 EyTmp = Ey[good_i_list[-1]]
+                 EzTmp = Ez[good_i_list[-1]]
+
+                 Ex_list.Add,ExTmp - ExTmp[0]
+                 Ey_list.Add,EyTmp - EyTmp[0]
+                 Ez_list.Add,EzTmp - EzTmp[0]
+
+              ENDIF
+
            ENDFOR
            
         ENDFOR
@@ -1099,6 +1456,10 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jx    = Jx_list
         Jy    = Jy_list
         Jz    = Jz_list
+
+        Ex    = Ex_list
+        Ey    = Ey_list
+        Ez    = Ez_list
 
      END
      ELSE: BEGIN
@@ -1129,6 +1490,14 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         ;; By = By - By[0]
         ;; Bz = Bz - Bz[0]
 
+        IF KEYWORD_SET(have_EField) THEN BEGIN
+
+           Ex = Ex[good_i]
+           Ey = Ey[good_i]
+           Ez = Ez[good_i]
+
+        ENDIF
+
         ;;Sorry, Jx and Jy
         Jx = MAKE_ARRAY(T,VALUE=0.) * jFactor
         Jy = MAKE_ARRAY(T,VALUE=0.) * jFactor
@@ -1154,6 +1523,14 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jy    = Jy[0]
         Jz    = Jz[0]
 
+        IF KEYWORD_SET(have_EField) THEN BEGIN
+
+           Ex    = Ex[0]
+           Ey    = Ey[0]
+           Ez    = Ez[0]
+
+        ENDIF
+
      ENDIF
      
      nPoints   = N_ELEMENTS(Bx)
@@ -1176,6 +1553,14 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            Jy   = [Jy,padding]
            Jz   = [Jz,padding]
 
+           IF KEYWORD_SET(have_EField) THEN BEGIN
+
+              Ex   = [Ex,padding]
+              Ey   = [Ey,padding]
+              Ez   = [Ez,padding]
+
+           ENDIF
+
         END
         newPoints LT nPoints: BEGIN
 
@@ -1189,6 +1574,15 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            Jx   = Jx[0:dropEm]
            Jy   = Jy[0:dropEm]
            Jz   = Jz[0:dropEm]
+
+           IF KEYWORD_SET(have_EField) THEN BEGIN
+
+              Ex   = Ex[0:dropEm]
+              Ey   = Ey[0:dropEm]
+              Ez   = Ez[0:dropEm]
+
+           ENDIF
+
 
         END
         ELSE: 
@@ -1206,190 +1600,25 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jy    = LIST(Jy  )
         Jz    = LIST(Jz  )
 
+        IF KEYWORD_SET(have_EField) THEN BEGIN
+
+           Ex    = LIST(Ex  ) 
+           Ey    = LIST(Ey  )
+           Ez    = LIST(Ez  )
+
+        ENDIF
+
      ENDIF
+
+  ENDIF
+
+  IF KEYWORD_SET(have_EField) THEN BEGIN
+     
+     EField = [[Ex],[Ey],[Ez]]
 
   ENDIF
 
   RETURN,1
-
-END
-
-PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
-                     freq,kx,ky,kz,kP, $
-                     SPERIOD=sPeriod, $
-                     UNITFACTOR=unitFactor, $
-                     PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-                     DOUBLE_CALC=double_calc, $
-                     HANNING=hanning, $
-                     HAVE_EFIELD=have_EField, $
-                     ODDNESS_CHECK=oddness_check, $
-                     OUT_NORM=norm, $
-                     OUT_AVGJXB=avgJxBtotal, $
-                     DIAG=diag
-
-  COMPILE_OPT idl2,strictarrsubs
-
-  ;; diag         = 1
-
-  JxBtotal     = 0
-  norm         = 0              ; check that avg J x B =0
-  FOR TT=0,T-1 DO BEGIN         ; integrate over time
-     Jvectemp  = [Jx[TT], Jy[TT], Jz[TT]]
-     Bvectemp  = [Bx[TT], By[TT], Bz[TT]]
-     JxBtotal  = JxBtotal+CROSSP(Jvectemp,Bvectemp)
-
-     ;; norm for denominator
-     norm      = norm + SQRT(Jx[TT]^2+ Jy[TT]^2+ Jz[TT]^2)*SQRT(Bx[TT]^2+ By[TT]^2+ Bz[TT]^2)
-
-     IF KEYWORD_SET(diag) THEN BEGIN
-        PRINT,FORMAT='("avgJxBtotal/norm[",I0,"]: ",G12.5,T40,G12.5,T54,G10.5)',TT,JxBtotal/T/norm ; small (supposed to be zero)
-     ENDIF
-
-  ENDFOR
-
-  PRINT,'norm             : ',norm
-  avgJxBtotal = JxBtotal/T
-  PRINT,'avgJxBtotal/norm : ',avgJxBtotal/norm ; small (supposed to be zero)
-
-  ;; auto-correlation of B, i.e, <B_VEC(t) dot B_VEC(t+tau)>
-  BBautocorr = CORRELATION(Bx,Bx,T) + CORRELATION(By,By,T) + CORRELATION(Bz,Bz,T)
-
-  ;;components of cross correlation <J_VEC(t) cross B_vec (t+tau)>
-  JxB_xcomponent_corr  = CORRELATION(Jy,Bz,T) - CORRELATION(Jz,By,T)
-
-  JxB_ycomponent_corr  = CORRELATION(Jz,Bx,T) - CORRELATION(Jx,Bz,T)
-  JxB_zcomponent_corr  = CORRELATION(Jx,By,T) - CORRELATION(Jy,Bx,T)
-
-  ;; Fourier transform of <B_vec(t) dot B_vec(t+tau)>
-  CASE 1 OF
-     KEYWORD_SET(hanning): BEGIN
-        hWindow              = HANNING(N_ELEMENTS(BBautocorr),/DOUBLE)
-        BB_FFT               = FFT(BBautocorr*hWindow)
-     END
-     ELSE: BEGIN
-        BB_FFT               = FFT(BBautocorr)
-     END
-  ENDCASE
-
-  ;; Fourier transform of components of <B_vec(t) dot B_vec(t+tau)>
-  CASE 1 OF
-     KEYWORD_SET(hanning): BEGIN
-        hWindow              = HANNING(N_ELEMENTS(JxB_xcomponent_corr),/DOUBLE)
-        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr*hWindow)
-        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr*hWindow)
-        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr*hWindow)
-     END
-     ELSE: BEGIN
-        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr)
-        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr)
-        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr)
-     END
-  ENDCASE
-
-  ;; calculate k components, put 0.001 in denom to avoid dividing zero by zero
-  ;; ikx                  = -JxB_xcomponent_FFT/(BB_FFT+.001)
-  ;; iky                  = -JxB_ycomponent_FFT/(BB_FFT+.001)
-  ;; ikz                  = -JxB_zcomponent_FFT/(BB_FFT+.001)
-
-  IF KEYWORD_SET(double_calc) THEN nonZ = DOUBLE(1.e-10) ELSE nonZ = .001
-  ;; nonZ = COMPLEX(1.e-10,1.e-10)
-  ikx                  = -JxB_xcomponent_FFT/(BB_FFT+nonZ)
-  iky                  = -JxB_ycomponent_FFT/(BB_FFT+nonZ)
-  ikz                  = -JxB_zcomponent_FFT/(BB_FFT+nonZ)
-
-  ;;extract imaginary part
-  kx                   = IMAGINARY(ikx)
-  ky                   = IMAGINARY(iky)
-  kz                   = IMAGINARY(ikz)
-
-  ;;Multiply by unit factor to get k in m^-1, if it exists
-  IF unitFactor NE 1 THEN BEGIN
-     kx               *= unitFactor
-     ky               *= unitFactor
-     kz               *= unitFactor
-  ENDIF
-
-  kP = SQRT(kx^2+ky^2)
-
-  IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
-     kz = kP
-  ENDIF
-
-  ;;Frequencies
-  ;; T is an integer giving the number of elements in a particular dimension
-  ;; sPeriod is a floating-point number giving the sampling interval
-  X = FINDGEN((T - 1)/2) + 1
-  is_T_even = (T MOD 2) EQ 0
-  IF (is_T_even) THEN BEGIN
-     freq = [0.0, X, T/2, -T/2 + X]/(T*sPeriod)
-  ENDIF ELSE BEGIN
-     freq = [0.0, X, -(T/2 + 1) + X]/(T*sPeriod)
-  ENDELSE
-
-  IF KEYWORD_SET(have_Efield) THEN BEGIN
-     CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex,Ey,Ez,kx,ky,kz,freq
-  ENDIF
-
-  IF KEYWORD_SET(oddness_check) THEN BEGIN
-     CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
-                          KZ_IS_KPERP=plot_kperp_magnitude_for_kz
-  ENDIF
-
-END
-
-PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
-                          KZ_IS_KPERP=kz_is_kPerp
-
-  sort_i = SORT(freq)
-  freqT  = freq[sort_i]
-  kxT  = kx[sort_i]
-  kyT  = ky[sort_i]
-  kzT  = kz[sort_i]
-
-  indNeg = WHERE(freqT LE 0.00,nNeg)
-  indPos = WHERE(freqT GT 0.00,nPos)
-  IF nNeg NE nPos THEN BEGIN
-     IF nNeg GT nPos THEN BEGIN
-        indNeg = indNeg[0:-2]
-     ENDIF ELSE BEGIN
-        indPos = indPos[0:-2]
-     ENDELSE
-  ENDIF
-  
-  PRINT,'avg freq oddness : ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
-  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3,T50,A0)','avg k oddness    : ', $
-        MEAN((DOUBLE(kxT))[indPos]+REVERSE((DOUBLE(kxT))[indNeg]),/DOUBLE), $
-        MEAN((DOUBLE(kyT))[indPos]+REVERSE((DOUBLE(kyT))[indNeg]),/DOUBLE), $
-        MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE), $
-        (KEYWORD_SET(kz_is_kPerp) ? "(kz is kPerp, you know)" : '')
-
-END
-
-PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,kx,ky,kz,freq,freq_sp,inds
-
-  omega_sp        = freq_sp * 2. * !PI
-
-  omegaBtotal     = 0
-  kxEtotal        = 0
-  norm            = 0                 ; check that avg k x E =0
-  diffs           = MAKE_ARRAY(N_ELEMENTS(freq),/DOUBLE)
-  FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
-     kvectemp     = [kx[k], ky[k], kz[k]]
-     Evectemp     = [Ex_sp[k], Ey_sp[k], Ez_sp[k]]
-     Bvectemp     = [Bx[k], By[k], Bz[k]]
-     kxEtotal     = kxEtotal+CROSSP(kvectemp,Evectemp)
-     omegaBtotal  = omegaBtotal + omega_sp*Bvectemp
-     diffs[k]     = CROSSP(kvectemp,Evectemp)-omega_sp*Bvectemp
-
-     ;; norm for denominator
-     ;; norm         = norm + SQRT(kx[k]^2+ ky[k]^2+ kz[k]^2)*SQRT(Ex[k]^2+ Ey[k]^2+ Ez[k]^2)
-  ENDFOR
-  
-  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
-
-  PRINT,'norm     : ',norm
-  avgkxEtotal     = kxEtotal/T
-  PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
 
 END
 
@@ -1677,7 +1906,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                OUT_STREAKNUM=streakInd, $
                                USE_ALL_STREAKS=use_all_streaks, $
                                USE_DB_FAC=use_dB_fac, $
-                               HAVE_EFIELD=have_EField, $
+                               EFIELD=EField, $
                                FFT__NEAREST_TWO_POWER=nearest_two_power, $
                                SRATES=sRates) $
            THEN BEGIN
@@ -1763,7 +1992,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kyArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  avgJxBArr = MAKE_ARRAY(nFFTs,3)
-                 normArr   = MAKE_ARRAY(nFFTs)
+                 normArr   = MAKE_ARRAY(nFFTs,3)
                  ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
 
                  FFTCount  = 0
@@ -1809,7 +2038,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                         PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                                         DOUBLE_CALC=double_calc, $
                                         HANNING=hanning, $
-                                        HAVE_EFIELD=have_EField, $
+                                        EFIELD=EField, $
                                         ODDNESS_CHECK=oddness_check, $
                                         OUT_NORM=norm, $
                                         OUT_AVGJXB=avgJxBtotal
@@ -1851,7 +2080,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
                        ;;avgJxB doesn't depend on FFT dimensions
                        avgJxBArr[k,*] = TEMPORARY(avgJxBtotal)
-                       normArr[k]     = TEMPORARY(norm)
+                       normArr[k,*]   = REPLICATE(TEMPORARY(norm),3)
                        
                     ENDFOR
 
@@ -1904,7 +2133,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kyArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  avgJxBArr = MAKE_ARRAY(nFFTs,3)
-                 normArr   = MAKE_ARRAY(nFFTs)
+                 normArr   = MAKE_ARRAY(nFFTs,3)
                  ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  FFTCount  = 0
                  FFTi_list = LIST()
@@ -1928,7 +2157,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                      PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                                      DOUBLE_CALC=double_calc, $
                                      HANNING=hanning, $
-                                     HAVE_EFIELD=have_EField, $
+                                     EFIELD=EField, $
                                      ODDNESS_CHECK=oddness_check, $
                                      OUT_NORM=norm, $
                                      OUT_AVGJXB=avgJxBtotal
@@ -1939,7 +2168,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                     kzArr[FFTCount,*]     = TEMPORARY(kz         )
 
                     avgJxBArr[FFTCount,*] = TEMPORARY(avgJxBtotal)
-                    normArr[FFTCount]     = TEMPORARY(norm       )
+                    normArr[FFTCount,*]   = REPLICATE(TEMPORARY(norm       ),3)
 
                     FFTCount++
 
@@ -1969,7 +2198,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                                DOUBLE_CALC=double_calc, $
                                HANNING=hanning, $
-                               HAVE_EFIELD=have_EField, $
+                               EFIELD=EField, $
                                ODDNESS_CHECK=oddness_check, $
                                OUT_NORM=norm, $
                                OUT_AVGJXB=avgJxBtotal
@@ -1980,6 +2209,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            END
         ENDCASE
 
+        ;;Put 'em in km^-1
         kx     *= 1000.
         ky     *= 1000.
         kz     *= 1000.
@@ -2105,7 +2335,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
         ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
 
-        avgJxBNrm = LIST_TO_1DARRAY(avgJxBNrmList,/WARN)
+        avgJxBNrm = LIST_TO_1DARRAY(avgJxBNrmList,/WARN,/PRESERVE_DIMENSIONALITY)
 
         ;;Pick up rebin size from user, or else from data
         IF KEYWORD_SET(avg_binSize) THEN BEGIN
@@ -2227,6 +2457,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         out_kPAngle   = TEMPORARY(kPAngle)
 
         out_avgJxBNrm = TEMPORARY(avgJxBNrm)
+        slideMn_JxB   = MEAN(out_avgJxBNrm,DIMENSION=2)
+        fluc          = [out_avgJxBNrm[0,*] - slideMn_JxB[0], $
+                         out_avgJxBNrm[1,*] - slideMn_JxB[1], $
+                         out_avgJxBNrm[2,*] - slideMn_JxB[2]]
+
         ;; out_inds      = (TEMPORARY(inds   ))[inds] 
         ;; out_freqs     = (TEMPORARY(freq   ))[inds]
         ;; out_kx        = (TEMPORARY(kx     ))[inds]

@@ -7,6 +7,9 @@ PRO OUTPUT_SETUP,mode,plotDir,suff
 
   COMPILE_OPT idl2,strictarrsubs
 
+  COMMON PORIG,pOrig_cThick,pOrig_thick
+  
+
   ;; prefix='D:\CORR\MNSCRPTS\2016-JGR-spacecraft-current-wavevector\2106-Vinas-kvect-revised\'
 
   filename = plotDir+ $
@@ -26,15 +29,18 @@ PRO OUTPUT_SETUP,mode,plotDir,suff
   ENDIF
   IF hardcopy EQ 2 THEN BEGIN      ;;POSTSCRIPT FILE
      ;; !P.CHARSIZE  = 3
-     !P.CHARTHICK = 3
-     !P.THICK     = 3
+     pOrig_cThick = !P.CHARTHICK
+     pOrig_thick  = !P.THICK
+     
+     !P.CHARTHICK = 1.2
+     !P.THICK     = 1.2
 
      ;; @startup
      ;; POPEN,filename,XSIZE=10,YSIZE=10
 
      SET_PLOT,'PS'
      ;; DEVICE,FILE=filename+'.eps',/ENCAPSUL,XSIZE=10,YSIZE=10,/INCHES,YOFFSET=2,/COLOR
-     DEVICE,FILE=filename+'.eps',XSIZE=10,YSIZE=10,/INCHES,YOFFSET=2,/COLOR
+     DEVICE,FILE=filename+'.eps',XSIZE=5,YSIZE=5,/INCHES,YOFFSET=2,/COLOR
   ENDIF
 
 END
@@ -49,6 +55,8 @@ PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
 
   COMPILE_OPT idl2,strictarrsubs
 
+  COMMON PORIG,pOrig_cThick,pOrig_thick
+
   hardcopy = mode
   IF hardcopy EQ 1 THEN DEVICE,/CLOSE
   IF hardcopy EQ 1 THEN SET_PLOT,'X'
@@ -56,6 +64,9 @@ PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
      DEVICE,/CLOSE
      ;; PCLOSE
      SET_PLOT,'X'
+
+     !P.THICK     = pOrig_thick
+     !P.CHARTHICK = pOrig_cThick
 
      IF KEYWORD_SET(to_pdf) THEN BEGIN
         filename = plotDir+ $
@@ -196,14 +207,21 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   COMPILE_OPT IDL2,STRICTARRSUBS
 
   IF KEYWORD_SET(pubSettings) THEN BEGIN
-     cs = 2.5
+     cs = 1.1
+     symSize = 0.4
   ENDIF
+
+  pSym           = 2            ;asterisk
+  pSym           = 1            ;plus sign
+  pSym           = 7            ;x
 
   ;;Only for special people (see Beck)
   specialColor   = 70
   specialThick   = 3.0
   specialLineSty = 5
   kPA_specialSty = 5
+
+  yStyler        = 16
 
   GET_FREQ_INDS,freq,kx,ky,kz, $
                 kP,kPAngle, $
@@ -318,7 +336,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      IF KEYWORD_SET(kP__angleRange) THEN BEGIN
 
         smooth_kPAngle = NORMALIZE_ANGLE(smooth_kPAngle,MIN(kP__angleRange),MAX(kP__angleRange), $
-                                     /DEGREE)
+                                         /DEGREE)
 
         ;; those = WHERE(smooth_kPAngle LT MIN(kP__angleRange),nThose)
         ;; IF nThose GT 0 THEN BEGIN
@@ -337,15 +355,19 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   muLetter = '!4' + String('154'O) + '!X'
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Bx[usedInds], $
        XTITLE='t', $
-       YTITLE=font + 'B!Dx!N', $
+       YTITLE=font + 'B!Dx!N' + (KEYWORD_SET(PRE_VIII_layout) ? ' (nT)' : ''), $
        XSTYLE=1, $
-       CHARSIZE=cs
+       YSTYLE=yStyler, $
+       CHARSIZE=cs, $
+       SYMSIZE=symSize
 
   PLOT,TArr[usedInds]-TArr[usedInds[0]],By[usedInds], $
        XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
        YTITLE=font + 'B!Dy!N (nT)', $
        XSTYLE=1, $
-       CHARSIZE=cs
+       YSTYLE=yStyler, $
+       CHARSIZE=cs, $
+       SYMSIZE=symSize
 
   IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
 
@@ -353,32 +375,39 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           XTITLE='t', $
           YTITLE=font + 'B!Dz!N', $
           XSTYLE=1, $
-          CHARSIZE=cs
+          YSTYLE=yStyler, $
+          CHARSIZE=cs, $
+          SYMSIZE=symSize
 
      PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
           XTITLE='t', $
           YTITLE='!4l!3!D0 !N' + font + 'J!Dx!N', $
           XSTYLE=1, $
-          CHARSIZE=cs
+          ;; YSTYLE=1, $
+          CHARSIZE=cs, $
+          SYMSIZE=symSize
 
      PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
           XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
           YTITLE='!4l!3!D0 !N' + font + 'J!Dy!N (!4l!N' + font + 'T/m)', $
           XSTYLE=1, $
-          CHARSIZE=cs
+          CHARSIZE=cs, $
+          SYMSIZE=symSize
 
   ENDIF
 
   PLOT,TArr[usedInds]-TArr[usedInds[0]],Jz[usedInds], $
        XTITLE='t', $
-       YTITLE='!4l!3!D0 !N' + font + 'J!Dz!N', $
+       ;; YTITLE='!4l!3!D0 !N' + font + 'J!Dz!N', $
+       YTITLE=font + 'J!Dz!N (!4l!3A m!U-2!N)', $
        XSTYLE=1, $
-       CHARSIZE=cs
+       CHARSIZE=cs, $
+       SYMSIZE=symSize
 
   PLOT,freq[inds],kx[inds], $
        ;; YTITLE='k!Dx!N (m!U-1!N)', $
        YTITLE='k!Dx!N (km!U-1!N)', $
-       XTITLE='', $
+       XTITLE=(KEYWORD_SET(PRE_VIII_layout) ? 'Frequency (Hz)' : ''), $
        XRANGE=page1__freqRange, $
        YRANGE=[-kx_ysize,kx_ysize], $
        XSTYLE=1, $
@@ -387,7 +416,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
        YTICKLEN=1.0, $
        XGRIDSTYLE=1, $
        YGRIDSTYLE=1, $
-       CHARSIZE=cs
+       XMINOR=5, $
+       CHARSIZE=cs, $
+       SYMSIZE=symSize
   ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
   IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
@@ -445,7 +476,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
        YTICKLEN=1.0, $
        XGRIDSTYLE=1, $
        YGRIDSTYLE=1, $
-       CHARSIZE=cs
+       XMINOR=5, $
+       CHARSIZE=cs, $
+       SYMSIZE=symSize
   ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
   IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
@@ -561,14 +594,17 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      PLOT,kx[inds],ky[inds], $
           XTITLE='k!Dx!N  (km!U-1!N)', $
           YTITLE='k!Dy!N  (km!U-1!N)', $
-          PSYM=2, $
+          PSYM=pSym, $
           YRANGE=[-bound,bound], $
           XRANGE=[-bound,bound], $
+          ;; XSTYLE=2, $
+          ;; YSTYLE=2, $
           XTICKLEN=1.0, $
           YTICKLEN=1.0, $
           XGRIDSTYLE=1, $
           YGRIDSTYLE=1, $
-          CHARSIZE=cs
+          CHARSIZE=cs, $
+          SYMSIZE=symSize
 
      IF KEYWORD_SET(kx_vs_ky__plot_smoothed) THEN BEGIN
 
@@ -607,7 +643,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           YRANGE=[-kz_ysize,kz_ysize], $
           XSTYLE=1, $
           YSTYLE=1, $
-          CHARSIZE=cs
+          XMINOR=5, $
+          CHARSIZE=cs, $
+          SYMSIZE=symSize
      IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
      IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
         OPLOT,freq[inds],SMOOTH(kz[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
@@ -651,6 +689,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           YTITLE='x component', $
           XTITLE='FFT argument', $
           CHARSIZE=cs, $
+          SYMSIZE=symSize, $
           YRANGE=[-kx_ysize,kx_ysize]
      IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
 
@@ -658,6 +697,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           YTITLE='y component', $
           XTITLE='FFT argument', $
           CHARSIZE=cs, $
+          SYMSIZE=symSize, $
           YRANGE=[-ky_ysize,ky_ysize]
      IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
 
@@ -665,6 +705,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           YTITLE='z component', $
           XTITLE='FFT argument', $
           CHARSIZE=cs, $
+          SYMSIZE=symSize, $
           YRANGE=[-kz_ysize,kz_ysize]
      IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
 
@@ -776,7 +817,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
              ;; YTITLE=font + 'k!Dperp!N (km!U-1!N)', $
              YTITLE=font + 'k!D' + perpAll + '!N (km!U-1!N)', $
              ;; XTICKFORMAT="(A1)", $
-             CHARSIZE=cs
+             CHARSIZE=cs, $
+             SYMSIZE=symSize
 
         ;; smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
         IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
@@ -858,7 +900,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                 YTICKLEN=1.0, $
                 XGRIDSTYLE=1, $
                 YGRIDSTYLE=1, $
-                CHARSIZE=cs
+                CHARSIZE=cs, $
+                SYMSIZE=symSize
 
            ;; OPLOT,fDoppl[inds],kMajic[inds], $
            ;; OPLOT,freq[inds],kDoppl[inds], $
@@ -921,12 +964,24 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      yMinor         = 6 * yMajDiv / 90 ;Should give spacing every 15 degrees no matter how we slice it
      IF KEYWORD_SET(kP__angleRange) THEN BEGIN
 
+        CASE 1 OF
+           (MIN(kP__angleRange) MOD 45 EQ 0): BEGIN
+
+           END
+           (MIN(kP__angleRange) MOD 60 EQ 0): BEGIN
+              yMajDiv        = 60
+              yMinor         = 3
+           END
+           ELSE: BEGIN
+           END
+        ENDCASE
+
         yARange     = kP__angleRange
 
         nTickV      = (MAX(kP__angleRange)-MIN(kP__angleRange))/yMajDiv
-        yTickV      = INDGEN(nTickV)*45+MIN(kP__angleRange) MOD 360
-        yTickName   = yTickV MOD 360
-
+        yTickV      = INDGEN(nTickV)*yMajDiv+MIN(kP__angleRange) MOD 360
+        ;; yTickName   = STRING(FORMAT='('+STRCOMPRESS(nTickV,/REMOVE_ALL)+'(I4))',yTickV MOD 360) ;doesn't work
+        yTickName   = STRING(FORMAT='(I4)',yTickV MOD 360)
 
      ENDIF ELSE BEGIN
 
@@ -957,7 +1012,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           YTICKV=yTickV, $
           YTICKNAME=yTickName, $
           YMINOR=yMinor, $
-          CHARSIZE=cs
+          CHARSIZE=cs, $
+          SYMSIZE=symSize
 
      IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
 
@@ -980,7 +1036,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                     START_I=strt_ii, $
                     STOP_I=stop_ii, $
                     MIN_STREAK_TO_KEEP=2, $
-                    N_STREAKS=nStreaks
+                    N_STREAKS=nStreaks, $
+                    /QUIET
 
         FOR jj=0,nStreaks-1 DO BEGIN
 
@@ -1045,18 +1102,19 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                 XSTYLE=1, $
                 YSTYLE=1, $
                 LINESTYLE=0, $
-                PSYM=2, $
+                PSYM=pSym, $
                 XTICKLEN=1.0, $
                 YTICKLEN=1.0, $
                 XGRIDSTYLE=1, $
                 YGRIDSTYLE=1, $
-                CHARSIZE=cs
+                CHARSIZE=cs, $
+                SYMSIZE=symSize
 
            IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
               OPLOT,smooth_kPAngle[inds],smooth_kP[inds], $
                     COLOR=250, $
                     LINESTYLE=0, $
-                    PSYM=2
+                    PSYM=pSym
 
            ENDIF
 

@@ -1,171 +1,183 @@
 ;2017/03/10
-PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627__OBSOLETE, $
+;Wow, a time consumer:
+;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=9585,date='20170310',/PLOT_SMOOTHED_K_COMPONENTS,/LOCK_FWDSHIFT_TO_BACKSHIFT,CUSTOM_T1='1999-01-23/14:50:55',CUSTOM_T2='1999-01-23/14:51:07',KX_SPECIALFREQS=[[0.9,2],[3.6,4.4]],/MAKE_KX_VS_KY_SPECIAL,KX_SPECIALBOUNDS=[-3.0,-0.5],/MAKE_KPANGLE_SPECIAL
+;
+;WINNER #1:
+;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=9627,/PLOT_SMOOTHED_K_COMPONENTS,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[-45,315]
+;
+;WINNER #2:
+;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=10832,date='20170310',/PLOT_SMOOTHED_K_COMPONENTS,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[-120,240]
+;
+;ET FINALEMENT (2017/03/11):
+;
+;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=10832,date='20170310',/PLOT_SMOOTHED_K_COMPONENTS,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[0,360],PAGE1__FREQRANGE=[0,6],PAGE2__FREQRANGE=[0,6]
+;
+;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=9627,/PLOT_SMOOTHED_K_COMPONENTS,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[0,360],PAGE1__FREQRANGE=[0,6],PAGE2__FREQRANGE=[0,6]
+PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
+   CUSTOM_T1=custom_t1, $
+   CUSTOM_T2=custom_t2, $
+   DATE=date, $
+   ORBIT=orbit, $
+   USE_AVGED_FOR_SMOOTH=use_avged_for_smooth, $
+   AVG_BINSIZE=avg_binSize, $
+   KX_SPECIALFREQS=kx_specialFreqs, $
+   KY_SPECIALFREQS=ky_specialFreqs, $
+   KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
+   KX_SPECIALBOUNDS=kx_specialBounds, $
+   KY_SPECIALBOUNDS=ky_specialBounds, $
+   KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
+   MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
+   MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
    PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_k_components, $
+   FREQLIMS=freqLims, $
+   PAGE1__FREQRANGE=page1__freqRange, $
+   PAGE2__FREQRANGE=page2__freqRange, $
+   KP__ANGLERANGE=kP__angleRange, $
    SAVE_PS=save_ps, $
+   TO_PDF=to_pdf, $
+   REMOVE_EPS=remove_eps, $
    NO_PLOTS=no_plots, $
+   LOCK_FWDSHIFT_TO_BACKSHIFT=lock_shifts, $
+   NOSHIFT=noShift, $
+   NO_PTSHIFT_BACK=no_ptShift_back, $
+   NO_PTSHIFT_FWD=no_ptShift_fwd, $
    PUBLICATION_SETTINGS=pubSettings, $
    USE_DB_FAC=use_dB_fac
 
-
   COMPILE_OPT IDL2,STRICTARRSUBS
 
-  minShiftBack  = -21
-  maxShiftBack  = 9
-  stepShiftBack = 6
+  IF ~KEYWORD_SET(noShift) THEN BEGIN
 
-  minShiftFwd   = -9
-  maxShiftFwd   = 21
-  stepShiftFwd  = 6
+     ;; minShiftBack  = -20
+     ;; maxShiftBack  = 20
+     ;; stepShiftBack = 1
 
-  nBack         = (maxShiftBack-minShiftBack)/stepShiftBack + 1
-  nFwd          = (maxShiftFwd -minShiftFwd )/stepShiftFwd + 1
-  backShifts    = INDGEN(nBack)*stepShiftBack+minShiftBack
-  fwdShifts     = INDGEN(nFwd )*stepShiftFwd+minShiftFwd
+     ;; minShiftFwd   = -20
+     ;; maxShiftFwd   = 20
+     ;; stepShiftFwd  = 1
 
-  junk          = MIN(ABS(backShifts),minJJInd)
-  junk          = MIN(ABS(fwdShifts),minKKInd)
+     univOffset    = 0
 
-  count         = 0
-  TArrList      = LIST()
-  freqList      = LIST()
-  kxList        = LIST()
-  kyList        = LIST()
-  kzList        = LIST()
-  kPList        = LIST()
-  kPAngleList   = LIST()
-  indsList      = LIST()
-  kzList        = LIST()
-  kzList        = LIST()
-  kzList        = LIST()
-  FOR jj=0,nBack-1 DO BEGIN
-     FOR kk=0,nFwd-1 DO BEGIN
+     ptShift       = 20
+     stepShift     = 1
+     minShiftBack  = -ptShift+univOffset
+     maxShiftBack  = ptShift+univOffset
+     stepShiftBack = stepShift
 
-        tmpSuff = STRING(FORMAT='("__shft_",I0,"_",I0)',backShifts[jj],fwdShifts[kk])
-        PRINT,FORMAT='(I0,T10,A0)',count,tmpSuff
+     minShiftFwd   = -ptShift+univOffset
+     maxShiftFwd   = ptShift+univOffset
+     stepShiftFwd  = stepShift
 
-        JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
-           ORBIT=9627, $
-           /PARSE_B_AND_J_SAVEFILE, $
-           /USE_TIMEBAR_TIME__FROM_FILE, $
-           /FOLD_NEGFREQ_ONTO_POS, $
-           /PLOT_KPERP_MAGNITUDE_FOR_KZ, $
-           /PLOT_KX_VS_KY_FOR_KZ, $
-           SAVE_PS=save_ps, $
-           TO_PDF=KEYWORD_SET(save_ps), $
-           REMOVE_EPS=KEYWORD_SET(save_ps), $
-           NO_PLOTS=no_plots, $
-           /USE_LOWRES_TIME_SERIES, $
-           DATE='20170309', $
-           PUBLICATION_SETTINGS=pubSettings, $
-           BONUS_SUFF=tmpSuff, $
-           USE_DB_FAC=use_dB_fac, $
-           CUSTOM_T1='1999-01-27/11:32:57.542', $
-           CUSTOM_T2='1999-01-27/11:33:09', $
-           /USE_REPRETCAL_FILE, $
-           KP__ANGLERANGE=[-90,270], $
-           PRE_VIII_LAYOUT=KEYWORD_SET(save_ps), $
-           PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_k_components, $
-           BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
-           FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
-           SHIFT_NPTS=[backShifts[jj],fwdShifts[kk]], $
-           OUT_FREQS=out_freqs, $
-           OUT_KX=out_kx, $
-           OUT_KY=out_ky, $
-           OUT_KZ=out_kz, $
-           OUT_KP=out_kP, $
-           OUT_KPANGLE=out_kPAngle, $
-           ;; OUT_INDS=out_inds, $
-           OUT_TARR=out_TArr, $
-           OUT_USEDINDS=out_usedInds, $
-           OUT_BX=out_Bx, $
-           OUT_BY=out_By, $
-           OUT_BZ=out_Bz, $
-           OUT_JX=out_Jx, $
-           OUT_JY=out_Jy, $
-           OUT_JZ=out_Jz
+     nFwd          = (maxShiftFwd -minShiftFwd )/stepShiftFwd + 1
 
-        count++
+     IF KEYWORD_SET(no_ptShift_back) THEN BEGIN
+        nBack      = 0
+        backShifts = 0
+        BKStr      = ''
+     ENDIF ELSE BEGIN
+        nBack      = (maxShiftBack-minShiftBack)/stepShiftBack + 1
+        backShifts = INDGEN(nBack)*stepShiftBack+minShiftBack
+        BKStr      = STRING(FORMAT='("NB",I0)',nBack)
+     ENDELSE
 
-        freqList.Add,out_freqs
-        kxList.Add,out_kx
-        kyList.Add,out_ky
-        kzList.Add,out_kz
-        kPList.Add,out_kP
-        kPAngleList.Add,out_kPAngle
-        ;; indsList.Add,out_inds
-        kzList.Add,out_kz
-        kzList.Add,out_kz
+     CASE 1 OF
+        KEYWORD_SET(no_ptShift_fwd): BEGIN
+           nFwd       = 0
+           fwdShifts  = 0
+           FWStr      = ''
+        END
+        KEYWORD_SET(lock_shifts): BEGIN
+           nFwd       = 1
+           FWStr      = '_LkF'
+        END
+        ELSE: BEGIN
+           fwdShifts  = INDGEN(nFwd )*stepShiftFwd+minShiftFwd
+           FWStr      = STRING(FORMAT='("_NF",I0)',nFwd)
+        END
+     ENDCASE
 
-        IF (kk EQ minKKInd) AND (jj EQ minJJInd) THEN BEGIN
+     univStr          = ''
+     IF KEYWORD_SET(univOffset) THEN BEGIN
+        univStr       = STRING(FORMAT='("_univ",I0)',univOffset)
+     ENDIF
 
-           TArr      = out_TArr
-           usedInds  = out_usedInds
-           Bx        = out_Bx
-           By        = out_By
-           Bz        = out_Bz
-           Jx        = out_Jx
-           Jy        = out_Jy
-           Jz        = out_Jz
+     tmpSuff          = STRING(FORMAT='(A0,A0,A0)',BKStr,FWStr,univStr)
 
-        ENDIF
+  ENDIF
 
-     ENDFOR
-  ENDFOR
+  IF N_ELEMENTS(kP__angleRange) EQ 0 THEN BEGIN
+     kP__angleRange = [-90,270]
+  ENDIF
 
-  freqs  = LIST_TO_1DARRAY(freqList,/WARN)
-  kxs    = LIST_TO_1DARRAY(kxList,/WARN)
-  kys    = LIST_TO_1DARRAY(kyList,/WARN)
-  kzs    = LIST_TO_1DARRAY(kzList,/WARN)
-  kPs    = LIST_TO_1DARRAY(kPList,/WARN)
-  kPAngles    = LIST_TO_1DARRAY(kPAngleList,/WARN)
-  ;; indss    = LIST_TO_1DARRAY(indsList,/WARN)
-  ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
-  ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
-  ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
+  IF orbit EQ 9627 THEN BEGIN
 
-  binSz  = 0.2
-  kxHist = HIST1D(freqs,kxs,BINSIZE=binSz,OBIN=oFreqsX)/count
-  kyHist = HIST1D(freqs,kys,BINSIZE=binSz,OBIN=oFreqsY)/count
-  kzHist = HIST1D(freqs,kzs,BINSIZE=binSz,OBIN=oFreqsY)/count
-  kPHist = HIST1D(freqs,kPs,BINSIZE=binSz,OBIN=oFreqsY)/count
-  kPAngleHist = HIST1D(freqs,kPAngles,BINSIZE=binSz,OBIN=oFreqsY)/count
+     IF ~KEYWORD_SET(custom_t1) THEN BEGIN
+        custom_t1 = '1999-01-27/11:32:56.542'
+     ENDIF
 
-  !P.MULTI = [0,1,2,0,0]
+     IF ~KEYWORD_SET(custom_t2) THEN BEGIN
+        custom_t2 = '1999-01-27/11:33:09.000' ;actual is 08.978
+     ENDIF
 
-  kx_ysize = MAX(ABS(kxHist))
-  ky_ysize = MAX(ABS(kyHist))
+  ENDIF
 
-  SET_PLOT,'X'
-  WINDOW,0,XSIZE=800,YSIZE=800
+  IF N_ELEMENTS(date) EQ 0 THEN BEGIN
+     date = '20170309'
+  ENDIF
 
-  PLOT,oFreqsX,kxHist, $
-       ;; YTITLE='k!Dx!N (m!U-1!N)', $
-       YTITLE='k!Dx!N (km!U-1!N)', $
-       XTITLE='', $
-       XRANGE=page1__freqRange, $
-       YRANGE=[-kx_ysize,kx_ysize], $
-       XSTYLE=1, $
-       YSTYLE=1, $
-       XTICKLEN=1.0, $
-       YTICKLEN=1.0, $
-       XGRIDSTYLE=1, $
-       YGRIDSTYLE=1, $
-       CHARSIZE=cs
+  JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
+     ORBIT=orbit, $
+     /PARSE_B_AND_J_SAVEFILE, $
+     /USE_TIMEBAR_TIME__FROM_FILE, $
+     /FOLD_NEGFREQ_ONTO_POS, $
+     /PLOT_KPERP_MAGNITUDE_FOR_KZ, $
+     /PLOT_KX_VS_KY_FOR_KZ, $
+     FREQLIMS=freqLims, $
+     PAGE1__FREQRANGE=page1__freqRange, $
+     PAGE2__FREQRANGE=page2__freqRange, $
+     SAVE_PS=save_ps, $
+     TO_PDF=to_pdf, $
+     REMOVE_EPS=remove_eps, $
+     NO_PLOTS=no_plots, $
+     /USE_LOWRES_TIME_SERIES, $
+     DATE=date, $
+     PUBLICATION_SETTINGS=pubSettings, $
+     BONUS_SUFF=tmpSuff, $
+     USE_DB_FAC=use_dB_fac, $
+     CUSTOM_T1=custom_t1, $
+     CUSTOM_T2=custom_t2, $
+     /USE_REPRETCAL_FILE, $
+     KP__ANGLERANGE=kP__angleRange, $
+     PRE_VIII_LAYOUT=KEYWORD_SET(save_ps), $
+     PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_k_components, $
+     BACKSHIFTS_FOR_AVGING=backShifts, $
+     FWDSHIFTS_FOR_AVGING=fwdShifts, $
+     LOCK_FWDSHIFT_TO_BACKSHIFT=lock_shifts, $
+     USE_AVGED_FOR_SMOOTH=use_avged_for_smooth, $
+     AVG_BINSIZE=avg_binSize, $
+     KX_SPECIALFREQS=kx_specialFreqs, $
+     KY_SPECIALFREQS=ky_specialFreqs, $
+     KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
+     KX_SPECIALBOUNDS=kx_specialBounds, $
+     KY_SPECIALBOUNDS=ky_specialBounds, $
+     KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
+     MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
+     MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
+     OUT_FREQS=out_freqs, $
+     OUT_KX=out_kx, $
+     OUT_KY=out_ky, $
+     OUT_KZ=out_kz, $
+     OUT_KP=out_kP, $
+     OUT_ANGLE_KP=out_kPAngle, $
+     ;; OUT_INDS=out_inds, $
+     OUT_TARR=out_TArr, $
+     OUT_USEDINDS=out_usedInds, $
+     OUT_BX=out_Bx, $
+     OUT_BY=out_By, $
+     OUT_BZ=out_Bz, $
+     OUT_JX=out_Jx, $
+     OUT_JY=out_Jy, $
+     OUT_JZ=out_Jz, $
+     OUT_AVGJXBNRM=out_avgJxBNrm
 
-  PLOT,oFreqsY,kYHist, $
-       ;; YTITLE='k!Dy!N (m!U-1!N)', $
-       YTITLE='k!Dy!N (km!U-1!N)', $
-       XTITLE='', $
-       XRANGE=page1__freqRange, $
-       YRANGE=[-ky_ysize,ky_ysize], $
-       XSTYLE=1, $
-       YSTYLE=1, $
-       XTICKLEN=1.0, $
-       YTICKLEN=1.0, $
-       XGRIDSTYLE=1, $
-       YGRIDSTYLE=1, $
-       CHARSIZE=cs
-
-
-  STOP
 END
