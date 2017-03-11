@@ -196,7 +196,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   COMPILE_OPT IDL2,STRICTARRSUBS
 
   IF KEYWORD_SET(pubSettings) THEN BEGIN
-     cs = 1.8
+     cs = 2.5
   ENDIF
 
   ;;Only for special people (see Beck)
@@ -830,8 +830,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
            fDoppl    = FINDGEN((maxDoppl-minDoppl)*20.+1)*0.05+minDoppl
            kDoppl    = fDoppl/avgSpeed
 
-           like_kx   = 1
-           IF KEYWORD_SET(like_kx) THEN BEGIN
+           want_kx   = 1
+           IF KEYWORD_SET(want_kx) THEN BEGIN
               ;; yArg   = ABS(kx)
               yArg   = kx
               yTito  = 'k!Dx!N (km!U-1!N)'
@@ -917,22 +917,25 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
      
      ;;Kperp angle plot     
+     yMajDiv        = 45
+     yMinor         = 6 * yMajDiv / 90 ;Should give spacing every 15 degrees no matter how we slice it
      IF KEYWORD_SET(kP__angleRange) THEN BEGIN
 
-        yARange  = kP__angleRange
-        nTickV  = (MAX(kP__angleRange)-MIN(kP__angleRange))/45
-        yTickV  = INDGEN(nTickV)*45+MIN(kP__angleRange) MOD 360
-        ;; yTickV  = INDGEN(nTickV)*45+MIN(kP__angleRange) MOD 360
-        yTickName = yTickV MOD 360
+        yARange     = kP__angleRange
+
+        nTickV      = (MAX(kP__angleRange)-MIN(kP__angleRange))/yMajDiv
+        yTickV      = INDGEN(nTickV)*45+MIN(kP__angleRange) MOD 360
+        yTickName   = yTickV MOD 360
+
 
      ENDIF ELSE BEGIN
 
-        yARange  = [-180,180]
-        yTickV  = [-180,-90,0,90,180]
+        yARange     = [-180,180]
+        yTickV      = [-180,-90,0,90,180]
 
         IF rotate_kPA THEN BEGIN
            yARange += 180
-           yTickV += 180
+           yTickV  += 180
         ENDIF
 
      ENDELSE
@@ -953,7 +956,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           YTICKS=N_ELEMENTS(yTickV)-1, $
           YTICKV=yTickV, $
           YTICKNAME=yTickName, $
-          YMINOR=6, $
+          YMINOR=yMinor, $
           CHARSIZE=cs
 
      IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
