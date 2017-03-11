@@ -102,7 +102,8 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    OUT_BZ=out_Bz, $
    OUT_JX=out_Jx, $
    OUT_JY=out_Jy, $
-   OUT_JZ=out_Jz
+   OUT_JZ=out_Jz, $
+   OUT_AVGJXBNRM=out_avgJxBNrm
 
   COMPILE_OPT IDL2,STRICTARRSUBS
 
@@ -225,6 +226,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      OUT_BZ=out_Bz, $
      OUT_JX=out_Jx, $
      OUT_JY=out_Jy, $
-     OUT_JZ=out_Jz
+     OUT_JZ=out_Jz, $
+     OUT_AVGJXBNRM=out_avgJxBNrm
 
 END

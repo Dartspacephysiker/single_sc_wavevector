@@ -291,6 +291,44 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
 END
 
+PRO DEAL_WITH_BADNESS,datSerie,improvSerie
+
+  COMPILE_OPT idl2,strictarrsubs
+
+  improvSerie  = datSerie
+
+  bad_i        = WHERE(~FINITE(datSerie),nBad,COMPLEMENT=good_i,NCOMPLEMENT=nGood)
+  nDat         = nGood+nBad
+
+  IF nBad GT 0 THEN BEGIN
+
+     GET_STREAKS,bad_i,START_I=strtB_ii,STOP_I=stopB_ii,/QUIET,/NO_PRINT_SUMMARY
+     GET_STREAKS,good_i,START_I=strtG_ii,STOP_I=stopG_ii,/QUIET,/NO_PRINT_SUMMARY
+     strtB_i  = bad_i[strtB_ii]
+     stopB_i  = bad_i[stopB_ii]
+
+     strtG_i  = bad_i[strtG_ii]
+     stopG_i  = bad_i[stopG_ii]
+
+     FOR k=0,N_ELEMENTS(strtB_i)-1 DO BEGIN
+
+        ;;If bad streak strts at beginning of TS or ends and end of TS, no interp
+        strtTmp = strtB_i[k]
+        stopTmp = stopB_i[k]
+
+        IF strtTmp EQ 0 OR stopTmp EQ nDat-1 THEN BEGIN
+           PRINT,'Skipping ...'
+           CONTINUE
+        ENDIF
+
+        ;;Just zero this chunk
+        improvSerie[strtTmp:stopTmp] = 0.
+     ENDFOR
+
+  ENDIF
+
+END
+
 FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                          B_AND_J_FILE=saveFile, $
                          SAVEDIR=saveDir, $
@@ -1176,44 +1214,6 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
 END
 
-PRO DEAL_WITH_BADNESS,datSerie,improvSerie
-
-  COMPILE_OPT idl2,strictarrsubs
-
-  improvSerie  = datSerie
-
-  bad_i        = WHERE(~FINITE(datSerie),nBad,COMPLEMENT=good_i,NCOMPLEMENT=nGood)
-  nDat         = nGood+nBad
-
-  IF nBad GT 0 THEN BEGIN
-
-     GET_STREAKS,bad_i,START_I=strtB_ii,STOP_I=stopB_ii,/QUIET,/NO_PRINT_SUMMARY
-     GET_STREAKS,good_i,START_I=strtG_ii,STOP_I=stopG_ii,/QUIET,/NO_PRINT_SUMMARY
-     strtB_i  = bad_i[strtB_ii]
-     stopB_i  = bad_i[stopB_ii]
-
-     strtG_i  = bad_i[strtG_ii]
-     stopG_i  = bad_i[stopG_ii]
-
-     FOR k=0,N_ELEMENTS(strtB_i)-1 DO BEGIN
-
-        ;;If bad streak strts at beginning of TS or ends and end of TS, no interp
-        strtTmp = strtB_i[k]
-        stopTmp = stopB_i[k]
-
-        IF strtTmp EQ 0 OR stopTmp EQ nDat-1 THEN BEGIN
-           PRINT,'Skipping ...'
-           CONTINUE
-        ENDIF
-
-        ;;Just zero this chunk
-        improvSerie[strtTmp:stopTmp] = 0.
-     ENDFOR
-
-  ENDIF
-
-END
-
 PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      freq,kx,ky,kz,kP, $
                      SPERIOD=sPeriod, $
@@ -1223,6 +1223,8 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      HANNING=hanning, $
                      HAVE_EFIELD=have_EField, $
                      ODDNESS_CHECK=oddness_check, $
+                     OUT_NORM=norm, $
+                     OUT_AVGJXB=avgJxBtotal, $
                      DIAG=diag
 
   COMPILE_OPT idl2,strictarrsubs
@@ -1478,7 +1480,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    OUT_BZ=out_Bz, $
    OUT_JX=out_Jx, $
    OUT_JY=out_Jy, $
-   OUT_JZ=out_Jz
+   OUT_JZ=out_Jz, $
+   OUT_AVGJXBNRM=out_avgJxBNrm
 
 
   COMPILE_OPT idl2,strictarrsubs
@@ -1637,7 +1640,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   kzList        = LIST()
   kzList        = LIST()
   kzList        = LIST()
+  avgJxBNrmList = LIST()
+  normList      = LIST()
+
   avgCount      = 0
+
   FOR jj=0,nBack-1 DO BEGIN
      FOR kk=0,nFwd-1 DO BEGIN
 
@@ -1725,7 +1732,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ;;Now do some calcs
         defFFTsize = T[0]
         IF ( N_ELEMENTS(tmpFFTsize) EQ 0 ) AND KEYWORD_SET(splitFFTs) THEN BEGIN
-           tmpFFTsize = defFFTsize
+           tmpFFTsize = defFFTsize ;The other way for tmpFFTsize to be set is user input, toward the beginning 
         ENDIF
 
         IF KEYWORD_SET(FFTpercent) THEN BEGIN
@@ -1738,7 +1745,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
               IF KEYWORD_SET(use_all_streaks) THEN BEGIN
 
-                 ;;First get the total number of FFTs we're going to do
+                 ;;First get the total number of FFTs we're going to do for each streak of measurements
                  nFFTsArr = !NULL
                  FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
                     TTmp     = T[kk]
@@ -1755,6 +1762,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kxArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  kyArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 avgJxBArr = MAKE_ARRAY(nFFTs,3)
+                 normArr   = MAKE_ARRAY(nFFTs)
                  ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
 
                  FFTCount  = 0
@@ -1762,6 +1771,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  prevFFTs  = 0
                  FFTi_list = LIST()
 
+                 ;;Remember, Bx is a LIST (not an array) and so contains sets of streaks of Bx measurements
+                 ;;Here we loop over streaks of measurements
                  FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
 
                     TTmp  = T[kk]
@@ -1779,6 +1790,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                     lastInd  = TTmp-1
                     nArr     = !NULL
                     PRINT,"Interval: ",kk
+
+                    ;;If we're doing multiple FFTs per streak, it happens here. Otherwise this loop is only traversed once.
                     FOR k=FFTCount,FFTCount+nFFTsArr[kk]-1 DO BEGIN
                        tmpI = [((k-prevFFTs)*tmpFFTSize):( ((k-prevFFTs+1)*tmpFFTSize-1) < lastInd )]
                        nTmp = N_ELEMENTS(tmpI)
@@ -1797,7 +1810,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                         DOUBLE_CALC=double_calc, $
                                         HANNING=hanning, $
                                         HAVE_EFIELD=have_EField, $
-                                        ODDNESS_CHECK=oddness_check
+                                        ODDNESS_CHECK=oddness_check, $
+                                        OUT_NORM=norm, $
+                                        OUT_AVGJXB=avgJxBtotal
+
                        this = ARRAY_INDICES(TRANSPOSE(fArr),(k*N_ELEMENTS(fArr[0,*])+LINDGEN(N_ELEMENTS(tmpI))))
                        ;; this = [this[1,*],this[0,*]]
                        ;; PRINT,this
@@ -1815,24 +1831,28 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                        CASE NDIMEN(this) OF
                           1: BEGIN
 
-                             fArr [this] = freq
-                             kxArr[this] = kx
-                             kyArr[this] = ky
-                             kzArr[this] = kz
+                             fArr [this] = TEMPORARY(freq)
+                             kxArr[this] = TEMPORARY(kx  )
+                             kyArr[this] = TEMPORARY(ky  )
+                             kzArr[this] = TEMPORARY(kz  )
                              ;; kPArr[this] = kP
 
                           END
                           2: BEGIN
 
-                             fArr [this[1,*],this[0,*]] = freq
-                             kxArr[this[1,*],this[0,*]] = kx
-                             kyArr[this[1,*],this[0,*]] = ky
-                             kzArr[this[1,*],this[0,*]] = kz
+                             fArr [this[1,*],this[0,*]] = TEMPORARY(freq)
+                             kxArr[this[1,*],this[0,*]] = TEMPORARY(kx  )
+                             kyArr[this[1,*],this[0,*]] = TEMPORARY(ky  )
+                             kzArr[this[1,*],this[0,*]] = TEMPORARY(kz  )
                              ;; kPArr[this] = kP
 
                           END
                        ENDCASE
 
+                       ;;avgJxB doesn't depend on FFT dimensions
+                       avgJxBArr[k,*] = TEMPORARY(avgJxBtotal)
+                       normArr[k]     = TEMPORARY(norm)
+                       
                     ENDFOR
 
                     FFTCount += nFFTsArr[kk]
@@ -1845,12 +1865,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kyArr     = kyArr[include_i,*]
                  kzArr     = kzArr[include_i,*]
 
-                 freq      = MEAN(fArr ,DIMENSION=1)
-                 kx        = MEAN(kxArr,DIMENSION=1)
-                 ky        = MEAN(kyArr,DIMENSION=1)
-                 kz        = MEAN(kzArr,DIMENSION=1)
+                 freq      = MEAN(TEMPORARY(fArr) ,DIMENSION=1)
+                 kx        = MEAN(TEMPORARY(kxArr),DIMENSION=1)
+                 ky        = MEAN(TEMPORARY(kyArr),DIMENSION=1)
+                 kz        = MEAN(TEMPORARY(kzArr),DIMENSION=1)
                  kP        = SQRT(kx*kx+ky*ky)
-                 ;; kP        = MEAN(kPArr,DIMENSION=1)
+
+                 avgJxBNrm = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
 
                  usedInds  = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
 
@@ -1882,6 +1903,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kxArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  kyArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 avgJxBArr = MAKE_ARRAY(nFFTs,3)
+                 normArr   = MAKE_ARRAY(nFFTs)
                  ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  FFTCount  = 0
                  FFTi_list = LIST()
@@ -1906,13 +1929,17 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                      DOUBLE_CALC=double_calc, $
                                      HANNING=hanning, $
                                      HAVE_EFIELD=have_EField, $
-                                     ODDNESS_CHECK=oddness_check
+                                     ODDNESS_CHECK=oddness_check, $
+                                     OUT_NORM=norm, $
+                                     OUT_AVGJXB=avgJxBtotal
 
-                    fArr [FFTCount,*] = freq
-                    kxArr[FFTCount,*] = kx
-                    kyArr[FFTCount,*] = ky
-                    kzArr[FFTCount,*] = kz
-                    ;; kPArr[FFTCount,*] = kP
+                    fArr [FFTCount,*]     = TEMPORARY(freq       )
+                    kxArr[FFTCount,*]     = TEMPORARY(kx         )
+                    kyArr[FFTCount,*]     = TEMPORARY(ky         )
+                    kzArr[FFTCount,*]     = TEMPORARY(kz         )
+
+                    avgJxBArr[FFTCount,*] = TEMPORARY(avgJxBtotal)
+                    normArr[FFTCount]     = TEMPORARY(norm       )
 
                     FFTCount++
 
@@ -1924,15 +1951,17 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kx            = MEAN(kxArr,DIMENSION=1)
                  ky            = MEAN(kyArr,DIMENSION=1)
                  kz            = MEAN(kzArr,DIMENSION=1)
-
-                 ;;This makes kP seem larger than he is. Don't do it. Recalculate instead.
-                 ;; kP            = MEAN(kPArr,DIMENSION=1)
                  kP            = SQRT(kx*kx+ky*ky)
+
+                 avgJxBNrm     = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
+
                  usedInds      = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
 
               ENDELSE
+
            END
            ELSE: BEGIN
+
               BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                                freq,kx,ky,kz,kP, $
                                SPERIOD=sPeriod, $
@@ -1941,8 +1970,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                DOUBLE_CALC=double_calc, $
                                HANNING=hanning, $
                                HAVE_EFIELD=have_EField, $
-                               ODDNESS_CHECK=oddness_check
+                               ODDNESS_CHECK=oddness_check, $
+                               OUT_NORM=norm, $
+                               OUT_AVGJXB=avgJxBtotal
 
+              avgJxBNrm        = TEMPORARY(avgJxBtotal)/TEMPORARY(norm)
               usedInds         = LINDGEN(T)
 
            END
@@ -2012,8 +2044,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ;; kPList.Add,kP
         ;; kPAngleList.Add,kPAngle
         ;; indsList.Add,inds
-        kzList.Add,kz
 
+        avgJxBNrmList.Add,avgJxBNrm
+        
         IF (kk EQ minKKInd) AND (jj EQ minJJInd) THEN BEGIN
 
            ;;Get time string
@@ -2051,12 +2084,13 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ENDIF
 
         avgCount++
+
      ENDFOR
   ENDFOR
   
   CASE avgCount OF
      1: BEGIN
-
+        ;;Disregard lists; we'll just take it straight
      END
      ELSE: BEGIN
 
@@ -2071,6 +2105,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
         ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
 
+        avgJxBNrm = LIST_TO_1DARRAY(avgJxBNrmList,/WARN)
+
+        ;;Pick up rebin size from user, or else from data
         IF KEYWORD_SET(avg_binSize) THEN BEGIN
 
            binSz  = avg_binSize
@@ -2189,6 +2226,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         out_kP        = TEMPORARY(kP     )
         out_kPAngle   = TEMPORARY(kPAngle)
 
+        out_avgJxBNrm = TEMPORARY(avgJxBNrm)
         ;; out_inds      = (TEMPORARY(inds   ))[inds] 
         ;; out_freqs     = (TEMPORARY(freq   ))[inds]
         ;; out_kx        = (TEMPORARY(kx     ))[inds]

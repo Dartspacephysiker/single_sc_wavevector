@@ -165,6 +165,9 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627__NOT_OBSOLETE, $
      OUT_BZ=out_Bz, $
      OUT_JX=out_Jx, $
      OUT_JY=out_Jy, $
-     OUT_JZ=out_Jz
+     OUT_JZ=out_Jz, $
+     OUT_AVGJXBNRM=out_avgJxBNrm
+
+  STOP
 
 END
