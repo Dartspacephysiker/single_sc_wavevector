@@ -223,6 +223,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
   yStyler        = 16
 
+  freqTitle      = 'Frequency (Hz)'
+  freqTitle      = 'f!Dsp!N (Hz)'
+
   GET_FREQ_INDS,freq,kx,ky,kz, $
                 kP,kPAngle, $
                 inds, $
@@ -407,7 +410,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   PLOT,freq[inds],kx[inds], $
        ;; YTITLE='k!Dx!N (m!U-1!N)', $
        YTITLE='k!Dx!N (km!U-1!N)', $
-       XTITLE=(KEYWORD_SET(PRE_VIII_layout) ? 'Frequency (Hz)' : ''), $
+       XTITLE=(KEYWORD_SET(PRE_VIII_layout) ? freqTitle : ''), $
        XRANGE=page1__freqRange, $
        YRANGE=[-kx_ysize,kx_ysize], $
        XSTYLE=1, $
@@ -467,7 +470,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   PLOT,freq[inds],ky[inds], $
        ;; YTITLE='k!Dy!N (m!U-1!N)', $
        YTITLE='k!Dy!N (km!U-1!N)', $
-       XTITLE='Frequency (Hz)', $
+       XTITLE=freqTitle, $
        XRANGE=page1__freqRange, $
        YRANGE=[-ky_ysize,ky_ysize], $
        XSTYLE=1, $
@@ -720,7 +723,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      window = WINDOW(DIMENSIONS=[700,800])
 
      bro = PLOT(freq[inds],kP[inds], $
-                ;; XTITLE='Frequency (Hz)', $
+                ;; XTITLE=freqTitle, $
                 ;; YTITLE='|k!Dperp!N (m$^{-1}$)', $
                 ;; YTITLE='|k!Dperp!N (km$^{-1}$)', $
                 YTITLE='|k!D' + perpAll +  '!N (km$^{-1}$)', $
@@ -730,7 +733,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      ;; bro.axes
 
      bro = PLOT(freq[inds],smooth_kP[inds], $
-                ;; XTITLE='Frequency (Hz)', $
+                ;; XTITLE=freqTitle, $
                 ;; YTITLE='|k!Dperp!N (m$^{-1}$)', $
                 ;; YTITLE='|k!Dperp!N (km$^{-1}$)', $
                 YTITLE='|k!D' + perpAll +  '!N (km$^{-1}$)', $
@@ -743,7 +746,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      ;; kPAngle = ATAN(SMOOTH(ky,smInd),SMOOTH(kx,smInd))*!RADEG
 
      bro = PLOT(freq[inds],kPAngle[inds], $
-                XTITLE='Frequency (Hz)', $
+                XTITLE=freqTitle, $
                 ;; XTITLE='T since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
                 ;; YTITLE='|$\theta$(k!Dperp!N)', $
                 YTITLE='|$\theta$(k!D' +perpAll + '!N)', $
@@ -752,7 +755,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
      ;; smkPAngle = SMOOTH(kPAngle[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
      bro = PLOT(freq[inds],smooth_kPAngle[inds], $
-                XTITLE='Frequency (Hz)', $
+                XTITLE=freqTitle, $
                 ;; YTITLE='|$\theta$(k!Dperp!N)', $
                 YTITLE='|$\theta$(k!D' +perpAll + '!N)', $
                 COLOR='RED', $
@@ -801,7 +804,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
         ;; k__yRange = [4e-3,1e1]
         kP__yRange = MINMAX(kP[inds])
         PLOT,freq[inds],kP[inds], $
-             XTITLE='Frequency (Hz)', $
+             XTITLE=freqTitle, $
              ;; YRANGE=[4e-6,1e-2], $
              XRANGE=page2__freqRange, $
              YRANGE=kP__yRange, $
@@ -884,7 +887,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
            k__yRange = [MIN(yArg),MAX(yArg)] 
            PLOT,freq[inds],yArg[inds], $
-                XTITLE='Frequency (Hz)', $
+                XTITLE=freqTitle, $
                 YTITLE=yTito, $
                 XRANGE=page2__freqRange, $
                 ;; YRANGE=k__yRange, $
@@ -997,7 +1000,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
 
      PLOT,freq[inds],kPAngle[inds], $
-          XTITLE='Frequency (Hz)', $
+          XTITLE=freqTitle, $
           ;; YTITLE='!4h!X!Dk!Dperp!N', $
           YTITLE='!4h!X!Dk!D' + perpAll + '!N', $
           XRANGE=page2__freqRange, $
