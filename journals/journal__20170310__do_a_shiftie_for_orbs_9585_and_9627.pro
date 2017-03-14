@@ -50,6 +50,7 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
    SAVE_PS=save_ps, $
    FOOTBALL_LAYOUT=football_layout, $
    FOOTBALL_YLOG=football_yLog, $
+   FOOTBALL_COL2TITLE=football_col2Title, $
    TO_PDF=to_pdf, $
    REMOVE_EPS=remove_eps, $
    NO_PLOTS=no_plots, $
@@ -222,6 +223,17 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
      
   ENDELSE
 
+  IF KEYWORD_SET(football_col2Title) THEN BEGIN
+     football_col2Title = STRING(FORMAT='("Orbit ",I0)',orbit)
+
+     IF N_ELEMENTS(interval) GT 0 THEN BEGIN
+        football_col2Title += STRING(FORMAT='(" (itvl ",I0,")")',interval)
+     ENDIF ELSE BEGIN
+        football_col2Title += "(original)"
+     ENDELSE
+
+  ENDIF
+
   ;; IF N_ELEMENTS(date) EQ 0 THEN BEGIN
   ;;    date = '20170309'
   ;; ENDIF
@@ -257,6 +269,7 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
      PRE_VIII_LAYOUT=KEYWORD_SET(save_ps) AND ~KEYWORD_SET(football_layout), $
      FOOTBALL_LAYOUT=football_layout, $
      FOOTBALL_YLOG=football_yLog, $
+     FOOTBALL_COL2TITLE=football_col2Title, $
      PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_k_components, $
      BACKSHIFTS_FOR_AVGING=backShifts, $
      FWDSHIFTS_FOR_AVGING=fwdShifts, $

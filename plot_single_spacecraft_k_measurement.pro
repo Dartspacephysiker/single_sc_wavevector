@@ -200,7 +200,7 @@ PRO GET_FREQ_INDS,freq,kx,ky,kz, $
   CASE 1 OF
      KEYWORD_SET(plot_posFreq): BEGIN
 
-        inds               = WHERE(freq GT 0.0)
+        inds               = WHERE(freq GE 0.0)
         ;; fitInds            = WHERE(freq GT (0.1 < (freq[inds])[1]) AND freq LE maxFreq*1.1)
 
      END
@@ -289,6 +289,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                                          JSPEC=JSpec, $
                                          MAGCSPEC=magCSpec, $
                                          POWFREQ=powFreq, $
+                                         MAGERR=magErr, $
+                                         ERRANGLE=errAngle, $
                                          EXAMPLE_MODE=example_mode, $
                                          PLOTDIR=plotDir, $
                                          SUFF=suff, $
@@ -330,7 +332,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                                          PUBLICATION_SETTINGS=pubSettings, $
                                          PRE_VIII_LAYOUT=PRE_VIII_layout, $
                                          FOOTBALL_LAYOUT=football_layout, $
-                                         FOOTBALL_YLOG=football_yLog
+                                         FOOTBALL_YLOG=football_yLog, $
+                                         FOOTBALL_COL2TITLE=football_col2Title
 
   COMPILE_OPT IDL2,STRICTARRSUBS
 
@@ -499,53 +502,59 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
         bxCol = 240
         byCol = 50
         
-        jMagSpecCol = 220
+        jMagSpecCol = 30
+
+        thetaErrCol  = byCol
+
         ;;THe idea here is to kill the x axis, since it's common to Bx, By, and Jz
 
         ;;Row 0: plots 0,1,2
         ;;Row 1: plots 3,4,5
         ;;Row 2: plots 6,7,8
 
-        !P.MULTI      = [0,1,1,0,0]
+        !P.MULTI       = [0,1,1,0,0]
 
-        colTitleSpace = 0.09
-        noTitleSpace  = 0.02
-        titleSpace    = 0.08
-        totForSpace   = colTitleSpace + 2*noTitleSpace + titleSpace
+        colTitleSpace  = 0.09
+        noTitleSpace   = 0.02
+        titleSpace     = 0.08
+        totForSpace    = colTitleSpace + 2*noTitleSpace + titleSpace
 
-        rows          = 3
-        panYSpace     = (1.-totForSpace)/rows
+        rows           = 3
+        panYSpace      = (1.-totForSpace)/rows
 
-        lEdgeSpace = 0.1
+        lEdgeSpace     = 0.1
+        rEdgeSpace     = 0.08
         
-        lEdgeL = lEdgeSpace
-        colWid = 0.5 - lEdgeL - 0.02
-        rEdgeL = lEdgeL+colWid
+        lEdgeL         = lEdgeSpace
+        colWid         = 0.5 - lEdgeSpace - rEdgeSpace + rEdgeSpace*0.5
+        rEdgeL         = lEdgeL+colWid
+        lColCtr        = MEAN([lEdgeL,rEdgeL])
 
-        lEdgeR = 0.5+lEdgeSpace
-        rEdgeR = lEdgeR+colWid
+        lEdgeR         = 0.5+lEdgeSpace - rEdgeSpace/2.
+        rEdgeR         = lEdgeR+colWid
+        rColCtr        = MEAN([lEdgeR,rEdgeR])
 
         ;;First column
-        Bx_upper = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace+panYSpace
-        Bx_lower = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace
+        Bx_upper       = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace+panYSpace
+        Bx_lower       = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace
         
-        By_upper = titleSpace+panYSpace+noTitleSpace+panYSpace
-        By_lower = titleSpace+panYSpace+noTitleSpace
+        By_upper       = titleSpace+panYSpace+noTitleSpace+panYSpace
+        By_lower       = titleSpace+panYSpace+noTitleSpace
         
-        posBx = [lEdgeL,Bx_lower,lEdgeL+colWid,Bx_upper]
-        posBy = [lEdgeL,By_lower,lEdgeL+colWid,By_upper]
-        posJz = [lEdgeL,titleSpace,lEdgeL+colWid,titleSpace+panYSpace]
+        posBx          = [lEdgeL,Bx_lower,lEdgeL+colWid,Bx_upper]
+        posBy          = [lEdgeL,By_lower,lEdgeL+colWid,By_upper]
+        posJz          = [lEdgeL,titleSpace,lEdgeL+colWid,titleSpace+panYSpace]
 
         ;;Second column
-        By_upper = titleSpace+panYSpace+noTitleSpace+panYSpace
-        By_lower = titleSpace+panYSpace+noTitleSpace
+        By_upper       = titleSpace+panYSpace+noTitleSpace+panYSpace
+        By_lower       = titleSpace+panYSpace+noTitleSpace
         
-        Bx_upper = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace+panYSpace
-        Bx_lower = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace
+        Bx_upper       = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace+panYSpace
+        Bx_lower       = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace
         
-        posSpec = [lEdgeR,Bx_lower,lEdgeR+colWid,Bx_upper]
-        poskxy  = [lEdgeR,By_lower,lEdgeR+colWid,By_upper]
-        poskPA  = [lEdgeR,titleSpace,lEdgeR+colWid,titleSpace+panYSpace]
+        posSpec        = [lEdgeR,Bx_lower,lEdgeR+colWid,Bx_upper]
+        poskxy         = [lEdgeR,By_lower,lEdgeR+colWid,By_upper]
+        poskPA         = [lEdgeR,titleSpace,lEdgeR+colWid,titleSpace+panYSpace]
 
         
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -554,7 +563,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
         tPlotMe = TArr[usedInds]-TArr[usedInds[0]]
 
         timeTitle = font + 't since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)'
-        XYOUTS,MEAN([lEdgeL,lEdgeL+colWid]),titleSpace/4,timeTitle, $
+        XYOUTS,lColCtr,titleSpace/4,timeTitle, $
                /NORMAL, $
                ALIGNMENT=0.5, $
                CHARSIZE=cs
@@ -565,11 +574,17 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                CHARSIZE=cs
         
         colTitle = 'Inputs'
-        XYOUTS,MEAN([lEdgeL,lEdgeL+colWid]),1.-colTitleSpace/2.,colTitle, $
+        XYOUTS,lColCtr,1.-colTitleSpace/2.,colTitle, $
                /NORMAL, $
                ALIGNMENT=0.5, $
                CHARSIZE=cs*1.5
 
+        IF KEYWORD_SET(football_col2Title) THEN BEGIN
+           XYOUTS,rColCtr,1.-colTitleSpace/2.,football_col2Title, $
+                  /NORMAL, $
+                  ALIGNMENT=0.5, $
+                  CHARSIZE=cs*1.5
+        ENDIF
         ;; freqBlankTickName = MAKE_ARRAY(N_ELEMENTS(freqTickV),/STRING,VALUE=' ')
 
         ;; !P.MULTI[0]  = 4
@@ -673,12 +688,13 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         OPLOT,powFreq,jSpecVar1
 
+        ;;Plot mag current spec?
         ;; jLineStyle = 2 ;dotted line
-        jLineStyle = 1 ;dashed line??
-        ;; OPLOT,freq[inds],JSpecNorm[inds], $
-        OPLOT,powFreq,jSpecVar2, $
-              LINESTYLE=jLineStyle, $
-              COLOR=jMagSpecCol;; , $
+        ;; jLineStyle = 1 ;dashed line??
+        ;; ;; OPLOT,freq[inds],JSpecNorm[inds], $
+        ;; OPLOT,powFreq,jSpecVar2, $
+        ;;       LINESTYLE=jLineStyle, $
+        ;;       COLOR=jMagSpecCol;; , $
               ;; MAX_VALUE=MAX(magCSpec)
 
         legXSymPos1 = 0.73*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
@@ -688,15 +704,16 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         IF KEYWORD_SET(football_yLog) THEN BEGIN
 
-           spaceFrac   = 0.8
-           downLog     = 0.9
+           spaceFrac   = 0.6
+           downLog     = 1.2
            distVec     = REVERSE(INDGEN(3)*spaceFrac - spaceFrac - downLog)
 
            legYSymPos  = 0.6*( distVec + currency )
-           legYPos     = 0.6*( distVec + currency ) - currency * 0.02
+           legYPos     = 0.6*( distVec + currency ) - (currency + 0.1)
 
            legYSymPos = 10.^(legYSymPos)
            legYPos    = 10.^(legYPos)
+
         ENDIF ELSE BEGIN
 
            spaceFrac   = 0.13
@@ -857,7 +874,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   CASE 1 OF
      KEYWORD_SET(football_layout): BEGIN
 
-        ;; jLineStyle = 2 ;dotted line
+        jLineStyle = 1 ;dotted line
         OPLOT,freq[inds],ky[inds], $
               ;; LINESTYLE=jLineStyle, $
               COLOR=byCol
@@ -1383,11 +1400,11 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           XRANGE=(KEYWORD_SET(football_layout) OR KEYWORD_SET(PRE_VIII_layout))? page1__freqRange : page2__freqRange, $
           YRANGE=yARange, $
           XSTYLE=1, $
-          YSTYLE=1, $
+          YSTYLE=9, $
           XTICKLEN=1.0, $
-          YTICKLEN=1.0, $
+          ;; YTICKLEN=1.0, $
           XGRIDSTYLE=1, $
-          YGRIDSTYLE=1, $
+          ;; YGRIDSTYLE=1, $
           YTICKS=N_ELEMENTS(yTickV)-1, $
           YTICKV=yTickV, $
           YTICKNAME=yTickName, $
@@ -1397,6 +1414,48 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           SYMSIZE=symSize, $
           POSITION=KEYWORD_SET(football_layout) ? poskPA : !NULL, $
           NOERASE=KEYWORD_SET(football_layout)
+
+     IF KEYWORD_SET(football_layout) THEN BEGIN
+
+        OPLOT,freq[inds],errAngle[inds]*180.D/!PI, $
+              COLOR=thetaErrCol
+
+        currency    = (MAX(yARange)-MIN(yARange))+MIN(yARange)
+        spaceFrac   = 0.13
+        distVec     = REVERSE(INDGEN(3)*spaceFrac - 2.*spaceFrac + 1)
+
+        legYSymPos  = 1.05*( distVec * currency ) + MIN(yARange)
+        legYPos     = 1.05*( distVec * currency ) - currency * 0.02 + MIN(yARange)
+
+        legXPos1    = 0.2*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
+        legXPos2    = 0.25*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
+        legXSymPos1 = 0.13*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
+        legXSymPos2 = 0.18*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
+
+        XYOUTS,legXPos1,legYPos[0],'!4h!X!Derr!N',CHARSIZE=cs
+        PLOTS,legXSymPos1,legYSymPos[0],COLOR=thetaErrCol
+        PLOTS,legXSymPos2,legYSymPos[0],COLOR=thetaErrCol,/CONTINUE
+
+        AXIS,YAXIS=1,YRANGE=[MIN(magErr),MAX(magErr)], $
+             YSTYLE = 1, $
+             YTITLE = '|Relative Error|', $
+             CHARSIZE=cs, $
+             /SAVE, $
+             /NOERASE, $
+             COLOR=240
+
+        ;; oldLine = !P.LINESTYLE
+        ;; !P.LINESTYLE = [2,'AAAA'X]
+             
+        ;; jLineStyle = 4
+        OPLOT,freq[inds],magErr[inds], $
+              ;; LINESTYLE=jLineStyle, $
+              ;; LINESTYLE=, $
+              COLOR=240
+
+        ;; !P.LINESTYLE = oldLine
+     ENDIF
+
 
      IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
 

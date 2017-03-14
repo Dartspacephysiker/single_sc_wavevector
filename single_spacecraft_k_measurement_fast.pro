@@ -105,7 +105,7 @@ PRO ADD_NOISE,Bx,By,Bz,Jx,Jy,Jz,T
 
 END
 
-PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactors,sPeriod,saveVar, $
                   SAVEDIR=saveDir, $
                   EXAMPLE=example, $
                   PARSE_B_AND_J_SAVEFILE=parse_B_AND_J_saveFile
@@ -375,51 +375,69 @@ PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,kx,ky,kz,freq ;,freq_sp,ind
 
 END
 
-PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactor
+PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
+              OUT_JPREDICTED=JPred, $
+              OUT_MAGERR=magErr, $
+              OUT_ERRANGLE=errAngle
 
-  IF N_ELEMENTS(unitFactor) EQ 0 THEN unitFactor = 1.D
+  COMPILE_OPT IDL2,STRICTARRSUBS
+
+  IF N_ELEMENTS(unitFactors) EQ 0 THEN unitFactors = {B:1.D,J:1.D,BtimesJdMu:1.D}
 
   mu_0            = DOUBLE(4.0D*!PI*1e-7)
   iCmplx          = DCOMPLEX(0,1)
 
-  Bx_om           = FFT(Bx)
-  By_om           = FFT(By)
-  Bz_om           = FFT(Bz)
+  Bx_om           = FFT(Bx*unitFactors.B)
+  By_om           = FFT(By*unitFactors.B)
+  Bz_om           = FFT(Bz*unitFactors.B)
 
-  Jx_om           = FFT(Jx)
-  Jy_om           = FFT(Jy)
-  Jz_om           = FFT(Jz)
+  Jx_om           = FFT(Jx*unitFactors.J)
+  Jy_om           = FFT(Jy*unitFactors.J)
+  Jz_om           = FFT(Jz*unitFactors.J)
 
   
-  nHere           = N_ELEMENTS(freq)
+  nFreq           = N_ELEMENTS(freq)
   
   omegaBtotal     = 0
   kxEtotal        = 0
   norm            = 0           ; check that avg (k x E) = 0
-  diffs           = MAKE_ARRAY(3,nHere,/DCOMPLEX)
-  JPred           = MAKE_ARRAY(3,nHere,/DCOMPLEX)
-  errAngle        = MAKE_ARRAY(nHere,/DCOMPLEX)
-  magErr          = MAKE_ARRAY(nHere,/DCOMPLEX)
-  FOR k=0,nHere-1 DO BEGIN
+  JPred           = MAKE_ARRAY(3,nFreq,/DCOMPLEX)
+  ;; diffs           = MAKE_ARRAY(3,nFreq,/DCOMPLEX)
+  ;; errAngle        = MAKE_ARRAY(nFreq,/DCOMPLEX)
+  ;; magErr          = MAKE_ARRAY(nFreq,/DCOMPLEX)
+  diffs           = MAKE_ARRAY(nFreq,/DOUBLE)
+  errAngle        = MAKE_ARRAY(nFreq,/DOUBLE)
+  magErr          = MAKE_ARRAY(nFreq,/DOUBLE)
+  FOR k=0,nFreq-1 DO BEGIN
 
      ;;Measured J
      Jvectemp     = [Jx_om[k], Jy_om[k], Jz_om[k]]
 
      ;;Measured B and derived k
      Bvectemp     = [Bx_om[k], By_om[k], Bz_om[k]]
-     kvectemp     = [kx[k], ky[k], kz[k]] / unitFactor ;back into units native for J and B
+     ;; kvectemp     = [kx[k], ky[k], kz[k]] / unitFactors.BtimesJdMu ;back into units native for J and B
+     kvectemp     = [kx[k], ky[k], kz[k]] 
 
      ;;Predicted J
      Jpred[*,k]   = iCmplx * CROSSP(kvectemp,Bvectemp) / mu_0
 
-     diffs[*,k]   = Jpred[*,k]-Jvectemp
-     tmpSum       = Jpred[*,k]+Jvectemp
+     JvecMag      = SQRT(ABS(DOT(Jvectemp,CONJ(Jvectemp))))
+     JpredMag     = SQRT(ABS(DOT(Jpred[*,k],CONJ(Jpred[*,k]))))
+
+     ;; diffs[*,k]   = Jpred[*,k]-Jvectemp
+     diffs[k]     = JpredMag-JvecMag
+     ;; tmpSum       = Jpred[*,k]+Jvectemp
+     tmpSum       = JpredMag+jvecMag
 
      ;;Error angle
-     errAngle[k]  = ACOS(DOT(Jpred[*,k],Jvectemp)/(SQRT(DOT(Jpred[*,k],CONJ(Jpred[*,k])))*SQRT(DOT(Jvectemp,CONJ(Jvectemp)))))
+     ;; errAngle[k]  = ACOS(DOT(Jpred[*,k],CONJ(Jvectemp))/(SQRT(DOT(Jpred[*,k],CONJ(Jpred[*,k])))*SQRT(DOT(Jvectemp,CONJ(Jvectemp)))))
+     errAngle[k]  = ACOS(ABS(DOT(Jpred[*,k],CONJ(Jvectemp)))/(JpredMag*jvecMag))
 
      ;;Magnitude error
-     magErr[k]    = SQRT(DOT(diffs[*,k],CONJ(diffs[*,k])))/SQRT(DOT(tmpSum,CONJ(tmpSum)))
+     ;; magErr[k]    = SQRT(DOT(diffs[*,k],CONJ(diffs[*,k])))/SQRT(DOT(tmpSum,CONJ(tmpSum)))
+     ;; magErr[k]    = SQRT(ABS(DOT(diffs[*,k],CONJ(diffs[*,k]))))/SQRT(ABS(DOT(tmpSum,CONJ(tmpSum))))
+     ;; magErr[k]    = SQRT(ABS(DOT(diffs[*,k],CONJ(diffs[*,k]))))/tmpSum
+     magErr[k]    = ABS(diffs[k])/tmpSum
 
   ENDFOR
   
@@ -433,7 +451,7 @@ END
 PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      freq,kx,ky,kz,kP, $
                      SPERIOD=sPeriod, $
-                     UNITFACTOR=unitFactor, $
+                     UNITFACTORS=unitFactors, $
                      PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                      DOUBLE_CALC=double_calc, $
                      HANNING=hanning, $
@@ -441,6 +459,9 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      ODDNESS_CHECK=oddness_check, $
                      OUT_NORM=norm, $
                      OUT_AVGJXB=avgJxBtotal, $
+                     OUT_JPREDICTED=JPred, $
+                     OUT_MAGERR=magErr, $
+                     OUT_ERRANGLE=errAngle, $
                      DIAG=diag
 
   COMPILE_OPT idl2,strictarrsubs
@@ -519,17 +540,14 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
   kz                   = IMAGINARY(ikz)
 
   ;;Multiply by unit factor to get k in m^-1, if it exists
-  IF unitFactor NE 1 THEN BEGIN
-     kx               *= unitFactor
-     ky               *= unitFactor
-     kz               *= unitFactor
+  IF unitFactors.BtimesJdMu NE 1 THEN BEGIN
+     kx               *= unitFactors.BtimesJdMu
+     ky               *= unitFactors.BtimesJdMu
+     kz               *= unitFactors.BtimesJdMu
   ENDIF
 
+  ;;Maggitude
   kP = SQRT(kx^2+ky^2)
-
-  IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
-     kz = kP
-  ENDIF
 
   ;;Frequencies
   ;; T is an integer giving the number of elements in a particular dimension
@@ -554,9 +572,17 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
   ;;Calculate error thing?
   predict_current = 1
   IF KEYWORD_SET(predict_current) THEN BEGIN
-     PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactor
+     PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
+               OUT_JPREDICTED=JPred, $
+               OUT_MAGERR=magErr, $
+               OUT_ERRANGLE=errAngle
   ENDIF
 
+  ;;Don't do this nifty little trick until AFTER the error calc
+  ;;thing. kz is definitely zero for application of this method to FAST
+  IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
+     kz = kP
+  ENDIF
 
 END
 
@@ -600,7 +626,7 @@ END
 
 FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
                          magC, $
-                         unitFactor,sPeriod,saveVar, $
+                         unitFactors,sPeriod,saveVar, $
                          B_AND_J_FILE=saveFile, $
                          SAVEDIR=saveDir, $
                          USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
@@ -771,12 +797,14 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
 
   EFactor     = 1.D
 
-  bUnitFactor = (bFactor EQ 1.D) ? -9.D : -9. /ALOG10(bFactor) ;'cause nT
-  jUnitFactor = (jFactor EQ 1.D) ? -6.D : -6 / ALOG10(jFactor) ;'cause microA/m^2
-  EUnitFactor = (EFactor EQ 1.D) ? -3.D : -3 / ALOG10(EFactor) ;'cause mV/m
+  bUnitFactor = (bFactor EQ 1.D) ? -9.D : -9.D / ALOG10(bFactor) ;'cause nT
+  jUnitFactor = (jFactor EQ 1.D) ? -6.D : -6.D / ALOG10(jFactor) ;'cause microA/m^2
+  EUnitFactor = (EFactor EQ 1.D) ? -3.D : -3.D / ALOG10(EFactor) ;'cause mV/m
 
   mu_0        = DOUBLE(4.0D*!PI*1e-7)
-  unitFactor  = (10.D)^(jUnitFactor)/(10.D)^(bUnitFactor)*mu_0
+  unitFactors = {B:10.D^bUnitFactor, $
+                 J:10.D^jUnitFactor, $
+                 BtimesJdMu:(10.D)^(jUnitFactor)/(10.D)^(bUnitFactor)*mu_0}
 
   ;; mu_0      = DOUBLE(4.0D*!PI*1e-7)
   ;; jFactor  *= mu_0
@@ -1778,6 +1806,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PRE_VIII_LAYOUT=PRE_VIII_layout, $
    FOOTBALL_LAYOUT=football_layout, $
    FOOTBALL_YLOG=football_yLog, $
+   FOOTBALL_COL2TITLE=football_col2Title, $
    ODDNESS_CHECK=oddness_check, $
    FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
@@ -1981,6 +2010,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   avgJxBNrmList = LIST()
   normList      = LIST()
 
+  JPredList     = LIST()
+  magErrList    = LIST()
+  errAngleList  = LIST()
+
   IF KEYWORD_SET(football_layout) THEN BEGIN
      BSpecList  = LIST()
      JSpecList  = LIST()
@@ -2008,7 +2041,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
            IF ~CHUNK_SAVE_FILE(T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
                                magC, $
-                               unitFactor,sPeriod,saveVar, $
+                               unitFactors,sPeriod,saveVar, $
                                B_AND_J_FILE=saveFile, $
                                SAVEDIR=saveDir, $
                                USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
@@ -2049,11 +2082,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            maxFreq = 4.
 
         ENDIF ELSE BEGIN
-           unitFactor = 1       ;Don't adjust k in this case
+           unitFactors = {B:1.D,J:1.D,BtimesJdMu:1.D} ;Don't adjust k in this case
         ENDELSE
 
         IF KEYWORD_SET(example_mode) THEN BEGIN
-           SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+           SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactors,sPeriod,saveVar, $
                          SAVEDIR=saveDir, $
                          EXAMPLE=example, $
                          PARSE_B_AND_J_SAVEFILE=parse_B_AND_J_saveFile
@@ -2076,41 +2109,44 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               IF KEYWORD_SET(use_all_streaks) THEN BEGIN
 
                  ;;First get the total number of FFTs we're going to do for each streak of measurements
-                 nFFTsArr = !NULL
+                 nFFTsArr        = !NULL
                  FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
-                    TTmp     = T[kk]
-                    lastInd  = TTmp-1
+                    TTmp         = T[kk]
+                    lastInd      = TTmp-1
 
-                    nFFTsArr = [nFFTsArr,TTmp/tmpFFTSize]
+                    nFFTsArr     = [nFFTsArr,TTmp/tmpFFTSize]
                     ;; FOR k=0,nFFTs-1 DO BEGIN
-                    ;;    tmpI = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]                 
+                    ;;    tmpI   = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]                 
                     ;; ENDFOR
                  ENDFOR
-                 nFFTs     = TOTAL(nFFTsArr)
+                 nFFTs           = TOTAL(nFFTsArr)
 
-                 fArr      = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kxArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kyArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 avgJxBArr = MAKE_ARRAY(nFFTs,3)
-                 normArr   = MAKE_ARRAY(nFFTs,3)
-                 ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 fArr            = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kxArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kyArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kzArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 avgJxBArr       = MAKE_ARRAY(nFFTs,3)
+                 normArr         = MAKE_ARRAY(nFFTs,3)
+                 ;; kpArr        = MAKE_ARRAY(nFFTs,tmpFFTSize)
+
+                 magErrArr       = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 errAngleArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
 
                  IF KEYWORD_SET(football_layout) THEN BEGIN
-                    ;; myNum         = tmpFFTSize
-                    myNum         = tmpFFTSize/2+1
-                    dComplex      = 0
-                    double        = 1
-                    powFrac       = 1
+                    ;; myNum     = tmpFFTSize
+                    myNum        = tmpFFTSize/2+1
+                    dComplex     = 0
+                    double       = 1
+                    powFrac      = 1
 
-                    BxSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    BySpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    BzSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JxSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JySpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JzSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    magCSpecArr   = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    powFreqArr    = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
+                    BxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    BySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    BzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    magCSpecArr  = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    powFreqArr   = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
 
                  ENDIF
 
@@ -2145,6 +2181,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
                     ;;If we're doing multiple FFTs per streak, it happens here. Otherwise this loop is only traversed once.
                     FOR k=FFTCount,FFTCount+nFFTsArr[kk]-1 DO BEGIN
+
                        tmpI = [((k-prevFFTs)*tmpFFTSize):( ((k-prevFFTs+1)*tmpFFTSize-1) < lastInd )]
                        nTmp = N_ELEMENTS(tmpI)
                        nArr = [nArr,nTmp]
@@ -2157,56 +2194,51 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                         BxTmp[tmpI],ByTmp[tmpI],BzTmp[tmpI], $
                                         freq,kx,ky,kz,kP, $
                                         SPERIOD=sPeriod, $
-                                        UNITFACTOR=unitFactor, $
+                                        UNITFACTORS=unitFactors, $
                                         PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                                         DOUBLE_CALC=double_calc, $
                                         HANNING=hanning, $
                                         EFIELD=EField, $
                                         ODDNESS_CHECK=oddness_check, $
                                         OUT_NORM=norm, $
-                                        OUT_AVGJXB=avgJxBtotal
+                                        OUT_AVGJXB=avgJxBtotal, $
+                                        OUT_JPREDICTED=JPred, $
+                                        OUT_MAGERR=magErr, $
+                                        OUT_ERRANGLE=errAngle
 
                        this = ARRAY_INDICES(TRANSPOSE(fArr),(k*N_ELEMENTS(fArr[0,*])+LINDGEN(N_ELEMENTS(tmpI))))
                        ;; this = [this[1,*],this[0,*]]
                        ;; PRINT,this
-                       ;; fArr [k,*]  = freq
-                       ;; kxArr[k,*] = kx
-                       ;; kyArr[k,*] = ky
-                       ;; kzArr[k,*] = kz
-                       ;; kPArr[k,*] = kP
-                       ;; fArr [this[0,*],this[1,*]]  = freq
-                       ;; kxArr[this[0,*],this[1,*]] = kx
-                       ;; kyArr[this[0,*],this[1,*]] = ky
-                       ;; kzArr[this[0,*],this[1,*]] = kz
-                       ;; kPArr[this[0,*],this[1,*]] = kP
 
                        CASE NDIMEN(this) OF
                           1: BEGIN
 
-                             fArr [this] = TEMPORARY(freq)
-                             kxArr[this] = TEMPORARY(kx  )
-                             kyArr[this] = TEMPORARY(ky  )
-                             kzArr[this] = TEMPORARY(kz  )
-                             ;; kPArr[this] = kP
+                             fArr [this]                    = TEMPORARY(freq)
+                             kxArr[this]                    = TEMPORARY(kx  )
+                             kyArr[this]                    = TEMPORARY(ky  )
+                             kzArr[this]                    = TEMPORARY(kz  )
+
+                             magErrArr[this]                = TEMPORARY(magErr)
+                             errAngleArr[this]              = TEMPORARY(errAngle)
 
                              IF KEYWORD_SET(football_layout) THEN BEGIN
 
-                                BxSpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(BxTmp[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
-                                BySpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(ByTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                BzSpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(BzTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                JxSpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(JxTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                JySpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(JyTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                JzSpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(JzTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                magCSpecArr[FFTCount,*] = FFT_POWERSPECTRUM(magCTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                BxSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(BxTmp[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
+                                BySpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(ByTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                BzSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(BzTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                JxSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JxTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                JySpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JyTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                JzSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JzTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                magCSpecArr[FFTCount,*]     = FFT_POWERSPECTRUM(magCTmp[tmpI],sPeriod,FRACTION=powFrac)
 
-                                powFreqArr[FFTCount,*]  = powFreq
-                                ;; BxSpecArr[FFTCount,*]   = FFT(BxTmp[tmpI])
-                                ;; BySpecArr[FFTCount,*]   = FFT(ByTmp[tmpI])
-                                ;; BzSpecArr[FFTCount,*]   = FFT(BzTmp[tmpI])
-                                ;; JxSpecArr[FFTCount,*]   = FFT(JxTmp[tmpI])
-                                ;; JySpecArr[FFTCount,*]   = FFT(JyTmp[tmpI])
-                                ;; JzSpecArr[FFTCount,*]   = FFT(JzTmp[tmpI])
-                                ;; magCSpecArr[FFTCount,*] = FFT(magCTmp[tmpI])
+                                powFreqArr[FFTCount,*]      = powFreq
+                                ;; BxSpecArr[FFTCount,*]    = FFT(BxTmp[tmpI])
+                                ;; BySpecArr[FFTCount,*]    = FFT(ByTmp[tmpI])
+                                ;; BzSpecArr[FFTCount,*]    = FFT(BzTmp[tmpI])
+                                ;; JxSpecArr[FFTCount,*]    = FFT(JxTmp[tmpI])
+                                ;; JySpecArr[FFTCount,*]    = FFT(JyTmp[tmpI])
+                                ;; JzSpecArr[FFTCount,*]    = FFT(JzTmp[tmpI])
+                                ;; magCSpecArr[FFTCount,*]  = FFT(magCTmp[tmpI])
 
                              ENDIF
 
@@ -2238,11 +2270,17 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kyArr     = kyArr[include_i,*]
                  kzArr     = kzArr[include_i,*]
 
+                 magErrArr   = magErrArr[include_i,*]
+                 errAngleArr = errAngleArr[include_i,*]
+
                  freq      = MEAN(TEMPORARY(fArr) ,DIMENSION=1)
                  kx        = MEAN(TEMPORARY(kxArr),DIMENSION=1)
                  ky        = MEAN(TEMPORARY(kyArr),DIMENSION=1)
                  kz        = MEAN(TEMPORARY(kzArr),DIMENSION=1)
                  kP        = SQRT(kx*kx+ky*ky)
+
+                 magErr    = MEAN(TEMPORARY(magErrArr),DIMENSION=1)
+                 errAngle  = MEAN(TEMPORARY(errAngleArr),DIMENSION=1)
 
                  avgJxBNrm = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
 
@@ -2287,32 +2325,35 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
                  ENDELSE
 
-                 lastInd   = T-1
-                 nArr      = !NULL
-                 fArr      = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kxArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kyArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 avgJxBArr = MAKE_ARRAY(nFFTs,3)
-                 normArr   = MAKE_ARRAY(nFFTs,3)
+                 lastInd         = T-1
+                 nArr            = !NULL
+                 fArr            = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kxArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kyArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 kzArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 avgJxBArr       = MAKE_ARRAY(nFFTs,3)
+                 normArr         = MAKE_ARRAY(nFFTs,3)
 
-                 ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 ;; kpArr        = MAKE_ARRAY(nFFTs,tmpFFTSize)
+
+                 magErrArr       = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                 errAngleArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
 
                  IF KEYWORD_SET(football_layout) THEN BEGIN
-                    ;; myNum         = tmpFFTSize
-                    myNum         = tmpFFTSize/2+1
-                    dComplex      = 0
-                    double        = 1
-                    powFrac       = 1
+                    ;; myNum     = tmpFFTSize
+                    myNum        = tmpFFTSize/2+1
+                    dComplex     = 0
+                    double       = 1
+                    powFrac      = 1
 
-                    BxSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    BySpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    BzSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JxSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JySpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JzSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    magCSpecArr   = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    powFreqArr    = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
+                    BxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    BySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    BzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    magCSpecArr  = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    powFreqArr   = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
 
                  ENDIF
 
@@ -2334,23 +2375,30 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                     BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
                                      freq,kx,ky,kz,kP, $
                                      SPERIOD=sPeriod, $
-                                     UNITFACTOR=unitFactor, $
+                                     UNITFACTORS=unitFactors, $
                                      PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                                      DOUBLE_CALC=double_calc, $
                                      HANNING=hanning, $
                                      EFIELD=EField, $
                                      ODDNESS_CHECK=oddness_check, $
                                      OUT_NORM=norm, $
-                                     OUT_AVGJXB=avgJxBtotal
+                                     OUT_AVGJXB=avgJxBtotal, $
+                                     OUT_JPREDICTED=JPred, $
+                                     OUT_MAGERR=magErr, $
+                                     OUT_ERRANGLE=errAngle
 
-                    fArr [FFTCount,*]     = TEMPORARY(freq       )
-                    kxArr[FFTCount,*]     = TEMPORARY(kx         )
-                    kyArr[FFTCount,*]     = TEMPORARY(ky         )
-                    kzArr[FFTCount,*]     = TEMPORARY(kz         )
+                    fArr [FFTCount,*]        = TEMPORARY(freq       )
+                    kxArr[FFTCount,*]        = TEMPORARY(kx         )
+                    kyArr[FFTCount,*]        = TEMPORARY(ky         )
+                    kzArr[FFTCount,*]        = TEMPORARY(kz         )
 
-                    avgJxBArr[FFTCount,*] = TEMPORARY(avgJxBtotal)
-                    normArr[FFTCount,*]   = REPLICATE(TEMPORARY(norm       ),3)
+                    avgJxBArr[FFTCount,*]    = TEMPORARY(avgJxBtotal)
+                    normArr[FFTCount,*]      = REPLICATE(TEMPORARY(norm),3)
 
+                    magErrArr[FFTCount,*]    = TEMPORARY(magErr)
+                    errAngleArr[FFTCount,*]  = TEMPORARY(errAngle)
+
+                    
                     IF KEYWORD_SET(football_layout) THEN BEGIN
 
                        BxSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Bx[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
@@ -2385,6 +2433,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kz            = MEAN(kzArr,DIMENSION=1)
                  kP            = SQRT(kx*kx+ky*ky)
 
+                 magErr        = MEAN(magErrArr,DIMENSION=1)
+                 errAngle      = MEAN(errAngleArr,DIMENSION=1)
+
                  avgJxBNrm     = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
 
                  IF KEYWORD_SET(football_layout) THEN BEGIN
@@ -2415,14 +2466,17 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
               BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                                freq,kx,ky,kz,kP, $
                                SPERIOD=sPeriod, $
-                               UNITFACTOR=unitFactor, $
+                               UNITFACTORS=unitFactors, $
                                PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                                DOUBLE_CALC=double_calc, $
                                HANNING=hanning, $
                                EFIELD=EField, $
                                ODDNESS_CHECK=oddness_check, $
                                OUT_NORM=norm, $
-                               OUT_AVGJXB=avgJxBtotal
+                               OUT_AVGJXB=avgJxBtotal, $
+                               OUT_JPREDICTED=JPred, $
+                               OUT_MAGERR=magErr, $
+                               OUT_ERRANGLE=errAngle
 
               avgJxBNrm        = TEMPORARY(avgJxBtotal)/TEMPORARY(norm)
               usedInds         = LINDGEN(T)
@@ -2498,6 +2552,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
         avgJxBNrmList.Add,avgJxBNrm
         
+        magErrList.Add,magErr
+        errAngleList.Add,errAngle
+
         IF KEYWORD_SET(football_layout) THEN BEGIN
 
            BSpecList.Add,BSpec
@@ -2532,6 +2589,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            orig_kPAngle   = kPAngle
            ;; orig_inds      = inds
 
+           orig_JPred     = JPred
+           orig_magErr    = magErr
+           orig_errAngle  = errAngle
+
            send_TArr      = TArr
            send_usedInds  = usedInds
            send_Bx        = Bx
@@ -2560,6 +2621,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   CASE avgCount OF
      1: BEGIN
         ;;Disregard lists; we'll just take it straight
+
      END
      ELSE: BEGIN
 
@@ -2567,12 +2629,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         kxs       = LIST_TO_1DARRAY(kxList,/WARN)
         kys       = LIST_TO_1DARRAY(kyList,/WARN)
         kzs       = LIST_TO_1DARRAY(kzList,/WARN)
-        ;; kPs       = LIST_TO_1DARRAY(kPList,/WARN)
-        ;; kPAngles  = LIST_TO_1DARRAY(kPAngleList,/WARN)
-        ;; indss  = LIST_TO_1DARRAY(indsList,/WARN)
-        ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
-        ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
-        ;; kzs    = LIST_TO_1DARRAY(kzList,/WARN)
+
+        magErrs   = LIST_TO_1DARRAY(magErrList,/WARN)
+        errAngles = LIST_TO_1DARRAY(errAngleList,/WARN)
 
         avgJxBNrm = LIST_TO_1DARRAY(avgJxBNrmList,/WARN,/PRESERVE_DIMENSIONALITY)
 
@@ -2601,8 +2660,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         kx        = HIST1D(freqs,kxs,BINSIZE=binSz,OBIN=freq)/avgCount
         ky        = HIST1D(freqs,kys,BINSIZE=binSz,OBIN=freq)/avgCount
         kz        = HIST1D(freqs,kzs,BINSIZE=binSz,OBIN=freq)/avgCount
-        ;; kP        = HIST1D(freqs,kPs,BINSIZE=binSz,OBIN=freq)/avgCount
-        ;; kPAngle   = HIST1D(freqs,kPAngles,BINSIZE=binSz)/avgCount
+
+        magErr    = HIST1D(freqs,magErrs,BINSIZE=binSz,OBIN=freq)/avgCount
+        errAngle  = HIST1D(freqs,errAngles,BINSIZE=binSz,OBIN=freq)/avgCount
+
         kP        = SQRT(kx*kx+ky*ky)
         kPAngle = ATAN(ky,kx)*!RADEG
 
@@ -2674,6 +2735,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                           BSPEC=BSpec, $
                                           JSPEC=JSpec, $
                                           MAGCSPEC=magCSpec, $
+                                          MAGERR=magErr, $
+                                          ERRANGLE=errAngle, $
                                           POWFREQ=powFreq, $
                                           EXAMPLE_MODE=example_mode, $
                                           PLOTDIR=plotDir, $
@@ -2716,7 +2779,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                           PUBLICATION_SETTINGS=pubSettings, $
                                           PRE_VIII_LAYOUT=PRE_VIII_layout, $
                                           FOOTBALL_LAYOUT=football_layout, $
-                                          FOOTBALL_YLOG=football_yLog
+                                          FOOTBALL_YLOG=football_yLog, $
+                                          FOOTBALL_COL2TITLE=football_col2Title
+
 
 
 

@@ -85,6 +85,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    PRE_VIII_LAYOUT=PRE_VIII_layout, $
    FOOTBALL_LAYOUT=football_layout, $
    FOOTBALL_YLOG=football_yLog, $
+   FOOTBALL_COL2TITLE=football_col2Title, $
    ODDNESS_CHECK=oddness_check, $
    FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
@@ -211,6 +212,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      PRE_VIII_LAYOUT=PRE_VIII_layout, $
      FOOTBALL_LAYOUT=football_layout, $
      FOOTBALL_YLOG=football_yLog, $
+     FOOTBALL_COL2TITLE=football_col2Title, $
      ODDNESS_CHECK=oddness_check, $
      FFT__NEAREST_TWO_POWER=nearest_two_power, $
      FFTSIZE=FFTsize, $
