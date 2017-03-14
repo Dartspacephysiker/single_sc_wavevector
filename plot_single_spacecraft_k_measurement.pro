@@ -659,9 +659,19 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
              ;; XTICKNAME=freqBlankTickName, $
              CHARSIZE=cs, $
              XTICKFORMAT='(A1)', $
+             YTICKFORMAT=KEYWORD_SET(football_yLog) ? 'exponentlabel' : !NULL, $
              SYMSIZE=symSize, $
              POSITION=posSpec, $
-             /NOERASE
+             /NOERASE, $
+             /NODATA
+
+        OPLOT,powFreq,BSpec[*,0], $
+              COLOR=bxCol
+
+        OPLOT,powFreq,BSpec[*,1], $
+              COLOR=byCol
+
+        OPLOT,powFreq,jSpecVar1
 
         ;; jLineStyle = 2 ;dotted line
         jLineStyle = 1 ;dashed line??
@@ -670,12 +680,6 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
               LINESTYLE=jLineStyle, $
               COLOR=jMagSpecCol;; , $
               ;; MAX_VALUE=MAX(magCSpec)
-
-        OPLOT,powFreq,BSpec[*,0], $
-              COLOR=bxCol
-
-        OPLOT,powFreq,BSpec[*,1], $
-              COLOR=byCol
 
         legXSymPos1 = 0.73*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
         legXSymPos2 = 0.78*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))

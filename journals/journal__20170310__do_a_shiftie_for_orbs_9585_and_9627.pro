@@ -139,6 +139,25 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
      CASE orbit OF
         9585: BEGIN
 
+           CASE 1 OF
+              interval EQ 0: BEGIN
+                 custom_t1 = '1999-01-23/14:50:56.0'
+                 custom_t2 = '1999-01-23/14:51:06.0'
+              END
+              interval EQ 1: BEGIN
+                 custom_t1 = '1999-01-23/14:50:51.0'
+                 custom_t2 = '1999-01-23/14:51:01.0'
+              END
+              interval EQ 2: BEGIN
+                 custom_t1 = '1999-01-23/14:51:01.0'
+                 custom_t2 = '1999-01-23/14:51:11.0'
+              END
+              interval EQ 3: BEGIN
+                 custom_t1 = '1999-01-23/14:50:37.0'
+                 custom_t2 = '1999-01-23/14:50:50.0'
+              END
+           ENDCASE
+
         END
         9627: BEGIN
 
