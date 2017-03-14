@@ -107,7 +107,8 @@ END
 
 PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                   SAVEDIR=saveDir, $
-                  EXAMPLE=example
+                  EXAMPLE=example, $
+                  PARSE_B_AND_J_SAVEFILE=parse_B_AND_J_saveFile
 
   COMPILE_OPT idl2,strictarrsubs
 
@@ -288,6 +289,24 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
   PRINTF,1,Jz
   CLOSE,1
   PRINT,'closing ',filename
+
+  ;;read data from file
+  IF ~KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
+     filename = saveDir+B_J_file
+
+     OPENR,1,filename
+     PRINT,'opening ', filename
+     READF,1,example,T_read,FORMAT='(I5,1x,I5,1x)'
+     Bx = FLTARR(T_read) & By = Bx & Bz = Bx &Jx = Bx &Jy =Bx & Jz = Bx
+     READF,1,Bx
+     READF,1,By
+     READF,1,Bz
+     READF,1,Jx
+     READF,1,Jy
+     READF,1,Jz
+     CLOSE,1
+     PRINT,'closing ',filename
+  ENDIF
 
 END
 
@@ -579,7 +598,9 @@ PRO DEAL_WITH_BADNESS,datSerie,improvSerie
 
 END
 
-FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
+                         magC, $
+                         unitFactor,sPeriod,saveVar, $
                          B_AND_J_FILE=saveFile, $
                          SAVEDIR=saveDir, $
                          USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
@@ -1031,6 +1052,19 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                              DELT_T=maxDelta_t, $
                              /TALK
 
+           IF N_ELEMENTS(magCurrent) GT 0 THEN BEGIN
+
+              interp = origInterp
+              FA_FIELDS_COMBINE,{time:Bt,comp1:Bt}, $
+                                {time:dB.x,comp1:magCurrent}, $
+                                RESULT=magCurrent_interp, $
+                                INTERP=interp, $
+                                SPLINE=spline, $
+                                DELT_T=maxDelta_t, $
+                                /TALK
+
+           ENDIF
+
            IF KEYWORD_SET(have_EField) THEN BEGIN
 
               interp = origInterp
@@ -1061,7 +1095,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                                 /TALK
 
            ENDIF
-           
+
         ENDELSE
      END
      2: BEGIN
@@ -1127,6 +1161,19 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                           SPLINE=spline, $
                           DELT_T=maxDelta_t, $
                           /TALK
+
+        IF N_ELEMENTS(magCurrent) GT 0 THEN BEGIN
+
+           interp = origInterp
+           FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
+                             {time:dB.x,comp1:magCurrent}, $
+                             RESULT=magCurrent_interp, $
+                             INTERP=interp, $
+                             SPLINE=spline, $
+                             DELT_T=maxDelta_t, $
+                             /TALK
+
+        ENDIF
 
         IF KEYWORD_SET(have_EField) THEN BEGIN
 
@@ -1395,6 +1442,8 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jy_list     = LIST()
         Jz_list     = LIST()
 
+        magC_list   = LIST()
+
         Ex_list     = LIST()
         Ey_list     = LIST()
         Ez_list     = LIST()
@@ -1432,6 +1481,12 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
 
               Jz_list.Add,(Ji_zTmp + Je_zTmp) * jFactor
 
+              IF N_ELEMENTS(magCurrent_interp) GT 0 THEN BEGIN
+
+                 magC_list.Add,magCurrent_interp[good_i_list[-1]]
+
+              ENDIF
+
               IF KEYWORD_SET(have_EField) THEN BEGIN
 
                  ExTmp = Ex[good_i_list[-1]]
@@ -1456,6 +1511,8 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jx    = Jx_list
         Jy    = Jy_list
         Jz    = Jz_list
+
+        magC  = magC_list
 
         Ex    = Ex_list
         Ey    = Ey_list
@@ -1490,6 +1547,12 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         ;; By = By - By[0]
         ;; Bz = Bz - Bz[0]
 
+        IF N_ELEMENTS(magCurrent_interp) GT 0 THEN BEGIN
+
+           magC = magCurrent_interp[good_i]
+
+        ENDIF
+
         IF KEYWORD_SET(have_EField) THEN BEGIN
 
            Ex = Ex[good_i]
@@ -1501,7 +1564,6 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         ;;Sorry, Jx and Jy
         Jx = MAKE_ARRAY(T,VALUE=0.) * jFactor
         Jy = MAKE_ARRAY(T,VALUE=0.) * jFactor
-
         Jz = (Ji_z_improv + Je_z_improv) * jFactor
 
      END
@@ -1522,6 +1584,12 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jx    = Jx[0]
         Jy    = Jy[0]
         Jz    = Jz[0]
+
+        IF N_ELEMENTS(magC) GT 0 THEN BEGIN
+
+           magC = magC[0]
+
+        ENDIF
 
         IF KEYWORD_SET(have_EField) THEN BEGIN
 
@@ -1553,6 +1621,12 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            Jy   = [Jy,padding]
            Jz   = [Jz,padding]
 
+           IF N_ELEMENTS(magC) GT 0 THEN BEGIN
+
+              magC = [magC,padding]
+
+           ENDIF
+
            IF KEYWORD_SET(have_EField) THEN BEGIN
 
               Ex   = [Ex,padding]
@@ -1574,6 +1648,12 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
            Jx   = Jx[0:dropEm]
            Jy   = Jy[0:dropEm]
            Jz   = Jz[0:dropEm]
+
+           IF N_ELEMENTS(magC) GT 0 THEN BEGIN
+
+              magC = magC[0:dropEm]
+
+           ENDIF
 
            IF KEYWORD_SET(have_EField) THEN BEGIN
 
@@ -1599,6 +1679,12 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
         Jx    = LIST(Jx  )
         Jy    = LIST(Jy  )
         Jz    = LIST(Jz  )
+
+        IF N_ELEMENTS(magC) GT 0 THEN BEGIN
+
+           magC = LIST(magC)
+
+        ENDIF
 
         IF KEYWORD_SET(have_EField) THEN BEGIN
 
@@ -1690,6 +1776,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    USE_ALL_STREAKS=use_all_streaks, $
    PUBLICATION_SETTINGS=pubSettings, $
    PRE_VIII_LAYOUT=PRE_VIII_layout, $
+   FOOTBALL_LAYOUT=football_layout, $
+   FOOTBALL_YLOG=football_yLog, $
    ODDNESS_CHECK=oddness_check, $
    FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
@@ -1809,6 +1897,30 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
   example = 1
 
+  CASE 1 OF
+     KEYWORD_SET(plot_posFreq): BEGIN
+        suff += '-pos'
+     END
+     KEYWORD_SET(fold_negFreq): BEGIN
+        suff += '-foldNeg'
+     END
+     ELSE: BEGIN
+
+     END
+  ENDCASE
+
+  CASE 1 OF
+     KEYWORD_SET(football_layout): BEGIN
+        suff += '-ftbl' + (KEYWORD_SET(football_yLog) ? 'Log' : '')
+
+     END
+     KEYWORD_SET(PRE_VIII_layout): BEGIN
+        suff += '-PREVIII'
+     END
+     ELSE: BEGIN
+
+     END
+  ENDCASE
 
   CASE 1 OF
      KEYWORD_SET(shift_nPts): BEGIN
@@ -1866,11 +1978,15 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   ;; kPList        = LIST()
   ;; kPAngleList   = LIST()
   indsList      = LIST()
-  kzList        = LIST()
-  kzList        = LIST()
-  kzList        = LIST()
   avgJxBNrmList = LIST()
   normList      = LIST()
+
+  IF KEYWORD_SET(football_layout) THEN BEGIN
+     BSpecList  = LIST()
+     JSpecList  = LIST()
+     magCSpecList = LIST()
+     powFreqList  = LIST()
+  ENDIF
 
   avgCount      = 0
 
@@ -1890,7 +2006,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
         IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
 
-           IF ~CHUNK_SAVE_FILE(T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
+           IF ~CHUNK_SAVE_FILE(T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
+                               magC, $
+                               unitFactor,sPeriod,saveVar, $
                                B_AND_J_FILE=saveFile, $
                                SAVEDIR=saveDir, $
                                USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
@@ -1937,25 +2055,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         IF KEYWORD_SET(example_mode) THEN BEGIN
            SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactor,sPeriod,saveVar, $
                          SAVEDIR=saveDir, $
-                         EXAMPLE=example
-        ENDIF
-
-        ;;read data from file
-        IF ~KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
-           filename = saveDir+B_J_file
-
-           OPENR,1,filename
-           PRINT,'opening ', filename
-           READF,1,example,T_read,FORMAT='(I5,1x,I5,1x)'
-           Bx = FLTARR(T_read) & By = Bx & Bz = Bx &Jx = Bx &Jy =Bx & Jz = Bx
-           readf,1,Bx
-           readf,1,By
-           readf,1,Bz
-           readf,1,Jx
-           readf,1,Jy
-           readf,1,Jz
-           CLOSE,1
-           PRINT,'closing ',filename
+                         EXAMPLE=example, $
+                         PARSE_B_AND_J_SAVEFILE=parse_B_AND_J_saveFile
         ENDIF
 
         ;;Now do some calcs
@@ -1995,6 +2096,24 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  normArr   = MAKE_ARRAY(nFFTs,3)
                  ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
 
+                 IF KEYWORD_SET(football_layout) THEN BEGIN
+                    ;; myNum         = tmpFFTSize
+                    myNum         = tmpFFTSize/2+1
+                    dComplex      = 0
+                    double        = 1
+                    powFrac       = 1
+
+                    BxSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    BySpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    BzSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JxSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JySpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JzSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    magCSpecArr   = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    powFreqArr    = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
+
+                 ENDIF
+
                  FFTCount  = 0
                  include_i = !NULL
                  prevFFTs  = 0
@@ -2014,6 +2133,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                     JxTmp = Jx[kk]
                     JyTmp = Jy[kk]
                     JzTmp = Jz[kk]
+                    
+                    IF N_ELEMENTS(magC) GT 0 THEN BEGIN
+                       magCTmp = magC[kk]
+                    ENDIF
                     
                     ;; lastInd  = TTmp-1
                     lastInd  = TTmp-1
@@ -2066,6 +2189,27 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                              kzArr[this] = TEMPORARY(kz  )
                              ;; kPArr[this] = kP
 
+                             IF KEYWORD_SET(football_layout) THEN BEGIN
+
+                                BxSpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(BxTmp[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
+                                BySpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(ByTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                BzSpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(BzTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                JxSpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(JxTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                JySpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(JyTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                JzSpecArr[FFTCount,*]   = FFT_POWERSPECTRUM(JzTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                magCSpecArr[FFTCount,*] = FFT_POWERSPECTRUM(magCTmp[tmpI],sPeriod,FRACTION=powFrac)
+
+                                powFreqArr[FFTCount,*]  = powFreq
+                                ;; BxSpecArr[FFTCount,*]   = FFT(BxTmp[tmpI])
+                                ;; BySpecArr[FFTCount,*]   = FFT(ByTmp[tmpI])
+                                ;; BzSpecArr[FFTCount,*]   = FFT(BzTmp[tmpI])
+                                ;; JxSpecArr[FFTCount,*]   = FFT(JxTmp[tmpI])
+                                ;; JySpecArr[FFTCount,*]   = FFT(JyTmp[tmpI])
+                                ;; JzSpecArr[FFTCount,*]   = FFT(JzTmp[tmpI])
+                                ;; magCSpecArr[FFTCount,*] = FFT(magCTmp[tmpI])
+
+                             ENDIF
+
                           END
                           2: BEGIN
 
@@ -2102,6 +2246,23 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
                  avgJxBNrm = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
 
+                 IF KEYWORD_SET(football_layout) THEN BEGIN
+
+                    BxSpec = MEAN(BxSpecArr,DIMENSION=1)
+                    BySpec = MEAN(BySpecArr,DIMENSION=1)
+                    BzSpec = MEAN(BzSpecArr,DIMENSION=1)
+                    JxSpec = MEAN(JxSpecArr,DIMENSION=1)
+                    JySpec = MEAN(JySpecArr,DIMENSION=1)
+                    JzSpec = MEAN(JzSpecArr,DIMENSION=1)
+                    magCSpec = MEAN(magCSpecArr,DIMENSION=1)
+
+                    powFreq = MEAN(powFreqArr,DIMENSION=1)
+
+                    BSpec  = [[TEMPORARY(BxSpec)],[TEMPORARY(BySpec)],[TEMPORARY(BzSpec)]]
+                    JSpec  = [[TEMPORARY(JxSpec)],[TEMPORARY(JySpec)],[TEMPORARY(JzSpec)]]
+
+                 ENDIF
+
                  usedInds  = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
 
               ENDIF ELSE BEGIN
@@ -2134,7 +2295,27 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kzArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
                  avgJxBArr = MAKE_ARRAY(nFFTs,3)
                  normArr   = MAKE_ARRAY(nFFTs,3)
+
                  ;; kpArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+
+                 IF KEYWORD_SET(football_layout) THEN BEGIN
+                    ;; myNum         = tmpFFTSize
+                    myNum         = tmpFFTSize/2+1
+                    dComplex      = 0
+                    double        = 1
+                    powFrac       = 1
+
+                    BxSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    BySpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    BzSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JxSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JySpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    JzSpecArr     = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    magCSpecArr   = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                    powFreqArr    = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
+
+                 ENDIF
+
                  FFTCount  = 0
                  FFTi_list = LIST()
                  FOR k=0,eMulieribus-1 DO BEGIN
@@ -2170,6 +2351,28 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                     avgJxBArr[FFTCount,*] = TEMPORARY(avgJxBtotal)
                     normArr[FFTCount,*]   = REPLICATE(TEMPORARY(norm       ),3)
 
+                    IF KEYWORD_SET(football_layout) THEN BEGIN
+
+                       BxSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Bx[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
+                       BySpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(By[tmpI],sPeriod,FRACTION=powFrac)
+                       BzSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Bz[tmpI],sPeriod,FRACTION=powFrac)
+                       JxSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jx[tmpI],sPeriod,FRACTION=powFrac)
+                       JySpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jy[tmpI],sPeriod,FRACTION=powFrac)
+                       JzSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jz[tmpI],sPeriod,FRACTION=powFrac)
+                       magCSpecArr[FFTCount,*]  = FFT_POWERSPECTRUM(magC[tmpI],sPeriod,FRACTION=powFrac)
+
+                       powFreqArr[FFTCount,*]   = powFreq
+
+                       ;; BxSpecArr[FFTCount,*] = FFT(Bx[tmpI])
+                       ;; BySpecArr[FFTCount,*] = FFT(By[tmpI])
+                       ;; BzSpecArr[FFTCount,*] = FFT(Bz[tmpI])
+                       ;; JxSpecArr[FFTCount,*] = FFT(Jx[tmpI])
+                       ;; JySpecArr[FFTCount,*] = FFT(Jy[tmpI])
+                       ;; JzSpecArr[FFTCount,*] = FFT(Jz[tmpI])
+                       ;; magCSpecArr[FFTCount,*] = FFT(magC[tmpI])
+
+                    ENDIF
+
                     FFTCount++
 
                     FFTi_list.Add,TEMPORARY(tmpI)
@@ -2183,6 +2386,24 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                  kP            = SQRT(kx*kx+ky*ky)
 
                  avgJxBNrm     = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
+
+                 IF KEYWORD_SET(football_layout) THEN BEGIN
+
+                    BxSpec = MEAN(BxSpecArr,DIMENSION=1)
+                    BySpec = MEAN(BySpecArr,DIMENSION=1)
+                    BzSpec = MEAN(BzSpecArr,DIMENSION=1)
+                    JxSpec = MEAN(JxSpecArr,DIMENSION=1)
+                    JySpec = MEAN(JySpecArr,DIMENSION=1)
+                    JzSpec = MEAN(JzSpecArr,DIMENSION=1)
+
+                    magCSpec = MEAN(magCSpecArr,DIMENSION=1)
+
+                    powFreq = MEAN(powFreqArr,DIMENSION=1)
+
+                    BSpec  = [[TEMPORARY(BxSpec)],[TEMPORARY(BySpec)],[TEMPORARY(BzSpec)]]
+                    JSpec  = [[TEMPORARY(JxSpec)],[TEMPORARY(JySpec)],[TEMPORARY(JzSpec)]]
+
+                 ENDIF
 
                  usedInds      = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
 
@@ -2277,6 +2498,15 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
         avgJxBNrmList.Add,avgJxBNrm
         
+        IF KEYWORD_SET(football_layout) THEN BEGIN
+
+           BSpecList.Add,BSpec
+           JSpecList.Add,JSpec
+           magCSpecList.Add,magCSpec
+           powFreqList.Add,powFreq
+
+        ENDIF
+
         IF (kk EQ minKKInd) AND (jj EQ minJJInd) THEN BEGIN
 
            ;;Get time string
@@ -2311,6 +2541,15 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
            send_Jy        = Jy
            send_Jz        = Jz
 
+           IF KEYWORD_SET(football_layout) THEN BEGIN
+
+              send_BSpec    = BSpec
+              send_JSpec    = JSpec
+              send_magCSpec = magCSpec
+              send_powFreq  = powFreq
+
+           ENDIF
+
         ENDIF
 
         avgCount++
@@ -2337,6 +2576,15 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
         avgJxBNrm = LIST_TO_1DARRAY(avgJxBNrmList,/WARN,/PRESERVE_DIMENSIONALITY)
 
+        IF KEYWORD_SET(football_layout) THEN BEGIN
+
+           BSpecs    = LIST_TO_1DARRAY(BSpecList,/PRESERVE_DIMENSIONALITY)
+           JSpecs    = LIST_TO_1DARRAY(JSpecList,/PRESERVE_DIMENSIONALITY)
+           magCSpecs = LIST_TO_1DARRAY(magCSpecList,/PRESERVE_DIMENSIONALITY)
+           powFreqs  = LIST_TO_1DARRAY(powFreqList,/PRESERVE_DIMENSIONALITY)
+
+        ENDIF
+
         ;;Pick up rebin size from user, or else from data
         IF KEYWORD_SET(avg_binSize) THEN BEGIN
 
@@ -2357,6 +2605,15 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ;; kPAngle   = HIST1D(freqs,kPAngles,BINSIZE=binSz)/avgCount
         kP        = SQRT(kx*kx+ky*ky)
         kPAngle = ATAN(ky,kx)*!RADEG
+
+        IF KEYWORD_SET(football_layout) THEN BEGIN
+
+           BSpec  = MEAN(BSpecs,DIMENSION=3)
+           JSpec  = MEAN(JSpecs,DIMENSION=3)
+           magCSpec = MEAN(magCSpecs,DIMENSION=2)
+           powFreq  = MEAN(powFreqs,DIMENSION=2)
+
+        ENDIF
 
      END
   ENDCASE
@@ -2395,6 +2652,15 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         kPAngle    =  orig_kPAngle
         ;; inds       =  orig_inds   
 
+        IF KEYWORD_SET(football_layout) THEN BEGIN
+
+           BSpec    = send_BSpec
+           JSpec    = send_JSpec
+           magCSpec = send_magCSpec
+           powFreq  = send_powFreq
+
+        ENDIF
+
      ENDIF
 
      PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,send_TArr,freq, $
@@ -2405,6 +2671,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                           ;; inds, $
                                           send_usedInds, $
                                           example, $
+                                          BSPEC=BSpec, $
+                                          JSPEC=JSpec, $
+                                          MAGCSPEC=magCSpec, $
+                                          POWFREQ=powFreq, $
                                           EXAMPLE_MODE=example_mode, $
                                           PLOTDIR=plotDir, $
                                           SUFF=suff, $
@@ -2444,7 +2714,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                           FITLINE__USE_ABS=fitline__use_abs, $
                                           FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
                                           PUBLICATION_SETTINGS=pubSettings, $
-                                          PRE_VIII_LAYOUT=PRE_VIII_layout
+                                          PRE_VIII_LAYOUT=PRE_VIII_layout, $
+                                          FOOTBALL_LAYOUT=football_layout, $
+                                          FOOTBALL_YLOG=football_yLog
+
+
 
   ENDIF
 
@@ -2457,10 +2731,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         out_kPAngle   = TEMPORARY(kPAngle)
 
         out_avgJxBNrm = TEMPORARY(avgJxBNrm)
-        slideMn_JxB   = MEAN(out_avgJxBNrm,DIMENSION=2)
-        fluc          = [out_avgJxBNrm[0,*] - slideMn_JxB[0], $
-                         out_avgJxBNrm[1,*] - slideMn_JxB[1], $
-                         out_avgJxBNrm[2,*] - slideMn_JxB[2]]
+        IF N_ELEMENTS(SIZE(out_avgJxBNrm,/DIM)) GT 1 THEN BEGIN
+           slideMn_JxB   = MEAN(out_avgJxBNrm,DIMENSION=2)
+           fluc          = [out_avgJxBNrm[0,*] - slideMn_JxB[0], $
+                            out_avgJxBNrm[1,*] - slideMn_JxB[1], $
+                            out_avgJxBNrm[2,*] - slideMn_JxB[2]]
+        ENDIF ELSE BEGIN
+
+        ENDELSE
 
         ;; out_inds      = (TEMPORARY(inds   ))[inds] 
         ;; out_freqs     = (TEMPORARY(freq   ))[inds]

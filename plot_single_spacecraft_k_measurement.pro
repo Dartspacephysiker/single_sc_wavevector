@@ -85,9 +85,110 @@ PRO CONCLUDE_OUTPUT,mode,plotDir,suff, $
   ;; PRINT, 'FINISHED'
 END
 
+PRO PLOT_SPECIAL_FREQS,freq,k_specialFreqs,k_ysize,k_totSpecial_i
+
+  COMPILE_OPT IDL2,STRICTARRSUBS
+
+     k_totSpecial_i = !NULL
+     FOR jD=0,N_ELEMENTS(k_specialFreqs)/2-1 DO BEGIN
+
+        tmpSpFreq = k_specialFreqs[*,jD]
+
+        ;;Special markers
+        line1_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[0])
+        line1_kx   = [-k_ysize,k_ysize]
+        line2_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[1])
+        line2_kx   = [-k_ysize,k_ysize]
+
+        ;;Plot a special line, if there's any helping it
+        special_i  = WHERE(freq GE tmpSpFreq[0] AND freq LE tmpSpFreq[1],nSpecial)
+        ;; IF nSpecial GT 0 THEN BEGIN
+        ;;    OPLOT,freq[special_i],kx[special_i],COLOR=specialColor
+        ;; ENDIF
+
+        ;;Now plot all those special people
+        OPLOT,line1_freq,line1_kx,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
+        OPLOT,line2_freq,line2_kx,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
+
+        k_totSpecial_i = [k_totSpecial_i,special_i]
+     ENDFOR
+
+
+
+END
+
+PRO MAKING_KX_KY_SPECIAL,kx_specialBounds,ky_specialBounds, $
+                         kx_totSpecial_i,ky_totSpecial_i, $
+                         OUT_KXY_SPI=kxy_spI, $
+                         OUT_KPA_SPI=kPA_spI
+
+  COMPILE_OPT IDL2,STRICTARRSUBS
+
+  specialB_i  = !NULL
+  IF KEYWORD_SET(kx_specialBounds) THEN BEGIN
+
+     FOR jD=0,N_ELEMENTS(kx_specialBounds)/2-1 DO BEGIN
+
+        tmpSpB     = kx_specialBounds[*,jD]
+        
+        special_i  = WHERE(kx GE tmpSpB[0] AND kx LE tmpSpB[1],nSpecial,/NULL)
+
+        specialB_i = [specialB_i,special_i]
+     ENDFOR
+
+  ENDIF
+
+  IF KEYWORD_SET(ky_specialBounds) THEN BEGIN
+
+     FOR jD=0,N_ELEMENTS(ky_specialBounds)/2-1 DO BEGIN
+
+        tmpSpB     = ky_specialBounds[*,jD]
+        
+        special_i  = WHERE(ky GE tmpSpB[0] AND ky LE tmpSpB[1],nSpecial,/NULL)
+
+        specialB_i = [specialB_i,special_i]
+     ENDFOR
+
+  ENDIF
+
+  CASE 1 OF
+     KEYWORD_SET(kx_totSpecial_i) AND KEYWORD_SET(ky_totSpecial_i): BEGIN
+        kxvky_spI = CGSETUNION(kx_totSpecial_i,ky_totSpecial_i)
+     END
+     KEYWORD_SET(kx_totSpecial_i): BEGIN
+        kxvky_spI = kx_totSpecial_i
+     END
+     KEYWORD_SET(kx_totSpecial_i): BEGIN
+        kxvky_spI = ky_totSpecial_i
+     END
+     ELSE:
+  ENDCASE
+
+  kxvky_spF_spB_i = kxvky_spI
+
+  IF N_ELEMENTS(specialB_i) NE 0 THEN BEGIN
+
+     specialB_i       = specialB_i[UNIQ(specialB_i,SORT(specialB_i))]
+     kxvky_spF_spB_i  = CGSETINTERSECTION(kxvky_spF_spB_i,specialB_i,COUNT=nkxvky)
+
+     IF nkxvky EQ 0 THEN STOP
+
+  ENDIF
+
+  kxy_spI         = kxvky_spF_spB_i
+
+  ;;For special angles
+  kPA_spI         = kxvky_spI
+
+END
+
 PRO GET_FREQ_INDS,freq,kx,ky,kz, $
                   kP,kPAngle, $
                   inds, $
+                  BSPEC=BSpec, $
+                  JSPEC=JSpec, $
+                  MAGCSPEC=magCSpec, $
+                  POWFREQ=powFreq, $
                   OUT_FITINDS=fitInds, $
                   MAXFREQ=maxFreq, $
                   PLOT_POSFREQ=plot_posFreq, $
@@ -98,40 +199,61 @@ PRO GET_FREQ_INDS,freq,kx,ky,kz, $
 
   CASE 1 OF
      KEYWORD_SET(plot_posFreq): BEGIN
-        inds               = WHERE(freq GT 0.0 AND freq LE maxFreq)
-        fitInds            = WHERE(freq GT (0.1 < (freq[inds])[1]) AND freq LE maxFreq*1.1)
+
+        inds               = WHERE(freq GT 0.0)
+        ;; fitInds            = WHERE(freq GT (0.1 < (freq[inds])[1]) AND freq LE maxFreq*1.1)
+
      END
      KEYWORD_SET(fold_negFreq): BEGIN
         
-        indNeg             = [0:((MAX(WHERE(freq LT 0.00)))-1)] 
-        indPos             = ([(WHERE(freq GT 0.00))[0]:(N_ELEMENTS(freq)-1)])[0:(N_ELEMENTS(indNeg)-1)]
+        ;; indNeg             = [0:((MAX(WHERE(freq LT 0.00)))-1)] 
+        indNeg             = [0:((MAX(WHERE(freq LT 0.00))))] 
+        indPos             = ([(WHERE(freq GE 0.00))[0]:(N_ELEMENTS(freq)-1)])[0:(N_ELEMENTS(indNeg)-1)]
 
         divFactor          = 2.
 
         adj                = freq[indPos[0]] EQ 0.00
 
+        chopSiste          = 1
+
         IF N_ELEMENTS(kx) GT 0 THEN BEGIN
            kx              = (kx[indPos]-REVERSE(kx[indNeg])) / divFactor
-           IF adj THEN kx  = kx[1:-1]
+           kx  = kx[(adj EQ 1):(-1-chopSiste)]
         ENDIF
 
         IF N_ELEMENTS(ky) GT 0 THEN BEGIN
            ky              = (ky[indPos]-REVERSE(ky[indNeg])) / divFactor 
-           IF adj THEN ky  = ky[1:-1]
+           ky  = ky[(adj EQ 1):(-1-chopSiste)]
         ENDIF
 
         IF N_ELEMENTS(kz) GT 0 THEN BEGIN
            kz              = (kz[indPos]-REVERSE(kz[indNeg])) / divFactor
-           IF adj THEN kz  = kz[1:-1]
+           kz  = kz[(adj EQ 1):(-1-chopSiste)]
         ENDIF
+
+        ;;This is now handled by just calculating the power spectrum in SINGLE_SPACECRAFT_K_MEASUREMENT_FAST
+        ;; IF N_ELEMENTS(BSpec) GT 0 THEN BEGIN
+        ;;    BSpec           = (BSpec[indPos,*]*CONJ(REVERSE(BSpec[indNeg,*],1))) / divFactor
+        ;;    BSpec = BSpec[(adj EQ 1):(-1-chopSiste),*]
+        ;; ENDIF
+
+        ;; IF N_ELEMENTS(JSpec) GT 0 THEN BEGIN
+        ;;    JSpec           = (JSpec[indPos,*]*CONJ(REVERSE(JSpec[indNeg,*],1))) / divFactor
+        ;;    JSpec = JSpec[(adj EQ 1):(-1-chopSiste),*]
+        ;; ENDIF
+
+        ;; IF N_ELEMENTS(magCSpec) GT 0 THEN BEGIN
+        ;;    magCSpec        = (magCSpec[indPos]*CONJ(REVERSE(magCSpec[indNeg]))) / divFactor
+        ;;    magCSpec = magCSpec[(adj EQ 1):(-1-chopSiste)]
+        ;; ENDIF
 
         ;; IF N_ELEMENTS(kP) GT 0 THEN BEGIN
         ;;    kP              = (kP[indPos]+REVERSE(kP[indNeg])) / divFactor
-        ;;    IF adj THEN kP  = kP[1:-1]
+        ;;    kP  = kP[(adj EQ 1):(-1-chopSiste)]
         ;; ENDIF
 
         freq               = freq[indPos]
-        IF adj THEN freq   = freq[1:-1]
+        freq   = freq[(adj EQ 1):(-1-chopSiste)]
 
         inds               = INDGEN(N_ELEMENTS(freq))
 
@@ -163,6 +285,10 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                                          ;; inds, $
                                          usedInds, $
                                          example, $
+                                         BSPEC=BSpec, $
+                                         JSPEC=JSpec, $
+                                         MAGCSPEC=magCSpec, $
+                                         POWFREQ=powFreq, $
                                          EXAMPLE_MODE=example_mode, $
                                          PLOTDIR=plotDir, $
                                          SUFF=suff, $
@@ -202,12 +328,14 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                                          FITLINE__USE_ABS=fitline__use_abs, $
                                          FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
                                          PUBLICATION_SETTINGS=pubSettings, $
-                                         PRE_VIII_LAYOUT=PRE_VIII_layout
+                                         PRE_VIII_LAYOUT=PRE_VIII_layout, $
+                                         FOOTBALL_LAYOUT=football_layout, $
+                                         FOOTBALL_YLOG=football_yLog
 
   COMPILE_OPT IDL2,STRICTARRSUBS
 
   IF KEYWORD_SET(pubSettings) THEN BEGIN
-     cs = 1.1
+     cs = KEYWORD_SET(football_layout) ? 0.7 : 1.1
      symSize = 0.4
   ENDIF
 
@@ -229,6 +357,10 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   GET_FREQ_INDS,freq,kx,ky,kz, $
                 kP,kPAngle, $
                 inds, $
+                BSPEC=BSpec, $
+                JSPEC=JSpec, $
+                MAGCSPEC=magCSpec, $
+                POWFREQ=powFreq, $
                 OUT_FITINDS=fitInds, $
                 MAXFREQ=maxFreq, $
                 PLOT_POSFREQ=plot_posFreq, $
@@ -252,8 +384,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
 
   ;;setup graphic layout
-  columns   = 3
-  rows      = 3 + KEYWORD_SET(example_mode)
+  columns   = KEYWORD_SET(football_layout) ? 2 : 3
+  rows      = KEYWORD_SET(football_layout) ? 3 : 3 + KEYWORD_SET(example_mode)
   !P.MULTI  = [0, columns, rows, 0, 0]
   ;; !P.MULTI  = [0, columns, rows, 1, 0]
 
@@ -355,78 +487,350 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
   ENDIF
 
+  kx_yRange = [-kx_ysize,kx_ysize]
+  ky_yRange = [-ky_ysize,ky_ysize]
+  k_yRange  = [MIN([kx_yRange,ky_yRange]),MAX([kx_yRange,ky_yRange])]
+
   muLetter = '!4' + String('154'O) + '!X'
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],Bx[usedInds], $
-       XTITLE='t', $
-       YTITLE=font + 'B!Dx!N' + (KEYWORD_SET(PRE_VIII_layout) ? ' (nT)' : ''), $
-       XSTYLE=1, $
-       YSTYLE=yStyler, $
-       CHARSIZE=cs, $
-       SYMSIZE=symSize
+  ;;THe following case thing handles plotting of Bx,By,Bz, Jx,Jy,Jz, and 
+  CASE 1 OF
+     KEYWORD_SET(football_layout): BEGIN
 
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],By[usedInds], $
-       XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-       YTITLE=font + 'B!Dy!N (nT)', $
-       XSTYLE=1, $
-       YSTYLE=yStyler, $
-       CHARSIZE=cs, $
-       SYMSIZE=symSize
+        bxCol = 240
+        byCol = 50
+        
+        jMagSpecCol = 220
+        ;;THe idea here is to kill the x axis, since it's common to Bx, By, and Jz
 
-  IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
+        ;;Row 0: plots 0,1,2
+        ;;Row 1: plots 3,4,5
+        ;;Row 2: plots 6,7,8
 
-     PLOT,TArr[usedInds]-TArr[usedInds[0]],Bz[usedInds], $
-          XTITLE='t', $
-          YTITLE=font + 'B!Dz!N', $
+        !P.MULTI      = [0,1,1,0,0]
+
+        colTitleSpace = 0.09
+        noTitleSpace  = 0.02
+        titleSpace    = 0.08
+        totForSpace   = colTitleSpace + 2*noTitleSpace + titleSpace
+
+        rows          = 3
+        panYSpace     = (1.-totForSpace)/rows
+
+        lEdgeSpace = 0.1
+        
+        lEdgeL = lEdgeSpace
+        colWid = 0.5 - lEdgeL - 0.02
+        rEdgeL = lEdgeL+colWid
+
+        lEdgeR = 0.5+lEdgeSpace
+        rEdgeR = lEdgeR+colWid
+
+        ;;First column
+        Bx_upper = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace+panYSpace
+        Bx_lower = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace
+        
+        By_upper = titleSpace+panYSpace+noTitleSpace+panYSpace
+        By_lower = titleSpace+panYSpace+noTitleSpace
+        
+        posBx = [lEdgeL,Bx_lower,lEdgeL+colWid,Bx_upper]
+        posBy = [lEdgeL,By_lower,lEdgeL+colWid,By_upper]
+        posJz = [lEdgeL,titleSpace,lEdgeL+colWid,titleSpace+panYSpace]
+
+        ;;Second column
+        By_upper = titleSpace+panYSpace+noTitleSpace+panYSpace
+        By_lower = titleSpace+panYSpace+noTitleSpace
+        
+        Bx_upper = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace+panYSpace
+        Bx_lower = titleSpace+panYSpace+noTitleSpace+panYSpace+noTitleSpace
+        
+        posSpec = [lEdgeR,Bx_lower,lEdgeR+colWid,Bx_upper]
+        poskxy  = [lEdgeR,By_lower,lEdgeR+colWid,By_upper]
+        poskPA  = [lEdgeR,titleSpace,lEdgeR+colWid,titleSpace+panYSpace]
+
+        
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ;;Plot first column
+
+        tPlotMe = TArr[usedInds]-TArr[usedInds[0]]
+
+        timeTitle = font + 't since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)'
+        XYOUTS,MEAN([lEdgeL,lEdgeL+colWid]),titleSpace/4,timeTitle, $
+               /NORMAL, $
+               ALIGNMENT=0.5, $
+               CHARSIZE=cs
+
+        XYOUTS,MEAN([lEdgeR,lEdgeR+colWid]),titleSpace/4,freqTitle, $
+               /NORMAL, $
+               ALIGNMENT=0.5, $
+               CHARSIZE=cs
+        
+        colTitle = 'Inputs'
+        XYOUTS,MEAN([lEdgeL,lEdgeL+colWid]),1.-colTitleSpace/2.,colTitle, $
+               /NORMAL, $
+               ALIGNMENT=0.5, $
+               CHARSIZE=cs*1.5
+
+        ;; freqBlankTickName = MAKE_ARRAY(N_ELEMENTS(freqTickV),/STRING,VALUE=' ')
+
+        ;; !P.MULTI[0]  = 4
+        PLOT,tPlotMe,Bx[usedInds], $
+             ;; XTITLE='t', $
+             YTITLE=font + 'B!Dx!N (nT)', $
+             XSTYLE=1, $
+             YSTYLE=yStyler, $
+             ;; XTICKV=freqTickV, $
+             ;; XTICKNAME=freqBlankTickName, $
+             CHARSIZE=cs, $
+             XTICKFORMAT='(A1)', $
+             SYMSIZE=symSize, $
+             POSITION=posBx, $
+             /NOERASE
+
+        ;; !P.MULTI[0] = 6
+        PLOT,tPlotMe,By[usedInds], $
+             ;; XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
+             YTITLE=font + 'B!Dy!N (nT)', $
+             XSTYLE=1, $
+             YSTYLE=yStyler, $
+             ;; XTICKV=freqTickV, $
+             ;; XTICKNAME=freqBlankTickName, $
+             XTICKFORMAT='(A1)', $
+             CHARSIZE=cs, $
+             SYMSIZE=symSize, $
+             POSITION=posBy, $
+             /NOERASE
+
+        ;; !P.MULTI[0] = 2
+        
+        PLOT,tPlotMe,Jz[usedInds], $
+             ;; XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
+             ;; YTITLE='!4l!3!D0 !N' + font + 'J!Dz!N', $
+             YTITLE=font + 'J!Dz!N (!4l!3A m!U-2!N)', $
+             XSTYLE=1, $
+             CHARSIZE=cs, $
+             SYMSIZE=symSize, $
+             ;; XTICKFORMAT='(A1)', $
+             ;; XTICK_GET=freqTickV, $
+             POSITION=posJz, $
+             /NOERASE
+
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ;;Plot spectra in second column
+
+        ;; jYRange = [0,MAX(magCSpec)]
+        ;; yLog = 1
+        CASE 1 OF
+           KEYWORD_SET(football_yLog): BEGIN
+
+              powPos  = WHERE((magCSpec GT 0) AND (BSpec[*,0] GT 0) AND (BSpec[*,1] GT 0))
+              jYRange = [MIN(JSpec[powPos,2]) > (MIN(magCSpec) < MIN(BSpec[powPos,0]) < MIN(BSpec[powPos,1])), $
+                         (1 < MAX(JSpec[powPos,2])) < (MAX(magCSpec) > MAX(BSpec[powPos,0]) > MAX(BSpec[powPos,1]))]
+
+              currency = (MAX(ALOG10(jYRange))-MIN(ALOG10(jYRange)))+MIN(ALOG10(jYRange))
+
+           END
+           ELSE: BEGIN
+
+              powPos  = WHERE(powFreq GT 0)
+              jYRange = [0,MAX(JSpec[powPos,2]) < (MAX(magCSpec) > MAX(BSpec[powPos,0]) > MAX(BSpec[powPos,1]))]
+
+              currency = (MAX(jYRange)-MIN(jYRange))+MIN(jYRange)
+
+           END
+        ENDCASE
+
+        jSpecVar1 = JSpec[*,2]
+        jSpecVar2 = magCSpec
+
+        PLOT,powFreq,jSpecVar1, $
+             ;; XTITLE='t', $
+             YTITLE='Power (fractional)' , $
+             XRANGE=page1__freqRange, $
+             YRANGE=jYRange, $
+             XSTYLE=1, $
+             YSTYLE=yStyler, $
+             YLOG=football_yLog, $
+             XTICKLEN=1.0, $
+             YTICKLEN=1.0, $
+             XGRIDSTYLE=1, $
+             YGRIDSTYLE=1, $
+             XMINOR=5, $
+             ;; XTICKV=freqTickV, $
+             ;; XTICKNAME=freqBlankTickName, $
+             CHARSIZE=cs, $
+             XTICKFORMAT='(A1)', $
+             SYMSIZE=symSize, $
+             POSITION=posSpec, $
+             /NOERASE
+
+        ;; jLineStyle = 2 ;dotted line
+        jLineStyle = 1 ;dashed line??
+        ;; OPLOT,freq[inds],JSpecNorm[inds], $
+        OPLOT,powFreq,jSpecVar2, $
+              LINESTYLE=jLineStyle, $
+              COLOR=jMagSpecCol;; , $
+              ;; MAX_VALUE=MAX(magCSpec)
+
+        OPLOT,powFreq,BSpec[*,0], $
+              COLOR=bxCol
+
+        OPLOT,powFreq,BSpec[*,1], $
+              COLOR=byCol
+
+        legXSymPos1 = 0.73*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
+        legXSymPos2 = 0.78*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
+        legXPos1    = 0.8*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
+        legXPos2    = 0.85*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
+
+        IF KEYWORD_SET(football_yLog) THEN BEGIN
+
+           spaceFrac   = 0.8
+           downLog     = 0.9
+           distVec     = REVERSE(INDGEN(3)*spaceFrac - spaceFrac - downLog)
+
+           legYSymPos  = 0.6*( distVec + currency )
+           legYPos     = 0.6*( distVec + currency ) - currency * 0.02
+
+           legYSymPos = 10.^(legYSymPos)
+           legYPos    = 10.^(legYPos)
+        ENDIF ELSE BEGIN
+
+           spaceFrac   = 0.13
+           distVec     = REVERSE(INDGEN(3)*spaceFrac - spaceFrac + 1)
+
+           legYSymPos  = 0.93*( distVec * currency )
+           legYPos     = 0.93*( distVec * currency ) - currency * 0.02
+
+        ENDELSE
+
+        XYOUTS,legXPos1,legYPos[0],'B!Dx!N',CHARSIZE=cs
+        PLOTS,legXSymPos1,legYSymPos[0],COLOR=bxCol
+        PLOTS,legXSymPos2,legYSymPos[0],COLOR=bxCol,/CONTINUE
+
+        XYOUTS,legXPos1,legYPos[1],'B!Dy!N',CHARSIZE=cs
+        PLOTS,legXSymPos1,legYSymPos[1],COLOR=byCol
+        PLOTS,legXSymPos2,legYSymPos[1],COLOR=byCol,/CONTINUE
+
+        XYOUTS,legXPos1,legYPos[2],'J!Dz!N',CHARSIZE=cs
+        PLOTS,legXSymPos1,legYSymPos[2]
+        PLOTS,legXSymPos2,legYSymPos[2],/CONTINUE
+
+     END
+     ELSE: BEGIN
+
+        tPlotMe = TArr[usedInds]-TArr[usedInds[0]]
+        
+        PLOT,tPlotMe,Bx[usedInds], $
+             XTITLE='t', $
+             YTITLE=font + 'B!Dx!N' + (KEYWORD_SET(PRE_VIII_layout) ? ' (nT)' : ''), $
+             XSTYLE=1, $
+             YSTYLE=yStyler, $
+             CHARSIZE=cs, $
+             SYMSIZE=symSize
+
+        PLOT,tPlotMe,By[usedInds], $
+             XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
+             YTITLE=font + 'B!Dy!N (nT)', $
+             XSTYLE=1, $
+             YSTYLE=yStyler, $
+             CHARSIZE=cs, $
+             SYMSIZE=symSize
+
+        IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
+
+           PLOT,tPlotMe,Bz[usedInds], $
+                XTITLE='t', $
+                YTITLE=font + 'B!Dz!N', $
+                XSTYLE=1, $
+                YSTYLE=yStyler, $
+                CHARSIZE=cs, $
+                SYMSIZE=symSize
+
+           PLOT,tPlotMe,Jx[usedInds], $
+                XTITLE='t', $
+                YTITLE='!4l!3!D0 !N' + font + 'J!Dx!N', $
+                XSTYLE=1, $
+                ;; YSTYLE=1, $
+                CHARSIZE=cs, $
+                SYMSIZE=symSize
+
+           PLOT,tPlotMe,Jy[usedInds], $
+                XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
+                YTITLE='!4l!3!D0 !N' + font + 'J!Dy!N (!4l!N' + font + 'T/m)', $
+                XSTYLE=1, $
+                CHARSIZE=cs, $
+                SYMSIZE=symSize
+
+        ENDIF
+
+        PLOT,tPlotMe,Jz[usedInds], $
+             XTITLE='t', $
+             ;; YTITLE='!4l!3!D0 !N' + font + 'J!Dz!N', $
+             YTITLE=font + 'J!Dz!N (!4l!3A m!U-2!N)', $
+             XSTYLE=1, $
+             CHARSIZE=cs, $
+             SYMSIZE=symSize
+
+     END
+  ENDCASE
+
+
+  IF KEYWORD_SET(football_layout) THEN BEGIN
+
+     PLOT,freq[inds],kx[inds], $
+          ;; YTITLE='k!Dx!N (m!U-1!N)', $
+          ;; COLOR=KEYWORD_SET(football_layout) ? bxCol : !NULL, $
+          YTITLE=(KEYWORD_SET(football_layout) ? 'Wave number' : 'k!Dx!N') + ' (km!U-1!N)', $
+          XTITLE=(KEYWORD_SET(PRE_VIII_layout) AND ~KEYWORD_SET(football_layout) ? freqTitle : ''), $
+          XRANGE=page1__freqRange, $
+          YRANGE=k_yRange, $
           XSTYLE=1, $
-          YSTYLE=yStyler, $
+          YSTYLE=1, $
+          XTICKLEN=1.0, $
+          YTICKLEN=1.0, $
+          XGRIDSTYLE=1, $
+          YGRIDSTYLE=1, $
+          XMINOR=5, $
           CHARSIZE=cs, $
-          SYMSIZE=symSize
+          XTICKFORMAT='(A1)', $
+          SYMSIZE=symSize, $
+          POSITION=KEYWORD_SET(football_layout) ? poskxy : !NULL, $
+          NOERASE=KEYWORD_SET(football_layout), $
+          /NODATA
+     ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
-     PLOT,TArr[usedInds]-TArr[usedInds[0]],Jx[usedInds], $
-          XTITLE='t', $
-          YTITLE='!4l!3!D0 !N' + font + 'J!Dx!N', $
+        OPLOT,freq[inds],kx[inds], $
+              ;; LINESTYLE=jLineStyle, $
+              COLOR=bxCol
+
+  ENDIF ELSE BEGIN
+
+     PLOT,freq[inds],kx[inds], $
+          ;; YTITLE='k!Dx!N (m!U-1!N)', $
+          COLOR=KEYWORD_SET(football_layout) ? bxCol : !NULL, $
+          YTITLE=(KEYWORD_SET(football_layout) ? 'Wave number' : 'k!Dx!N') + ' (km!U-1!N)', $
+          XTITLE=(KEYWORD_SET(PRE_VIII_layout) AND ~KEYWORD_SET(football_layout) ? freqTitle : ''), $
+          XRANGE=page1__freqRange, $
+          ;; YRANGE=kx_yRange, $
+          YRANGE=kx_yRange, $
           XSTYLE=1, $
-          ;; YSTYLE=1, $
+          YSTYLE=1, $
+          XTICKLEN=1.0, $
+          YTICKLEN=1.0, $
+          XGRIDSTYLE=1, $
+          YGRIDSTYLE=1, $
+          XMINOR=5, $
           CHARSIZE=cs, $
-          SYMSIZE=symSize
+          SYMSIZE=symSize, $
+          POSITION=KEYWORD_SET(football_layout) ? poskxy : !NULL, $
+          NOERASE=KEYWORD_SET(football_layout)
+     ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
-     PLOT,TArr[usedInds]-TArr[usedInds[0]],Jy[usedInds], $
-          XTITLE='t since' + TIME_TO_STR(TArr[usedInds[0]]) + '(s)', $
-          YTITLE='!4l!3!D0 !N' + font + 'J!Dy!N (!4l!N' + font + 'T/m)', $
-          XSTYLE=1, $
-          CHARSIZE=cs, $
-          SYMSIZE=symSize
-
-  ENDIF
-
-  PLOT,TArr[usedInds]-TArr[usedInds[0]],Jz[usedInds], $
-       XTITLE='t', $
-       ;; YTITLE='!4l!3!D0 !N' + font + 'J!Dz!N', $
-       YTITLE=font + 'J!Dz!N (!4l!3A m!U-2!N)', $
-       XSTYLE=1, $
-       CHARSIZE=cs, $
-       SYMSIZE=symSize
-
-  PLOT,freq[inds],kx[inds], $
-       ;; YTITLE='k!Dx!N (m!U-1!N)', $
-       YTITLE='k!Dx!N (km!U-1!N)', $
-       XTITLE=(KEYWORD_SET(PRE_VIII_layout) ? freqTitle : ''), $
-       XRANGE=page1__freqRange, $
-       YRANGE=[-kx_ysize,kx_ysize], $
-       XSTYLE=1, $
-       YSTYLE=1, $
-       XTICKLEN=1.0, $
-       YTICKLEN=1.0, $
-       XGRIDSTYLE=1, $
-       YGRIDSTYLE=1, $
-       XMINOR=5, $
-       CHARSIZE=cs, $
-       SYMSIZE=symSize
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
-
+  ENDELSE
+  
   IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
 
-  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
+  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) AND ~KEYWORD_SET(football_layout)  THEN BEGIN
 
      OPLOT,smooth_freq[smooth_inds], $
            smooth_kx[smooth_inds], $
@@ -439,53 +843,63 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                              EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
   ENDIF
 
+
   IF KEYWORD_SET(kx_specialFreqs) THEN BEGIN
 
-     kx_totSpecial_i = !NULL
-     FOR jD=0,N_ELEMENTS(kx_specialFreqs)/2-1 DO BEGIN
-
-        tmpSpFreq = kx_specialFreqs[*,jD]
-
-        ;;Special markers
-        line1_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[0])
-        line1_kx   = [-kx_ysize,kx_ysize]
-        line2_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[1])
-        line2_kx   = [-kx_ysize,kx_ysize]
-
-        ;;Plot a special line, if there's any helping it
-        special_i  = WHERE(freq GE tmpSpFreq[0] AND freq LE tmpSpFreq[1],nSpecial)
-        ;; IF nSpecial GT 0 THEN BEGIN
-        ;;    OPLOT,freq[special_i],kx[special_i],COLOR=specialColor
-        ;; ENDIF
-
-        ;;Now plot all those special people
-        OPLOT,line1_freq,line1_kx,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
-        OPLOT,line2_freq,line2_kx,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
-
-        kx_totSpecial_i = [kx_totSpecial_i,special_i]
-     ENDFOR
+     PLOT_SPECIAL_FREQS,freq,kx_specialFreqs,kx_ysize,kx_totSpecial_i
 
   ENDIF
 
-  PLOT,freq[inds],ky[inds], $
-       ;; YTITLE='k!Dy!N (m!U-1!N)', $
-       YTITLE='k!Dy!N (km!U-1!N)', $
-       XTITLE=freqTitle, $
-       XRANGE=page1__freqRange, $
-       YRANGE=[-ky_ysize,ky_ysize], $
-       XSTYLE=1, $
-       YSTYLE=1, $
-       XTICKLEN=1.0, $
-       YTICKLEN=1.0, $
-       XGRIDSTYLE=1, $
-       YGRIDSTYLE=1, $
-       XMINOR=5, $
-       CHARSIZE=cs, $
-       SYMSIZE=symSize
-  ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
+  CASE 1 OF
+     KEYWORD_SET(football_layout): BEGIN
+
+        ;; jLineStyle = 2 ;dotted line
+        OPLOT,freq[inds],ky[inds], $
+              ;; LINESTYLE=jLineStyle, $
+              COLOR=byCol
+
+        spaceFrac   = 0.2
+        distVec     = REVERSE(INDGEN(3)*spaceFrac - spaceFrac + 1)
+        currency    = (MAX(k_yRange)-MIN(k_yRange))+MIN(k_yRange)
+
+        legYSymPos  = 0.7*( distVec * currency)
+        legYPos     = 0.7*( distVec * currency)-0.03*currency
+
+
+        XYOUTS,legXPos1,legYPos[0],'k!Dx!N',CHARSIZE=cs
+        PLOTS,legXSymPos1,legYSymPos[0],COLOR=bxCol
+        PLOTS,legXSymPos2,legYSymPos[0],COLOR=bxCol,/CONTINUE
+
+        XYOUTS,legXPos1,legYPos[1],'k!Dy!N',CHARSIZE=cs
+        PLOTS,legXSymPos1,legYSymPos[1],COLOR=byCol
+        PLOTS,legXSymPos2,legYSymPos[1],COLOR=byCol,/CONTINUE
+
+     END
+     ELSE: BEGIN
+
+        PLOT,freq[inds],ky[inds], $
+             ;; YTITLE='k!Dy!N (m!U-1!N)', $
+             YTITLE='k!Dy!N (km!U-1!N)', $
+             XTITLE=KEYWORD_SET(football_layout) ? !NULL : freqTitle, $
+             XRANGE=page1__freqRange, $
+             YRANGE=ky_yRange, $
+             XSTYLE=1, $
+             YSTYLE=1, $
+             XTICKLEN=1.0, $
+             YTICKLEN=1.0, $
+             XGRIDSTYLE=1, $
+             YGRIDSTYLE=1, $
+             XMINOR=5, $
+             CHARSIZE=cs, $
+             SYMSIZE=symSize, $
+             POSITION=KEYWORD_SET(football_layout) ? poskxy : !NULL, $
+             NOERASE=KEYWORD_SET(football_layout)
+        ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
+     END
+  ENDCASE
 
   IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
-  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) THEN BEGIN
+  IF KEYWORD_SET(plot_smoothed_ks) OR KEYWORD_SET(plot_abs_smoothed_ks) AND ~KEYWORD_SET(football_layout) THEN BEGIN
      OPLOT,smooth_freq[smooth_inds], $
            smooth_ky[smooth_inds], $
            COLOR=250
@@ -500,170 +914,124 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
   IF KEYWORD_SET(ky_specialFreqs) THEN BEGIN
 
-     ky_totSpecial_i = !NULL
-     FOR jD=0,N_ELEMENTS(ky_specialFreqs)/2-1 DO BEGIN
+     PLOT_SPECIAL_FREQS,freq,ky_specialFreqs,ky_ysize,ky_totSpecial_i
 
-        tmpSpFreq = ky_specialFreqs[*,jD]
+     ;; ky_totSpecial_i = !NULL
+     ;; FOR jD=0,N_ELEMENTS(ky_specialFreqs)/2-1 DO BEGIN
 
-        ;;Special markers
-        line1_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[0])
-        line1_ky   = [-ky_ysize,ky_ysize]
-        line2_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[1])
-        line2_ky   = [-ky_ysize,ky_ysize]
+     ;;    tmpSpFreq = ky_specialFreqs[*,jD]
 
-        ;;Plot a special line, if there's any helping it
-        special_i  = WHERE(freq GE tmpSpFreq[0] AND freq LE tmpSpFreq[1],nSpecial)
-        ;; IF nSpecial GT 0 THEN BEGIN
-        ;;    OPLOT,freq[special_i],ky[special_i],COLOR=specialColor
-        ;; ENDIF
+     ;;    ;;Special markers
+     ;;    line1_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[0])
+     ;;    line1_ky   = [-ky_ysize,ky_ysize]
+     ;;    line2_freq = MAKE_ARRAY(2,VALUE=tmpSpFreq[1])
+     ;;    line2_ky   = [-ky_ysize,ky_ysize]
 
-        ;;Now plot all those special people
-        OPLOT,line1_freq,line1_ky,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
-        OPLOT,line2_freq,line2_ky,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
+     ;;    ;;Plot a special line, if there's any helping it
+     ;;    special_i  = WHERE(freq GE tmpSpFreq[0] AND freq LE tmpSpFreq[1],nSpecial)
+     ;;    ;; IF nSpecial GT 0 THEN BEGIN
+     ;;    ;;    OPLOT,freq[special_i],ky[special_i],COLOR=specialColor
+     ;;    ;; ENDIF
 
-        ky_totSpecial_i = [ky_totSpecial_i,special_i]
-     ENDFOR
+     ;;    ;;Now plot all those special people
+     ;;    OPLOT,line1_freq,line1_ky,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
+     ;;    OPLOT,line2_freq,line2_ky,LINESTYLE=specialLineSty,COLOR=specialColor,THICK=specialThick
 
+     ;;    ky_totSpecial_i = [ky_totSpecial_i,special_i]
+     ;; ENDFOR
 
   ENDIF
 
   IF KEYWORD_SET(make_kx_vs_ky_special) OR KEYWORD_SET(make_kPAngle_special) THEN BEGIN
 
-     specialB_i  = !NULL
-     IF KEYWORD_SET(kx_specialBounds) THEN BEGIN
-
-        FOR jD=0,N_ELEMENTS(kx_specialBounds)/2-1 DO BEGIN
-
-           tmpSpB     = kx_specialBounds[*,jD]
-           
-           special_i  = WHERE(kx GE tmpSpB[0] AND kx LE tmpSpB[1],nSpecial,/NULL)
-
-           specialB_i = [specialB_i,special_i]
-        ENDFOR
-
-     ENDIF
-
-     IF KEYWORD_SET(ky_specialBounds) THEN BEGIN
-
-        FOR jD=0,N_ELEMENTS(ky_specialBounds)/2-1 DO BEGIN
-
-           tmpSpB     = ky_specialBounds[*,jD]
-           
-           special_i  = WHERE(ky GE tmpSpB[0] AND ky LE tmpSpB[1],nSpecial,/NULL)
-
-           specialB_i = [specialB_i,special_i]
-        ENDFOR
-
-     ENDIF
-
-     CASE 1 OF
-        KEYWORD_SET(kx_totSpecial_i) AND KEYWORD_SET(ky_totSpecial_i): BEGIN
-           kxvky_spI = CGSETUNION(kx_totSpecial_i,ky_totSpecial_i)
-        END
-        KEYWORD_SET(kx_totSpecial_i): BEGIN
-           kxvky_spI = kx_totSpecial_i
-        END
-        KEYWORD_SET(kx_totSpecial_i): BEGIN
-           kxvky_spI = ky_totSpecial_i
-        END
-        ELSE:
-     ENDCASE
-
-     kxvky_spF_spB_i = kxvky_spI
-
-     IF N_ELEMENTS(specialB_i) NE 0 THEN BEGIN
-
-        specialB_i       = specialB_i[UNIQ(specialB_i,SORT(specialB_i))]
-        kxvky_spF_spB_i  = CGSETINTERSECTION(kxvky_spF_spB_i,specialB_i,COUNT=nkxvky)
-
-        IF nkxvky EQ 0 THEN STOP
-
-     ENDIF
-
-     kxy_spI         = kxvky_spF_spB_i
-
-     ;;For special angles
-     kPA_spI         = kxvky_spI
+     MAKING_KX_KY_SPECIAL,kx_specialBounds,ky_specialBounds, $
+                          kx_totSpecial_i,ky_totSpecial_i, $
+                          OUT_KXY_SPI=kxy_spI, $
+                          OUT_KPA_SPI=kPA_spI
 
   ENDIF
 
 
-  IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
+  IF ~KEYWORD_SET(football_layout) THEN BEGIN
      
-     ;;Now kx vs ky
+     IF KEYWORD_SET(plot_kx_vs_ky_for_kz) THEN BEGIN
+        
+        ;;Now kx vs ky
 
-     bound = MAX(ABS([kx[inds],ky[inds]]))
+        bound = MAX(ABS([kx[inds],ky[inds]]))
 
-     PLOT,kx[inds],ky[inds], $
-          XTITLE='k!Dx!N  (km!U-1!N)', $
-          YTITLE='k!Dy!N  (km!U-1!N)', $
-          PSYM=pSym, $
-          YRANGE=[-bound,bound], $
-          XRANGE=[-bound,bound], $
-          ;; XSTYLE=2, $
-          ;; YSTYLE=2, $
-          XTICKLEN=1.0, $
-          YTICKLEN=1.0, $
-          XGRIDSTYLE=1, $
-          YGRIDSTYLE=1, $
-          CHARSIZE=cs, $
-          SYMSIZE=symSize
+        PLOT,kx[inds],ky[inds], $
+             XTITLE='k!Dx!N  (km!U-1!N)', $
+             YTITLE='k!Dy!N  (km!U-1!N)', $
+             PSYM=pSym, $
+             YRANGE=[-bound,bound], $
+             XRANGE=[-bound,bound], $
+             ;; XSTYLE=2, $
+             ;; YSTYLE=2, $
+             XTICKLEN=1.0, $
+             YTICKLEN=1.0, $
+             XGRIDSTYLE=1, $
+             YGRIDSTYLE=1, $
+             CHARSIZE=cs, $
+             SYMSIZE=symSize
 
-     IF KEYWORD_SET(kx_vs_ky__plot_smoothed) THEN BEGIN
+        IF KEYWORD_SET(kx_vs_ky__plot_smoothed) THEN BEGIN
 
-        ;; CASE SIZE(kx_vs_ky__plot_smoothed) OF
-        ;;    8: BEGIN
-        ;;       OPLOT,kx_vs_ky__plot_smoothed.kx, $
-        ;;             kx_vs_ky__plot_smoothed.ky, $
-        ;;             COLOR=250, $
-        ;;             PSYM=1
-        ;;    END
-        ;;    ELSE: BEGIN
-        OPLOT,smooth_kx[smooth_inds],smooth_ky[smooth_inds], $
-              COLOR=250, $
-              PSYM=1
-        ;;    END
-        ;; ENDCASE
+           ;; CASE SIZE(kx_vs_ky__plot_smoothed) OF
+           ;;    8: BEGIN
+           ;;       OPLOT,kx_vs_ky__plot_smoothed.kx, $
+           ;;             kx_vs_ky__plot_smoothed.ky, $
+           ;;             COLOR=250, $
+           ;;             PSYM=1
+           ;;    END
+           ;;    ELSE: BEGIN
+           OPLOT,smooth_kx[smooth_inds],smooth_ky[smooth_inds], $
+                 COLOR=250, $
+                 PSYM=1
+           ;;    END
+           ;; ENDCASE
 
-     ENDIF
+        ENDIF
 
-     IF KEYWORD_SET(make_kx_vs_ky_special) THEN BEGIN
+        IF KEYWORD_SET(make_kx_vs_ky_special) THEN BEGIN
 
-        OPLOT,kx[kxy_spI],ky[kxy_spI], $
-              PSYM=1, $
-              COLOR=specialColor, $
-              LINESTYLE=0
+           OPLOT,kx[kxy_spI],ky[kxy_spI], $
+                 PSYM=1, $
+                 COLOR=specialColor, $
+                 LINESTYLE=0
 
-     ENDIF
+        ENDIF
 
-  ENDIF ELSE BEGIN
+     ENDIF ELSE BEGIN
 
-     PLOT,freq[inds],kz[inds], $
-          ;; YTITLE='k!Dz!N (m!U-1!N)', $
-          YTITLE='k!Dz!N (km!U-1!N)', $
-          XTITLE='', $
-          XRANGE=page1__freqRange, $
-          YRANGE=[-kz_ysize,kz_ysize], $
-          XSTYLE=1, $
-          YSTYLE=1, $
-          XMINOR=5, $
-          CHARSIZE=cs, $
-          SYMSIZE=symSize
-     IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
-     IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-        OPLOT,freq[inds],SMOOTH(kz[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
-     ENDIF
+        PLOT,freq[inds],kz[inds], $
+             ;; YTITLE='k!Dz!N (m!U-1!N)', $
+             YTITLE='k!Dz!N (km!U-1!N)', $
+             XTITLE='', $
+             XRANGE=page1__freqRange, $
+             YRANGE=[-kz_ysize,kz_ysize], $
+             XSTYLE=1, $
+             YSTYLE=1, $
+             XMINOR=5, $
+             CHARSIZE=cs, $
+             SYMSIZE=symSize
+        IF example EQ 2 THEN OPLOT,kz+0.1,LINESTYLE=2
+        IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+           OPLOT,freq[inds],SMOOTH(kz[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=250
+        ENDIF
 
-     IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-        OPLOT,freq[inds],SMOOTH(kz[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
-     ENDIF
+        IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
+           OPLOT,freq[inds],SMOOTH(kz[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap),COLOR=90
+        ENDIF
 
-  ENDELSE
+     ENDELSE
+
+  ENDIF
+  
+
   ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
-
-
-  IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
+  IF ~(KEYWORD_SET(PRE_VIII_layout) OR KEYWORD_SET(football_layout)) THEN BEGIN
 
      IF KEYWORD_SET(save_ps) THEN BEGIN
         CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
@@ -693,7 +1061,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           XTITLE='FFT argument', $
           CHARSIZE=cs, $
           SYMSIZE=symSize, $
-          YRANGE=[-kx_ysize,kx_ysize]
+          YRANGE=kx_yRange
      IF example EQ 2 THEN OPLOT,kx+0.1,LINESTYLE=2 ;dashed line
 
      PLOT,freq[inds],ky[inds], $
@@ -701,7 +1069,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           XTITLE='FFT argument', $
           CHARSIZE=cs, $
           SYMSIZE=symSize, $
-          YRANGE=[-ky_ysize,ky_ysize]
+          YRANGE=ky_yRange
      IF example EQ 2 THEN OPLOT,ky+0.1,LINESTYLE=2
 
      PLOT,freq[inds],kz[inds], $
@@ -763,7 +1131,11 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   ENDIF ELSE BEGIN
 
 
-     IF KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
+     CASE 1 OF
+        KEYWORD_SET(football_layout): BEGIN
+
+        END
+        KEYWORD_SET(PRE_VIII_layout): BEGIN
 
         columns      = 1
         rows         = 3
@@ -774,193 +1146,194 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         page2Suff = ''
 
-     ENDIF ELSE BEGIN
+        END
+        ELSE: BEGIN
 
-        page2Suff = '-page2'
+           page2Suff = '-page2'
 
-        IF KEYWORD_SET(save_ps) THEN BEGIN
-           OUTPUT_SETUP,output_mode,plotDir,suff+page2Suff
-        ENDIF
+           IF KEYWORD_SET(save_ps) THEN BEGIN
+              OUTPUT_SETUP,output_mode,plotDir,suff+page2Suff
+           ENDIF
 
-        columns      = 1
-        rows         = 3
-        !P.MULTI[0]  = 0
-        !P.MULTI[1]  = columns
-        !P.MULTI[2]  = rows
-        !P.MULTI[3]  = 2 ;;Next page?
-        ;; !P.MULTI  = [0, columns, rows, 0, 0]
-        ;; !P.MULTI  = [0, columns, rows]
-        ;; !P.MULTI  = [0, columns, rows, 1, 0]
-        ;; !P.MULTI[0]  = 0
+           columns      = 1
+           rows         = 3
+           !P.MULTI[0]  = 0
+           !P.MULTI[1]  = columns
+           !P.MULTI[2]  = rows
+           !P.MULTI[3]  = 2 ;;Next page?
+           ;; !P.MULTI  = [0, columns, rows, 0, 0]
+           ;; !P.MULTI  = [0, columns, rows]
+           ;; !P.MULTI  = [0, columns, rows, 1, 0]
+           ;; !P.MULTI[0]  = 0
 
-        IF ~KEYWORD_SET(save_ps) THEN BEGIN
-           IF columns EQ 1 THEN BEGIN
-              WINDOW,2,XSIZE=700,YSIZE=800
-           ENDIF ELSE BEGIN
-              WINDOW,2,XSIZE=1200,YSIZE=600
-           ENDELSE
-        ENDIF
+           IF ~KEYWORD_SET(save_ps) THEN BEGIN
+              IF columns EQ 1 THEN BEGIN
+                 WINDOW,2,XSIZE=700,YSIZE=800
+              ENDIF ELSE BEGIN
+                 WINDOW,2,XSIZE=1200,YSIZE=600
+              ENDELSE
+           ENDIF
 
-        ;; k__yRange = [4e-3,1e1]
-        kP__yRange = MINMAX(kP[inds])
-        PLOT,freq[inds],kP[inds], $
-             XTITLE=freqTitle, $
-             ;; YRANGE=[4e-6,1e-2], $
-             XRANGE=page2__freqRange, $
-             YRANGE=kP__yRange, $
-             XSTYLE=1, $
-             YSTYLE=1, $
-             XTICKLEN=1.0, $
-             YTICKLEN=1.0, $
-             XGRIDSTYLE=1, $
-             YGRIDSTYLE=1, $
-             ;; XLOG=1, $
-             YLOG=1, $
-             ;; YTITLE=font + 'k!Dperp!N (m!U-1!N)', $
-             ;; YTITLE=font + 'k!Dperp!N (km!U-1!N)', $
-             YTITLE=font + 'k!D' + perpAll + '!N (km!U-1!N)', $
-             ;; XTICKFORMAT="(A1)", $
-             CHARSIZE=cs, $
-             SYMSIZE=symSize
-
-        ;; smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-        IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-           OPLOT,freq[inds],smooth_kP[inds], $
-                 COLOR=250
-        ENDIF
-
-        IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
-           dbSmkP = SMOOTH(kP[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
-           OPLOT,freq[inds],dbSmkP, $
-                 COLOR=90
-        ENDIF
-
-        overplot_k_turbulence = 1
-        IF KEYWORD_SET(overplot_k_turbulence) THEN BEGIN
-           ;; kDoppl = (freq[inds]^(1.7)/10000)
-           GET_FA_ORBIT,Tarr,/DEFINITIVE,/ALL,/TIME_ARRAY
-           GET_DATA,'fa_vel',DATA=vel
-
-           ;; speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
-           speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)
-           ;; avgSpeed = MEAN(speed)-6000.
-           avgSpeed = MEAN(speed)
-
-           kMajic = kx
-           ;; kxTemp = kx
-
-           ;; CASE 1 OF
-           IF KEYWORD_SET(fitline__use_abs) THEN BEGIN
-              kMajic = ABS(kMajic)
-           ENDIF ELSE BEGIN
-              chuck = WHERE(kMajic GT 0.0,nPosKx)
-              chuck = WHERE(kMajic LT 0.0,nNegKx)
-              IF nNegKx GT nPosKx THEN kMajic *= -1.
-           ENDELSE
-           IF KEYWORD_SET(fitline__use_smoothed) THEN BEGIN
-              kMajic = SMOOTH(kMajic,smInd)
-           END
-           ;; kMajic = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
-           ;;                  ABS(kP) : kP), $
-           ;;                 smInd, $
-           ;;                 EDGE_TRUNCATE=edge_truncate, $
-           ;;                 EDGE_MIRROR=edge_mirror, $
-           ;;                 EDGE_WRAP=edge_wrap)
-
-           ;; wDoppl    = kMajic*(avgSpeed)/(2.*!PI)
-           ;; fDoppl    = wDoppl
-
-           minDoppl  = FLOOR(MIN(freq))
-           maxDoppl  = CEIL(MAX(freq))
-           fDoppl    = FINDGEN((maxDoppl-minDoppl)*20.+1)*0.05+minDoppl
-           kDoppl    = fDoppl/avgSpeed
-
-           want_kx   = 1
-           IF KEYWORD_SET(want_kx) THEN BEGIN
-              ;; yArg   = ABS(kx)
-              yArg   = kx
-              yTito  = 'k!Dx!N (km!U-1!N)'
-           ENDIF ELSE BEGIN
-              yArg   = ABS(ky)
-              yTito  = 'k!Dy!N (km!U-1!N)'
-           ENDELSE
-
-           k__yRange = [MIN(yArg),MAX(yArg)] 
-           PLOT,freq[inds],yArg[inds], $
+           ;; k__yRange = [4e-3,1e1]
+           kP__yRange = MINMAX(kP[inds])
+           PLOT,freq[inds],kP[inds], $
                 XTITLE=freqTitle, $
-                YTITLE=yTito, $
+                ;; YRANGE=[4e-6,1e-2], $
                 XRANGE=page2__freqRange, $
-                ;; YRANGE=k__yRange, $
+                YRANGE=kP__yRange, $
                 XSTYLE=1, $
-                ;; YSTYLE=1, $
-                ;; XLOG=1, $
-                ;; YLOG=1, $
-                ;;NWO
-                ;; YRANGE=[(-1.)*MIN(k__yRange),MAX(k__yRange)], $
-                YRANGE=k__yRange, $
-                YLOG=0, $
+                YSTYLE=1, $
                 XTICKLEN=1.0, $
                 YTICKLEN=1.0, $
                 XGRIDSTYLE=1, $
                 YGRIDSTYLE=1, $
+                ;; XLOG=1, $
+                YLOG=1, $
+                ;; YTITLE=font + 'k!Dperp!N (m!U-1!N)', $
+                ;; YTITLE=font + 'k!Dperp!N (km!U-1!N)', $
+                YTITLE=font + 'k!D' + perpAll + '!N (km!U-1!N)', $
+                ;; XTICKFORMAT="(A1)", $
                 CHARSIZE=cs, $
                 SYMSIZE=symSize
 
-           ;; OPLOT,fDoppl[inds],kMajic[inds], $
-           ;; OPLOT,freq[inds],kDoppl[inds], $
-           OPLOT,fDoppl,kDoppl, $
-                 COLOR=110
-
-           OPLOT,fDoppl,(-1.)*kDoppl, $
-                 COLOR=110
-
-           kDopplDat = freq/avgSpeed
-           posii     = WHERE((yArg[inds] GT 0) AND (yArg[inds] GT kDopplDat[inds]),nPosii)
-           negii     = WHERE((yArg[inds] LT 0) AND (yArg[inds] LT (-1.)*kDopplDat[inds]),nNegii)
-
-           dopplInds = !NULL
-           IF nPosii GT 0 THEN BEGIN
-              dopplInds = [dopplInds,inds[posii]]
-           ENDIF
-           IF nNegii GT 0 THEN BEGIN
-              dopplInds = [dopplInds,inds[negii]]
+           ;; smkP = SMOOTH(kP[inds],smInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+           IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+              OPLOT,freq[inds],smooth_kP[inds], $
+                    COLOR=250
            ENDIF
 
-           OPLOT,freq[dopplInds],yArg[dopplInds],COLOR=230,PSYM=1
-
-           add_Doppler_fit_string = 0
-           IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
-              fitInds      = CGSETINTERSECTION(fitInds,WHERE(kMajic GT 0.00))
-              params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),YFIT=kxFitter)
-              corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),T_STAT=t_stat)
-
-              params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),YFIT=kxFitter)
-              corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),T_STAT=t_stat)
-
-              xFit         = 10.^((INDGEN(10))/ $
-                                  10.*(ALOG10(MAX(freq[fitInds]))-ALOG10(MIN(freq[fitInds])))+$
-                                  ALOG10(MIN(freq[fitInds])))
-              kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
-              kxFitter     = 10.^(params[1] * ALOG10(freq[fitInds]) + params[0])
-
-              ;; slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
-              ;; corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
-              ;; tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
-              ;; txOutSize    = cs
-              ;; XYOUTS,0.2,0.89,slopeString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.86,corrString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.83,tString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.59,slopeString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.56,corrString,/NORMAL,CHARSIZE=txOutSize
-              ;; XYOUTS,0.2,0.53,tString,/NORMAL,CHARSIZE=txOutSize
-
-              ;; OPLOT,xFit,kxFit,COLOR=40
-
+           IF KEYWORD_SET(overplot_doubly_smoothed) THEN BEGIN
+              dbSmkP = SMOOTH(kP[inds],dbSmInd,EDGE_TRUNCATE=edge_truncate,EDGE_MIRROR=edge_mirror,EDGE_WRAP=edge_wrap)
+              OPLOT,freq[inds],dbSmkP, $
+                    COLOR=90
            ENDIF
-        ENDIF
 
-     ENDELSE
+           overplot_k_turbulence = 1
+           IF KEYWORD_SET(overplot_k_turbulence) THEN BEGIN
+              ;; kDoppl = (freq[inds]^(1.7)/10000)
+              GET_FA_ORBIT,Tarr,/DEFINITIVE,/ALL,/TIME_ARRAY
+              GET_DATA,'fa_vel',DATA=vel
 
+              ;; speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)*1000.0
+              speed = SQRT(vel.y[*,0]^2+vel.y[*,1]^2+vel.y[*,2]^2)
+              ;; avgSpeed = MEAN(speed)-6000.
+              avgSpeed = MEAN(speed)
+
+              kMajic = kx
+              ;; kxTemp = kx
+
+              ;; CASE 1 OF
+              IF KEYWORD_SET(fitline__use_abs) THEN BEGIN
+                 kMajic = ABS(kMajic)
+              ENDIF ELSE BEGIN
+                 chuck = WHERE(kMajic GT 0.0,nPosKx)
+                 chuck = WHERE(kMajic LT 0.0,nNegKx)
+                 IF nNegKx GT nPosKx THEN kMajic *= -1.
+              ENDELSE
+              IF KEYWORD_SET(fitline__use_smoothed) THEN BEGIN
+                 kMajic = SMOOTH(kMajic,smInd)
+              END
+              ;; kMajic = SMOOTH((KEYWORD_SET(plot_abs_smoothed_ks) ? $
+              ;;                  ABS(kP) : kP), $
+              ;;                 smInd, $
+              ;;                 EDGE_TRUNCATE=edge_truncate, $
+              ;;                 EDGE_MIRROR=edge_mirror, $
+              ;;                 EDGE_WRAP=edge_wrap)
+
+              ;; wDoppl    = kMajic*(avgSpeed)/(2.*!PI)
+              ;; fDoppl    = wDoppl
+
+              minDoppl  = FLOOR(MIN(freq))
+              maxDoppl  = CEIL(MAX(freq))
+              fDoppl    = FINDGEN((maxDoppl-minDoppl)*20.+1)*0.05+minDoppl
+              kDoppl    = fDoppl/avgSpeed
+
+              want_kx   = 1
+              IF KEYWORD_SET(want_kx) THEN BEGIN
+                 ;; yArg   = ABS(kx)
+                 yArg   = kx
+                 yTito  = 'k!Dx!N (km!U-1!N)'
+              ENDIF ELSE BEGIN
+                 yArg   = ABS(ky)
+                 yTito  = 'k!Dy!N (km!U-1!N)'
+              ENDELSE
+
+              k__yRange = [MIN(yArg),MAX(yArg)] 
+              PLOT,freq[inds],yArg[inds], $
+                   XTITLE=freqTitle, $
+                   YTITLE=yTito, $
+                   XRANGE=page2__freqRange, $
+                   ;; YRANGE=k__yRange, $
+                   XSTYLE=1, $
+                   ;; YSTYLE=1, $
+                   ;; XLOG=1, $
+                   ;; YLOG=1, $
+                   ;;NWO
+                   ;; YRANGE=[(-1.)*MIN(k__yRange),MAX(k__yRange)], $
+                   YRANGE=k__yRange, $
+                   YLOG=0, $
+                   XTICKLEN=1.0, $
+                   YTICKLEN=1.0, $
+                   XGRIDSTYLE=1, $
+                   YGRIDSTYLE=1, $
+                   CHARSIZE=cs, $
+                   SYMSIZE=symSize
+
+              ;; OPLOT,fDoppl[inds],kMajic[inds], $
+              ;; OPLOT,freq[inds],kDoppl[inds], $
+              OPLOT,fDoppl,kDoppl, $
+                    COLOR=110
+
+              OPLOT,fDoppl,(-1.)*kDoppl, $
+                    COLOR=110
+
+              kDopplDat = freq/avgSpeed
+              posii     = WHERE((yArg[inds] GT 0) AND (yArg[inds] GT kDopplDat[inds]),nPosii)
+              negii     = WHERE((yArg[inds] LT 0) AND (yArg[inds] LT (-1.)*kDopplDat[inds]),nNegii)
+
+              dopplInds = !NULL
+              IF nPosii GT 0 THEN BEGIN
+                 dopplInds = [dopplInds,inds[posii]]
+              ENDIF
+              IF nNegii GT 0 THEN BEGIN
+                 dopplInds = [dopplInds,inds[negii]]
+              ENDIF
+
+              OPLOT,freq[dopplInds],yArg[dopplInds],COLOR=230,PSYM=1
+
+              add_Doppler_fit_string = 0
+              IF KEYWORD_SET(add_Doppler_fit_string) THEN BEGIN
+                 fitInds      = CGSETINTERSECTION(fitInds,WHERE(kMajic GT 0.00))
+                 params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),YFIT=kxFitter)
+                 corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(kMajic[fitInds]),T_STAT=t_stat)
+
+                 params       = LINFIT(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),YFIT=kxFitter)
+                 corr         = LINCORR(ALOG10(freq[fitInds]),ALOG10(ABS(kx[fitInds])),T_STAT=t_stat)
+
+                 xFit         = 10.^((INDGEN(10))/ $
+                                     10.*(ALOG10(MAX(freq[fitInds]))-ALOG10(MIN(freq[fitInds])))+$
+                                     ALOG10(MIN(freq[fitInds])))
+                 kxFit        = 10.^(params[1] * ALOG10(xFit) + params[0])
+                 kxFitter     = 10.^(params[1] * ALOG10(freq[fitInds]) + params[0])
+
+                 ;; slopeString  = STRING(FORMAT='(A-10,T15,F7.3)',"slope  =",params[1])
+                 ;; corrString   = STRING(FORMAT='(A-10,T15,F7.3)',"r      =",corr[0])
+                 ;; tString      = STRING(FORMAT='(A-10,T15,F7.3)',"t-test =",t_stat)
+                 ;; txOutSize    = cs
+                 ;; XYOUTS,0.2,0.89,slopeString,/NORMAL,CHARSIZE=txOutSize
+                 ;; XYOUTS,0.2,0.86,corrString,/NORMAL,CHARSIZE=txOutSize
+                 ;; XYOUTS,0.2,0.83,tString,/NORMAL,CHARSIZE=txOutSize
+                 ;; XYOUTS,0.2,0.59,slopeString,/NORMAL,CHARSIZE=txOutSize
+                 ;; XYOUTS,0.2,0.56,corrString,/NORMAL,CHARSIZE=txOutSize
+                 ;; XYOUTS,0.2,0.53,tString,/NORMAL,CHARSIZE=txOutSize
+
+                 ;; OPLOT,xFit,kxFit,COLOR=40
+
+              ENDIF
+           ENDIF
+
+        END
+     ENDCASE
      
      ;;Kperp angle plot     
      yMajDiv        = 45
@@ -1000,10 +1373,10 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
 
      PLOT,freq[inds],kPAngle[inds], $
-          XTITLE=freqTitle, $
+          XTITLE=KEYWORD_SET(football_layout) ? !NULL : freqTitle, $
           ;; YTITLE='!4h!X!Dk!Dperp!N', $
           YTITLE='!4h!X!Dk!D' + perpAll + '!N', $
-          XRANGE=page2__freqRange, $
+          XRANGE=(KEYWORD_SET(football_layout) OR KEYWORD_SET(PRE_VIII_layout))? page1__freqRange : page2__freqRange, $
           YRANGE=yARange, $
           XSTYLE=1, $
           YSTYLE=1, $
@@ -1014,9 +1387,12 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           YTICKS=N_ELEMENTS(yTickV)-1, $
           YTICKV=yTickV, $
           YTICKNAME=yTickName, $
+          XMINOR=5, $
           YMINOR=yMinor, $
           CHARSIZE=cs, $
-          SYMSIZE=symSize
+          SYMSIZE=symSize, $
+          POSITION=KEYWORD_SET(football_layout) ? poskPA : !NULL, $
+          NOERASE=KEYWORD_SET(football_layout)
 
      IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
 
@@ -1056,7 +1432,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      ENDIF
 
 
-     IF ~KEYWORD_SET(PRE_VIII_layout) THEN BEGIN
+     IF ~(KEYWORD_SET(PRE_VIII_layout) OR KEYWORD_SET(football_layout)) THEN BEGIN
 
         IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
            OPLOT,freq[dopplInds],smooth_kPAngle[dopplInds], $
@@ -1076,6 +1452,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      ENDIF
 
      CASE 1 OF
+        ;; KEYWORD_SET(football_layout): BEGIN
+
+        ;; END
         KEYWORD_SET(third_page) AND ~KEYWORD_SET(PRE_VIII_layout): BEGIN
            IF KEYWORD_SET(save_ps) THEN BEGIN
               CONCLUDE_OUTPUT,output_mode,plotDir,suff+page2Suff, $
@@ -1151,6 +1530,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
            IF KEYWORD_SET(save_ps) THEN BEGIN
 
+              IF KEYWORD_SET(football_layout) THEN page2suff = ''
+
               CONCLUDE_OUTPUT,output_mode,plotDir,suff+page2suff, $
                               ;; CONCLUDE_OUTPUT,output_mode,plotDir,suff, $
                               TO_PDF=to_pdf, $
@@ -1162,6 +1543,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                  fPref = plotDir + suff
 
                  CASE 1 OF
+                    KEYWORD_SET(football_layout): BEGIN
+
+                    END
                     KEYWORD_SET(PRE_VIII_layout): BEGIN
 
                     END
