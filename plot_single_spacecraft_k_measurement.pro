@@ -189,6 +189,8 @@ PRO GET_FREQ_INDS,freq,kx,ky,kz, $
                   JSPEC=JSpec, $
                   MAGCSPEC=magCSpec, $
                   POWFREQ=powFreq, $
+                  MAGERR=magErr, $
+                  ERRANGLE=errAngle, $
                   OUT_FITINDS=fitInds, $
                   MAXFREQ=maxFreq, $
                   PLOT_POSFREQ=plot_posFreq, $
@@ -375,6 +377,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
                 JSPEC=JSpec, $
                 MAGCSPEC=magCSpec, $
                 POWFREQ=powFreq, $
+                MAGERR=magErr, $
+                ERRANGLE=errAngle, $
                 OUT_FITINDS=fitInds, $
                 MAXFREQ=maxFreq, $
                 PLOT_POSFREQ=plot_posFreq, $

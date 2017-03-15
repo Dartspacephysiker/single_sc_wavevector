@@ -397,8 +397,8 @@ PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
 
   nFreq           = N_ELEMENTS(freq)
   
-  realer          = 1
-
+  ;; realer          = 1
+  ;; powSpec         = 1
   CASE 1 OF
      KEYWORD_SET(realer): BEGIN
 
@@ -408,7 +408,7 @@ PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
         FOR k=0,nFreq-1 DO BEGIN
 
            ;;Measured J
-           Jvectemp        = REAL_PART([Jx_om[k], Jy_om[k], Jz_om[k]])
+           Jvectemp        = REAL_PART([Jx_om[k], Jy_om[k], Jz_om[k]]) ;Can use real part(??) because we don't want fakers
 
            ;;Measured B and derived k
            Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
@@ -416,6 +416,35 @@ PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
 
            ;;Predicted J
            Jpred[*,k]      = REAL_PART(iCmplx * CROSSP(kvectemp,Bvectemp)) / mu_0
+
+           JpredMag        = SQRT(ABS(DOT(Jpred[*,k],Jpred[*,k])))
+           JvecMag         = SQRT(ABS(DOT(Jvectemp  ,Jvectemp)))
+
+           ;;Error angle
+           errAngle[k]     = ACOS(DOT(Jpred[*,k],Jvectemp)/(JpredMag*jvecMag))
+
+           ;;Magnitude error
+           magErr[k]       = ABS(JpredMag-JvecMag)/(JpredMag+JvecMag)
+
+        ENDFOR
+
+     END
+     KEYWORD_SET(powSpec): BEGIN
+
+        JPred              = MAKE_ARRAY(3,nFreq,/DOUBLE)
+        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
+        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
+        FOR k=0,nFreq-1 DO BEGIN
+
+           ;;Measured J
+           Jvectemp        = ABS([Jx_om[k], Jy_om[k], Jz_om[k]])
+
+           ;;Measured B and derived k
+           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
+           kvectemp        = [kx[k], ky[k], kz[k]] 
+
+           ;;Predicted J
+           Jpred[*,k]      = ABS(iCmplx * CROSSP(kvectemp,Bvectemp)) / mu_0
 
            JpredMag        = SQRT(ABS(DOT(Jpred[*,k],Jpred[*,k])))
            JvecMag         = SQRT(ABS(DOT(Jvectemp  ,Jvectemp)))
@@ -451,7 +480,13 @@ PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
 
            ;;Error angle
            ;; errAngle[k]  = ACOS(DOT(Jpred[*,k],CONJ(Jvectemp))/(SQRT(DOT(Jpred[*,k],CONJ(Jpred[*,k])))*SQRT(DOT(Jvectemp,CONJ(Jvectemp)))))
-           errAngle[k]     = ACOS(REAL_PART(DOT(Jpred[*,k],CONJ(Jvectemp)))/(JpredMag*jvecMag))
+
+           ;; errAngle[k]     = ACOS(REAL_PART(DOT(Jpred[*,k],CONJ(Jvectemp)))/(JpredMag*jvecMag))
+           errAngle[k]     = REAL_PART(ACOS(DOT(Jpred[*,k],CONJ(Jvectemp))/(JpredMag*jvecMag)))
+           ;; errAngle[k]     = ACOS(REAL_PART(DOT(Jvectemp,CONJ(Jpred[*,k])))/(JpredMag*jvecMag)) ;;just to see what happens (no difference)
+
+           ;; errAngle[k]     = ACOS(ABS(DOT(Jpred[*,k],CONJ(Jvectemp)))/(JpredMag*jvecMag))
+
 
            ;;Magnitude error
            magErr[k]       = ABS(JpredMag-JvecMag)/(JpredMag+JvecMag)
@@ -1162,13 +1197,13 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
         junk = MAX(distFreq,ind)
         sPeriod = DOUBLE(locs[ind])
 
-        ;; startT  = je_z.x[0]
-        ;; stopT   = je_z.x[-1]
+        startT  = je_z.x[0]
+        stopT   = je_z.x[-1]
 
-        these   = VALUE_CLOSEST2(db.x,[je_z.x[0],je_z.x[-1]])
+        ;; these   = VALUE_CLOSEST2(db.x,[je_z.x[0],je_z.x[-1]])
 
-        startT  = db.x[these[0]]
-        stopT   = db.x[these[1]]
+        ;; startT  = db.x[these[0]]
+        ;; stopT   = db.x[these[1]]
 
         even_TS = MAKE_EVENLY_SPACED_TIME_SERIES(START_T=startT, $
                                                  STOP_T=stopT, $
@@ -2526,19 +2561,28 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
         ENDCASE
 
         ;;Put 'em in km^-1
-        kx     *= 1000.
-        ky     *= 1000.
-        kz     *= 1000.
-        kP     *= 1000.
+        kx          *= 1000.
+        ky          *= 1000.
+        kz          *= 1000.
+        kP          *= 1000.
 
-        bro = 1
+        bro          = 1
         IF KEYWORD_SET(bro) THEN BEGIN
-           tmp  = SORT(freq)
-           freq = freq[tmp]
-           kx   = kx[tmp]
-           ky   = ky[tmp]
-           kz   = kz[tmp]
-           kP   = kP[tmp]
+
+           tmp       = SORT(freq)
+           freq      = freq[tmp]
+           kx        = kx[tmp]
+           ky        = ky[tmp]
+           kz        = kz[tmp]
+           kP        = kP[tmp]
+
+           JPred     = JPred[*,tmp]
+           magErr    = magErr[tmp]
+           errAngle  = errAngle[tmp]
+
+           ;; IF KEYWORD_SET(EField) THEN BEGIN
+           ;; ENDIF
+           
         ENDIF
 
         IF KEYWORD_SET(use_all_streaks) THEN BEGIN
