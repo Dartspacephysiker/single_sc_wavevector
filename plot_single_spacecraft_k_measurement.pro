@@ -383,17 +383,39 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
   IF KEYWORD_SET(mark_ks_below_both) THEN BEGIN
 
-     IF N_ELEMENTS(mark_ks_below_magErr_thresh) EQ 0 THEN BEGIN
+     CASE N_ELEMENTS(mark_ks_below_both) OF
 
-        mark_ks_below_magErr_thresh = 1
+        1: BEGIN
 
-     ENDIF
+           IF N_ELEMENTS(mark_ks_below_magErr_thresh) EQ 0 THEN BEGIN
 
-     IF N_ELEMENTS(mark_ks_below_errAngle_thresh) EQ 0 THEN BEGIN
+              mark_ks_below_magErr_thresh = 1
 
-        mark_ks_below_errAngle_thresh = 10
+           ENDIF
 
-     ENDIF
+           IF N_ELEMENTS(mark_ks_below_errAngle_thresh) EQ 0 THEN BEGIN
+
+              mark_ks_below_errAngle_thresh = 10
+
+           ENDIF
+
+        END
+        2: BEGIN
+
+           IF N_ELEMENTS(mark_ks_below_magErr_thresh) EQ 0 THEN BEGIN
+
+              mark_ks_below_magErr_thresh = mark_ks_below_both[0]
+
+           ENDIF
+
+           IF N_ELEMENTS(mark_ks_below_errAngle_thresh) EQ 0 THEN BEGIN
+
+              mark_ks_below_errAngle_thresh = mark_ks_below_both[1]
+
+           ENDIF
+
+        END
+     ENDCASE
 
   ENDIF
 
@@ -922,7 +944,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         IF nCoolMEEA_k GT 0 THEN BEGIN
 
-           OPLOT,freq[coolMEEA_k_i],kx[coolMEEA_k_i], $
+           PLOTS,freq[coolMEEA_k_i],kx[coolMEEA_k_i], $
                  COLOR=bxCol, $
                  PSYM=pSymMEEA, $
                  SYMSIZE=symSize
@@ -1005,7 +1027,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         IF nCoolMEEA_k GT 0 THEN BEGIN
 
-           OPLOT,freq[coolMEEA_k_i],ky[coolMEEA_k_i], $
+           PLOTS,freq[coolMEEA_k_i],ky[coolMEEA_k_i], $
                  COLOR=byCol, $
                  PSYM=pSymMEEA, $
                  SYMSIZE=symSize
@@ -1058,7 +1080,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
            IF nCoolMEEA_k GT 0 THEN BEGIN
 
-              OPLOT,freq[coolMEEA_k_i],(SQRT(kx*kx+ky*ky))[coolMEEA_k_i], $
+              PLOTS,freq[coolMEEA_k_i],(SQRT(kx*kx+ky*ky))[coolMEEA_k_i], $
                     ;; COLOR=bxCol, $
                     PSYM=pSymMEEA, $
                     SYMSIZE=symSize
@@ -1592,21 +1614,6 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
         OPLOT,freq[inds],errAngle[inds]*180.D/!PI, $
               COLOR=thetaErrCol
 
-        rango       = (MAX(yARange)-MIN(yARange))
-        ;; distVec     = REVERSE(INDGEN(3)*spaceFrac - 2.*spaceFrac + 1)
-
-        legYSymPos  = 0.9* rango + MIN(yARange)
-        legYPos     = 0.9* rango + MIN(yARange)
-
-        legXPos1    = 0.1*((MAX(freq)-MIN(freq))+MIN(freq))
-        legXPos2    = 0.15*((MAX(freq)-MIN(freq))+MIN(freq))
-        legXSymPos1 = 0.03*((MAX(freq)-MIN(freq))+MIN(freq))
-        legXSymPos2 = 0.08*((MAX(freq)-MIN(freq))+MIN(freq))
-
-        XYOUTS,legXPos1,legYPos[0],'!4h!X!Derr!N',CHARSIZE=cs
-        PLOTS,legXSymPos1,legYSymPos[0],COLOR=thetaErrCol
-        PLOTS,legXSymPos2,legYSymPos[0],COLOR=thetaErrCol,/CONTINUE
-
         AXIS,YAXIS=1,YRANGE=[MIN(magErr),MAX(magErr)], $
              YSTYLE = 1, $
              YTITLE = '|Relative Error|', $
@@ -1665,13 +1672,28 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         IF nCoolMEEA_k GT 0 THEN BEGIN
 
-           OPLOT,freq[coolMEEA_k_i],kPAngle[coolMEEA_k_i], $
+           PLOTS,freq[coolMEEA_k_i],kPAngle[coolMEEA_k_i], $
                  ;; COLOR=nei, $
                  PSYM=pSymMEEA, $
                  SYMSIZE=symSize
 
 
         ENDIF
+
+        rango       = (MAX(yARange)-MIN(yARange))
+        ;; distVec     = REVERSE(INDGEN(3)*spaceFrac - 2.*spaceFrac + 1)
+
+        legYSymPos  = 0.9* rango + MIN(yARange)
+        legYPos     = 0.9* rango + MIN(yARange)
+
+        legXPos1    = 0.1*((MAX(freq)-MIN(freq))+MIN(freq))
+        legXPos2    = 0.15*((MAX(freq)-MIN(freq))+MIN(freq))
+        legXSymPos1 = 0.03*((MAX(freq)-MIN(freq))+MIN(freq))
+        legXSymPos2 = 0.08*((MAX(freq)-MIN(freq))+MIN(freq))
+
+        XYOUTS,legXPos1,legYPos[0],'!4h!X!Derr!N',CHARSIZE=cs
+        PLOTS,legXSymPos1,legYSymPos[0],COLOR=thetaErrCol
+        PLOTS,legXSymPos2,legYSymPos[0],COLOR=thetaErrCol,/CONTINUE
 
      ENDIF
 
