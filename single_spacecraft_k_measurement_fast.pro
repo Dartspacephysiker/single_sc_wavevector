@@ -395,56 +395,74 @@ PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
   Jy_om           = FFT(Jy*unitFactors.J)
   Jz_om           = FFT(Jz*unitFactors.J)
 
-  
   nFreq           = N_ELEMENTS(freq)
   
-  omegaBtotal     = 0
-  kxEtotal        = 0
-  norm            = 0           ; check that avg (k x E) = 0
-  JPred           = MAKE_ARRAY(3,nFreq,/DCOMPLEX)
-  ;; diffs           = MAKE_ARRAY(3,nFreq,/DCOMPLEX)
-  ;; errAngle        = MAKE_ARRAY(nFreq,/DCOMPLEX)
-  ;; magErr          = MAKE_ARRAY(nFreq,/DCOMPLEX)
-  diffs           = MAKE_ARRAY(nFreq,/DOUBLE)
-  errAngle        = MAKE_ARRAY(nFreq,/DOUBLE)
-  magErr          = MAKE_ARRAY(nFreq,/DOUBLE)
-  FOR k=0,nFreq-1 DO BEGIN
+  realer          = 1
 
-     ;;Measured J
-     Jvectemp     = [Jx_om[k], Jy_om[k], Jz_om[k]]
+  CASE 1 OF
+     KEYWORD_SET(realer): BEGIN
 
-     ;;Measured B and derived k
-     Bvectemp     = [Bx_om[k], By_om[k], Bz_om[k]]
-     ;; kvectemp     = [kx[k], ky[k], kz[k]] / unitFactors.BtimesJdMu ;back into units native for J and B
-     kvectemp     = [kx[k], ky[k], kz[k]] 
+        JPred              = MAKE_ARRAY(3,nFreq,/DOUBLE)
+        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
+        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
+        FOR k=0,nFreq-1 DO BEGIN
 
-     ;;Predicted J
-     Jpred[*,k]   = iCmplx * CROSSP(kvectemp,Bvectemp) / mu_0
+           ;;Measured J
+           Jvectemp        = REAL_PART([Jx_om[k], Jy_om[k], Jz_om[k]])
 
-     JvecMag      = SQRT(ABS(DOT(Jvectemp,CONJ(Jvectemp))))
-     JpredMag     = SQRT(ABS(DOT(Jpred[*,k],CONJ(Jpred[*,k]))))
+           ;;Measured B and derived k
+           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
+           kvectemp        = [kx[k], ky[k], kz[k]] 
 
-     ;; diffs[*,k]   = Jpred[*,k]-Jvectemp
-     diffs[k]     = JpredMag-JvecMag
-     ;; tmpSum       = Jpred[*,k]+Jvectemp
-     tmpSum       = JpredMag+jvecMag
+           ;;Predicted J
+           Jpred[*,k]      = REAL_PART(iCmplx * CROSSP(kvectemp,Bvectemp)) / mu_0
 
-     ;;Error angle
-     ;; errAngle[k]  = ACOS(DOT(Jpred[*,k],CONJ(Jvectemp))/(SQRT(DOT(Jpred[*,k],CONJ(Jpred[*,k])))*SQRT(DOT(Jvectemp,CONJ(Jvectemp)))))
-     errAngle[k]  = ACOS(ABS(DOT(Jpred[*,k],CONJ(Jvectemp)))/(JpredMag*jvecMag))
+           JpredMag        = SQRT(ABS(DOT(Jpred[*,k],Jpred[*,k])))
+           JvecMag         = SQRT(ABS(DOT(Jvectemp  ,Jvectemp)))
 
-     ;;Magnitude error
-     ;; magErr[k]    = SQRT(DOT(diffs[*,k],CONJ(diffs[*,k])))/SQRT(DOT(tmpSum,CONJ(tmpSum)))
-     ;; magErr[k]    = SQRT(ABS(DOT(diffs[*,k],CONJ(diffs[*,k]))))/SQRT(ABS(DOT(tmpSum,CONJ(tmpSum))))
-     ;; magErr[k]    = SQRT(ABS(DOT(diffs[*,k],CONJ(diffs[*,k]))))/tmpSum
-     magErr[k]    = ABS(diffs[k])/tmpSum
+           ;;Error angle
+           errAngle[k]     = ACOS(DOT(Jpred[*,k],Jvectemp)/(JpredMag*jvecMag))
 
-  ENDFOR
+           ;;Magnitude error
+           magErr[k]       = ABS(JpredMag-JvecMag)/(JpredMag+JvecMag)
+
+        ENDFOR
+
+     END
+     ELSE: BEGIN
+
+        JPred              = MAKE_ARRAY(3,nFreq,/DCOMPLEX)
+        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
+        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
+        FOR k=0,nFreq-1 DO BEGIN
+
+           ;;Measured J
+           Jvectemp        = [Jx_om[k], Jy_om[k], Jz_om[k]]
+
+           ;;Measured B and derived k
+           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
+           kvectemp        = [kx[k], ky[k], kz[k]] 
+
+           ;;Predicted J
+           Jpred[*,k]      = iCmplx * CROSSP(kvectemp,Bvectemp) / mu_0
+
+           JpredMag        = SQRT(ABS(DOT(Jpred[*,k],CONJ(Jpred[*,k]))))
+           JvecMag         = SQRT(ABS(DOT(Jvectemp  ,CONJ(Jvectemp))))
+
+           ;;Error angle
+           ;; errAngle[k]  = ACOS(DOT(Jpred[*,k],CONJ(Jvectemp))/(SQRT(DOT(Jpred[*,k],CONJ(Jpred[*,k])))*SQRT(DOT(Jvectemp,CONJ(Jvectemp)))))
+           errAngle[k]     = ACOS(REAL_PART(DOT(Jpred[*,k],CONJ(Jvectemp)))/(JpredMag*jvecMag))
+
+           ;;Magnitude error
+           magErr[k]       = ABS(JpredMag-JvecMag)/(JpredMag+JvecMag)
+
+        ENDFOR
+
+     END
+  ENDCASE
+
   
   PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
-
-  ;; PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
-  
 
 END
 
@@ -632,6 +650,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
                          USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                          CUSTOM_T1=custom_t1, $
                          CUSTOM_T2=custom_t2, $
+                         CUSTOM_ADDSEC=custom_addSec, $
                          SHIFT_NPTS=shift_nPts, $
                          USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
                          USE_J_TIME_SERIES=use_J_time_series, $
@@ -719,8 +738,10 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
 
   ENDIF
 
-  t1BKUP      = N_ELEMENTS(t1Zoom) GT 0 ? t1Zoom : dB.x[0]
-  t2BKUP      = N_ELEMENTS(t2Zoom) GT 0 ? t2Zoom : dB.x[-1]
+  ;; t1BKUP      = N_ELEMENTS(t1Zoom) GT 0 ? t1Zoom : dB.x[0]
+  ;; t2BKUP      = N_ELEMENTS(t2Zoom) GT 0 ? t2Zoom : dB.x[-1]
+  t1BKUP      = N_ELEMENTS(t1Zoom) GT 0 ? t1Zoom : Je_z.x[0]
+  t2BKUP      = N_ELEMENTS(t2Zoom) GT 0 ? t2Zoom : Je_z.x[-1]
   
   ;;Now custom times
   IF KEYWORD_SET(custom_t1) THEN BEGIN
@@ -786,6 +807,11 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
   ENDIF ELSE BEGIN
      analysis_t2        = KEYWORD_SET(tBar_t2) ? TEMPORARY(tBar_t2) : t2BKUP
   ENDELSE
+
+  IF N_ELEMENTS(custom_addSec) GT 0 THEN BEGIN
+     analysis_t1       += custom_addSec
+     analysis_t2       += custom_addSec
+  ENDIF
 
   ;; bFactor = 1.e-9 ;Get 'em out of nT
   ;; bFactor = 1.e3
@@ -1128,15 +1154,24 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
      END
      2: BEGIN
 
-        bro = ROUND_TO_NTH_DECIMAL_PLACE(ji_z.x[1:-1]-ji_z.x[0:-2],-5)
+        bro = ROUND_TO_NTH_DECIMAL_PLACE(je_z.x[1:-1]-je_z.x[0:-2],-7)
         bro = bro[WHERE(ABS(bro) LT 1)]
         distFreq = HISTOGRAM(bro,MIN=MIN(bro),BINSIZE=0.00001, $
                              REVERSE_INDICES=ri, $
                              LOCATIONS=locs)
         junk = MAX(distFreq,ind)
         sPeriod = DOUBLE(locs[ind])
-        even_TS = MAKE_EVENLY_SPACED_TIME_SERIES(START_T=ji_z.x[0], $
-                                                 STOP_T=ji_z.x[-1], $
+
+        ;; startT  = je_z.x[0]
+        ;; stopT   = je_z.x[-1]
+
+        these   = VALUE_CLOSEST2(db.x,[je_z.x[0],je_z.x[-1]])
+
+        startT  = db.x[these[0]]
+        stopT   = db.x[these[1]]
+
+        even_TS = MAKE_EVENLY_SPACED_TIME_SERIES(START_T=startT, $
+                                                 STOP_T=stopT, $
                                                  DELTA_T=sPeriod)
         ;; even_TS = ji_z.x
 
@@ -1748,6 +1783,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
+   CUSTOM_ADDSEC=custom_addSec, $
    SHIFT_NPTS=shift_nPts, $
    BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
    FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
@@ -1762,6 +1798,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
    MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
    MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
+   MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
+   MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+   MARK_KS_BELOW_BOTH=mark_ks_below_both, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
@@ -1807,6 +1846,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    FOOTBALL_LAYOUT=football_layout, $
    FOOTBALL_YLOG=football_yLog, $
    FOOTBALL_COL2TITLE=football_col2Title, $
+   FOOTBALL_KMAG=football_kMag, $
    ODDNESS_CHECK=oddness_check, $
    FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
@@ -2047,6 +2087,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                                CUSTOM_T1=custom_t1, $
                                CUSTOM_T2=custom_t2, $
+                               CUSTOM_ADDSEC=custom_addSec, $
                                SHIFT_NPTS=shift_nPts, $
                                USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
                                USE_J_TIME_SERIES=use_J_time_series, $
@@ -2754,6 +2795,9 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                           KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
                                           MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
                                           MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
+                                          MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
+                                          MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+                                          MARK_KS_BELOW_BOTH=mark_ks_below_both, $
                                           PLOT_POSFREQ=plot_posFreq, $
                                           FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
                                           PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
@@ -2780,10 +2824,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                           PRE_VIII_LAYOUT=PRE_VIII_layout, $
                                           FOOTBALL_LAYOUT=football_layout, $
                                           FOOTBALL_YLOG=football_yLog, $
-                                          FOOTBALL_COL2TITLE=football_col2Title
-
-
-
+                                          FOOTBALL_COL2TITLE=football_col2Title, $
+                                          FOOTBALL_KMAG=football_kMag
 
   ENDIF
 

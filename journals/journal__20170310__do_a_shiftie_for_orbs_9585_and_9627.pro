@@ -25,9 +25,22 @@
 ;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=9585,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[-45,315],PAGE1__FREQRANGE=[0,6],PAGE2__FREQRANGE=[0,6],/NOSHIFT,/PLOT_POSFREQ,/FOOTBALL_LAYOUT
 ;
 ;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=9627,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[-90,270],PAGE1__FREQRANGE=[0,6],PAGE2__FREQRANGE=[0,6],/NOSHIFT,/PLOT_POSFREQ,/FOOTBALL_LAYOUT
+;
+;Big vave numbers
+;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=9585,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[-45,315],PAGE1__FREQRANGE=[0,6],PAGE2__FREQRANGE=[0,6],/NOSHIFT,/PLOT_POSFREQ,/FOOTBALL_LAYOUT,/FOOTBALL_YLOG,/FOOTBALL_COL2TITLE,MARK_KS_BELOW_MAGERR_THRESH=0.2,/ITVL_MODE,INTERVAL=0,/FOOTBALL_KMAG,CUSTOM_ADDSEC=00
+;
+;But even huger—like 4.2
+;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=9585,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[0,360],PAGE1__FREQRANGE=[0,6],PAGE2__FREQRANGE=[0,6],/NOSHIFT,/PLOT_POSFREQ,/FOOTBALL_LAYOUT,/FOOTBALL_YLOG,/FOOTBALL_COL2TITLE,MARK_KS_BELOW_MAGERR_THRESH=0.2,/ITVL_MODE,INTERVAL=0,/FOOTBALL_KMAG,CUSTOM_ADDSEC=0
+;
+;But now it's periodic!!!!
+;JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627,/SAVE_PS,/USE_DB_FAC,/PUBLICATION_SETTINGS,ORBIT=9585,/LOCK_FWDSHIFT_TO_BACKSHIFT,KP__ANGLERANGE=[0,360],PAGE1__FREQRANGE=[0,6],PAGE2__FREQRANGE=[0,6],/NOSHIFT,/PLOT_POSFREQ,/FOOTBALL_LAYOUT,/FOOTBALL_YLOG,/FOOTBALL_COL2TITLE,MARK_KS_BELOW_MAGERR_THRESH=0.2,/ITVL_MODE,INTERVAL=0,/FOOTBALL_KMAG,CUSTOM_ADDSEC=0.0
+;custom_t1 = '1999-01-23/14:50:53.33'
+;custom_t2 = '1999-01-23/14:51:18.0'
+;
 PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
+   CUSTOM_ADDSEC=custom_addSec, $
    DATE=date, $
    ORBIT=orbit, $
    PLOT_POSFREQ=plot_posFreq, $
@@ -42,6 +55,9 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
    KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
    MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
    MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
+   MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
+   MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+   MARK_KS_BELOW_BOTH=mark_ks_below_both, $
    PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_k_components, $
    FREQLIMS=freqLims, $
    PAGE1__FREQRANGE=page1__freqRange, $
@@ -51,6 +67,7 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
    FOOTBALL_LAYOUT=football_layout, $
    FOOTBALL_YLOG=football_yLog, $
    FOOTBALL_COL2TITLE=football_col2Title, $
+   FOOTBALL_KMAG=football_kMag, $
    TO_PDF=to_pdf, $
    REMOVE_EPS=remove_eps, $
    NO_PLOTS=no_plots, $
@@ -142,8 +159,17 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
 
            CASE 1 OF
               interval EQ 0: BEGIN
-                 custom_t1 = '1999-01-23/14:50:56.0'
-                 custom_t2 = '1999-01-23/14:51:06.0'
+                 ;; custom_t1 = '1999-01-23/14:50:54.5'
+
+
+                 ;;Moniest
+                 ;; custom_t1 = '1999-01-23/14:50:50.0'
+                 ;; custom_t2 = '1999-01-23/14:51:12.25'
+
+                 custom_t1 = '1999-01-23/14:50:53.33'
+                 custom_t2 = '1999-01-23/14:51:18.0'
+
+                 ;; custom_t2 = '1999-01-23/14:51:07.5'
               END
               interval EQ 1: BEGIN
                  custom_t1 = '1999-01-23/14:50:51.0'
@@ -164,8 +190,10 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
 
            CASE 1 OF
               interval EQ 0: BEGIN
-                 custom_t1 = '1999-01-27/11:32:56.5'
-                 custom_t2 = '1999-01-27/11:33:09.0'
+                 ;; custom_t1 = '1999-01-27/11:32:56.5'
+                 ;; custom_t2 = '1999-01-27/11:33:09.0'
+                 custom_t1 = '1999-01-27/11:32:56.0'
+                 custom_t2 = '1999-01-27/11:33:06.0'
               END
               interval EQ 1: BEGIN
                  custom_t1 = '1999-01-27/11:32:54.0'
@@ -184,7 +212,6 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
         END
         10832: BEGIN
              
-
            CASE 1 OF
               interval EQ 0: BEGIN
                  custom_t1 = '1999-05-18/06:50:57.1'
@@ -192,14 +219,16 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
               END
               interval EQ 1: BEGIN
                  custom_t1 = '1999-05-18/06:50:45.0'
-                 custom_t2 = '1999-05-18/06:50:54.5'
+                 custom_t2 = '1999-05-18/06:50:59.5'
+                 ;; custom_t1 = '1999-05-18/06:50:45.0'
+                 ;; custom_t2 = '1999-05-18/06:51:04.5'
               END
               interval EQ 2: BEGIN
-                 custom_t1 = '1999-05-18/06:50:54.5'
+                 custom_t1 = '1999-05-18/06:50:59.5'
                  custom_t2 = '1999-05-18/06:51:14.0'
               END
               interval EQ 3: BEGIN
-                 custom_t1 = '1999-05-18/06:50:45.0'
+                 custom_t1 = '1999-05-18/06:50:47.0'
                  custom_t2 = '1999-05-18/06:51:14.0'
               END
            ENDCASE
@@ -224,13 +253,18 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
   ENDELSE
 
   IF KEYWORD_SET(football_col2Title) THEN BEGIN
-     football_col2Title = STRING(FORMAT='("Orbit ",I0)',orbit)
 
-     IF N_ELEMENTS(interval) GT 0 THEN BEGIN
-        football_col2Title += STRING(FORMAT='(" (itvl ",I0,")")',interval)
-     ENDIF ELSE BEGIN
-        football_col2Title += "(original)"
-     ENDELSE
+     IF (WHERE(SIZE(football_col2Title,/TYPE) EQ [1,2,3,12,13,14,15]))[0] NE -1 THEN BEGIN
+
+        football_col2Title = STRING(FORMAT='("Orbit ",I0)',orbit)
+
+        IF N_ELEMENTS(interval) GT 0 THEN BEGIN
+           football_col2Title += STRING(FORMAT='(" (itvl ",I0,")")',interval)
+        ENDIF ELSE BEGIN
+           football_col2Title += "(original)"
+        ENDELSE
+
+     ENDIF
 
   ENDIF
 
@@ -264,12 +298,14 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
      USE_DB_FAC=use_dB_fac, $
      CUSTOM_T1=custom_t1, $
      CUSTOM_T2=custom_t2, $
+     CUSTOM_ADDSEC=custom_addSec, $
      /USE_REPRETCAL_FILE, $
      KP__ANGLERANGE=kP__angleRange, $
      PRE_VIII_LAYOUT=KEYWORD_SET(save_ps) AND ~KEYWORD_SET(football_layout), $
      FOOTBALL_LAYOUT=football_layout, $
      FOOTBALL_YLOG=football_yLog, $
      FOOTBALL_COL2TITLE=football_col2Title, $
+     FOOTBALL_KMAG=football_kMag, $
      PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_k_components, $
      BACKSHIFTS_FOR_AVGING=backShifts, $
      FWDSHIFTS_FOR_AVGING=fwdShifts, $
@@ -284,6 +320,9 @@ PRO JOURNAL__20170310__DO_A_SHIFTIE_FOR_ORBS_9585_AND_9627, $
      KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
      MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
      MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
+     MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
+     MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+     MARK_KS_BELOW_BOTH=mark_ks_below_both, $
      OUT_FREQS=out_freqs, $
      OUT_KX=out_kx, $
      OUT_KY=out_ky, $
