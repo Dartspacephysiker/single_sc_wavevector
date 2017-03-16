@@ -33,7 +33,7 @@ PRO OUTPUT_SETUP,mode,plotDir,suff
      pOrig_thick  = !P.THICK
      
      !P.CHARTHICK = 1.2
-     !P.THICK     = 1.2
+     !P.THICK     = 1.0
 
      ;; @startup
      ;; POPEN,filename,XSIZE=10,YSIZE=10
@@ -279,68 +279,75 @@ PRO GET_FREQ_INDS,freq,kx,ky,kz, $
 
 END
 
-PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
-                                         Bx,By,Bz, $
-                                         Jx,Jy,Jz, $
-                                         kx,ky,kz, $
-                                         kP,kPAngle, $
-                                         ;; inds, $
-                                         usedInds, $
-                                         example, $
-                                         BSPEC=BSpec, $
-                                         JSPEC=JSpec, $
-                                         MAGCSPEC=magCSpec, $
-                                         POWFREQ=powFreq, $
-                                         MAGERR=magErr, $
-                                         ERRANGLE=errAngle, $
-                                         EXAMPLE_MODE=example_mode, $
-                                         PLOTDIR=plotDir, $
-                                         SUFF=suff, $
-                                         PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
-                                         SAVE_PS=save_ps, $
-                                         TO_PDF=to_pdf, $
-                                         PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                                         REMOVE_EPS=remove_eps, $
-                                         KX_SPECIALFREQS=kx_specialFreqs, $
-                                         KY_SPECIALFREQS=ky_specialFreqs, $
-                                         KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
-                                         KX_SPECIALBOUNDS=kx_specialBounds, $
-                                         KY_SPECIALBOUNDS=ky_specialBounds, $
-                                         KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
-                                         MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
-                                         MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
-                                         MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
-                                         MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
-                                         MARK_KS_BELOW_BOTH=mark_ks_below_both, $
-                                         PLOT_POSFREQ=plot_posFreq, $
-                                         FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
-                                         PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-                                         PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
-                                         PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
-                                         PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
-                                         KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
-                                         KP_ANGLE__PLOT_SMOOTHED=kP_angle__plot_smoothed, $
-                                         KSMOOTH__NSMOOTHS=smInd, $
-                                         KSMOOTH__DOUBLENSMOOTHS=dbSmInd, $
-                                         KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
-                                         KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
-                                         KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
-                                         FREQLIMS=freqLims, $
-                                         PAGE1__FREQRANGE=page1__freqRange, $
-                                         PAGE2__FREQRANGE=page2__freqRange, $
-                                         KP__ANGLERANGE=kP__angleRange, $
-                                         THIRD_PAGE=third_page, $
-                                         OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
-                                         PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
-                                         FITLINE__USE_ABS=fitline__use_abs, $
-                                         FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
-                                         PUBLICATION_SETTINGS=pubSettings, $
-                                         PRE_VIII_LAYOUT=PRE_VIII_layout, $
-                                         FOOTBALL_LAYOUT=football_layout, $
-                                         FOOTBALL_YLOG=football_yLog, $
-                                         FOOTBALL_COL2TITLE=football_col2Title, $
-                                         FOOTBALL_KMAG=football_kMag
-                                         
+PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
+   TArr,freq, $
+   Bx,By,Bz, $
+   Jx,Jy,Jz, $
+   kx,ky,kz, $
+   kP,kPAngle, $
+   ;; inds, $
+   usedInds, $
+   example, $
+   BSPEC=BSpec, $
+   JSPEC=JSpec, $
+   MAGCSPEC=magCSpec, $
+   POWFREQ=powFreq, $
+   MAGERR=magErr, $
+   ERRANGLE=errAngle, $
+   PHASE_ERR=phaseErr, $
+   EXAMPLE_MODE=example_mode, $
+   PLOTDIR=plotDir, $
+   SUFF=suff, $
+   PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
+   SAVE_PS=save_ps, $
+   TO_PDF=to_pdf, $
+   PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
+   REMOVE_EPS=remove_eps, $
+   KX_SPECIALFREQS=kx_specialFreqs, $
+   KY_SPECIALFREQS=ky_specialFreqs, $
+   KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
+   KX_SPECIALBOUNDS=kx_specialBounds, $
+   KY_SPECIALBOUNDS=ky_specialBounds, $
+   KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
+   MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
+   MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
+   MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
+   MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+   MARK_KS_BELOW_PHASE_ERR_THRESH=mark_ks_below_phaseErr_thresh, $
+   MARK_KS_BELOW_BOTH=mark_ks_below_both, $
+   ONLY_KS_BELOW_MAGERR_THRESH=only_ks_below_magErr_thresh, $
+   ;; ONLY_KS_BELOW_ERRANGLE_THRESH=only_ks_below_errAngle_thresh, $
+   ;; ONLY_KS_BELOW_PHASE_ERR_THRESH=only_ks_below_phaseErr_thresh, $
+   PLOT_POSFREQ=plot_posFreq, $
+   FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
+   PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+   PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
+   PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
+   PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
+   KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
+   KP_ANGLE__PLOT_SMOOTHED=kP_angle__plot_smoothed, $
+   KSMOOTH__NSMOOTHS=smInd, $
+   KSMOOTH__DOUBLENSMOOTHS=dbSmInd, $
+   KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
+   KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
+   KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+   FREQLIMS=freqLims, $
+   PAGE1__FREQRANGE=page1__freqRange, $
+   PAGE2__FREQRANGE=page2__freqRange, $
+   KP__ANGLERANGE=kP__angleRange, $
+   THIRD_PAGE=third_page, $
+   OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
+   PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+   FITLINE__USE_ABS=fitline__use_abs, $
+   FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
+   PUBLICATION_SETTINGS=pubSettings, $
+   PRE_VIII_LAYOUT=PRE_VIII_layout, $
+   FOOTBALL_LAYOUT=football_layout, $
+   FOOTBALL_YLOG=football_yLog, $
+   FOOTBALL_COL2TITLE=football_col2Title, $
+   FOOTBALL_KMAG=football_kMag, $
+   FOOTBALL_NO_ERRANGLE=football_no_errAngle, $
+   FOOTBALL_NO_MAGERR=football_no_magErr
 
   COMPILE_OPT IDL2,STRICTARRSUBS
 
@@ -349,26 +356,34 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      symSize = 0.4
   ENDIF
 
-  ;; pSym           = 2            ;asterisk
-  ;; pSym           = 1            ;plus sign
-  pSym           = 7            ;x
+  ;; pSym         = 2            ;asterisk
+  ;; pSym         = 1            ;plus sign
+  pSym            = 7            ;x
 
-  pSymEA         = 1            ;For the times when ISA(mark_kx_below_errAngle_thresh)
-  pSymMEEA       = 2            ;For the times when ISA(mark_kx_below_both)
+  pSymEA          = 1            ;For the times when ISA(mark_ks_below_errAngle_thresh)
+  pSymPE          = 3            ;For the times when ISA(mark_ks_below_phaseErr_thresh)
+  pSymMEEA        = 2            ;For the times when ISA(mark_ks_below_both)
   
+  dashSym         = [[-.5,0],[.5,0]]
+  perpSym         = [[-.5,0.],[0.,0.],[0.,0.75],[0.,0.],[0.5,0.]]
+  crossSym        = [[-.25,0.],[0.,0.],[0.,0.75],[0.,0.],[0.25,0.],[0.,0.],[0.,0.-.75]]
+
+  USERSYM,perpSym               ;Just a dash
+  pSymMagErr      = 8
+
   ;;Only for special people (see Beck)
-  specialColor   = 70
-  specialThick   = 3.0
-  specialLineSty = 5
-  kPA_specialSty = 5
+  specialColor    = 70
+  specialThick    = 3.0
+  specialLineSty  = 5
+  kPA_specialSty  = 5
 
-  yStyler        = 16
+  yStyler         = 16
 
-  freqTitle      = 'Frequency (Hz)'
-  freqTitle      = 'f!Dsp!N (Hz)'
+  freqTitle       = 'Frequency (Hz)'
+  freqTitle       = 'f!Dsp!N (Hz)'
 
-  perpSym = STRING(120B)
-  perpAll = '!9' + perpSym + '!X'
+  ;; perpSym         = STRING(120B)
+  perpAll         = '!9' + STRING(120B) + '!X'
 
   GET_FREQ_INDS,freq,kx,ky,kz, $
                 kP,kPAngle, $
@@ -403,6 +418,12 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
            ENDIF
 
+           ;; IF N_ELEMENTS(mark_ks_below_phaseErr_thresh) EQ 0 THEN BEGIN
+
+           ;;    mark_ks_below_phaseErr_thresh = 15
+
+           ;; ENDIF
+
         END
         2: BEGIN
 
@@ -415,6 +436,33 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
            IF N_ELEMENTS(mark_ks_below_errAngle_thresh) EQ 0 THEN BEGIN
 
               mark_ks_below_errAngle_thresh = mark_ks_below_both[1]
+
+           ENDIF
+
+           ;; IF N_ELEMENTS(mark_ks_below_phaseErr_thresh) EQ 0 THEN BEGIN
+
+           ;;    mark_ks_below_phaseErr_thresh = 15
+
+           ;; ENDIF
+
+        END
+        3: BEGIN
+
+           IF N_ELEMENTS(mark_ks_below_magErr_thresh) EQ 0 THEN BEGIN
+
+              mark_ks_below_magErr_thresh = mark_ks_below_both[0]
+
+           ENDIF
+
+           IF N_ELEMENTS(mark_ks_below_errAngle_thresh) EQ 0 THEN BEGIN
+
+              mark_ks_below_errAngle_thresh = mark_ks_below_both[1]
+
+           ENDIF
+
+           IF N_ELEMENTS(mark_ks_below_phaseErr_thresh) EQ 0 THEN BEGIN
+
+              mark_ks_below_phaseErr_thresh = mark_ks_below_both[2]
 
            ENDIF
 
@@ -462,6 +510,26 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
      coolEA_k_ii = WHERE((errAngle[inds]*180.D/!PI) LE mark_ks_below_errAngle_thresh,nCoolEA_k)
      coolEA_k_i  = inds[coolEA_k_ii]
+  ENDIF
+
+  nCoolPE_k = 0
+  IF KEYWORD_SET(mark_ks_below_phaseErr_thresh) THEN BEGIN
+
+        CASE 1 OF
+           mark_ks_below_phaseErr_thresh EQ 1: BEGIN
+              mark_ks_below_phaseErr_thresh = 15.D
+           END
+           (mark_ks_below_phaseErr_thresh LE !PI): BEGIN
+              PRINT,"Assuming your 'mark_ks_below_phaseErr_thresh' is in radians ..."
+              WAIT,2
+              mark_ks_below_phaseErr_thresh *= 180.D/!PI
+           END
+           ELSE:
+        ENDCASE
+
+        phase_zInd = 2
+     coolPE_k_ii = WHERE((phaseErr[phase_zInd,inds]*180.D/!PI) LE mark_ks_below_phaseErr_thresh,nCoolPE_k)
+     coolPE_k_i  = inds[coolPE_k_ii]
   ENDIF
 
   nCoolMEEA_k = 0
@@ -909,7 +977,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           XRANGE=page1__freqRange, $
           YRANGE=k_yRange, $
           XSTYLE=1, $
-          YSTYLE=1, $
+          ;; YSTYLE=3, $
           XTICKLEN=1.0, $
           YTICKLEN=1.0, $
           XGRIDSTYLE=1, $
@@ -923,9 +991,11 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
           /NODATA
      ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
+     IF ~KEYWORD_SET(only_ks_below_magErr_thresh) THEN BEGIN
         OPLOT,freq[inds],kx[inds], $
               ;; LINESTYLE=jLineStyle, $
               COLOR=bxCol
+     ENDIF
 
         ;;Because of MARK_KS_BELOW_MAGERR_THRESH
         IF nCoolME_k GT 0 THEN BEGIN
@@ -946,12 +1016,22 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         ENDIF
 
+        IF nCoolPE_k GT 0 THEN BEGIN
+
+           OPLOT,freq[coolPE_k_i],kx[coolPE_k_i], $
+                 COLOR=bxCol, $
+                 PSYM=pSymPE, $
+                 SYMSIZE=symSize
+
+        ENDIF
+
         IF nCoolMEEA_k GT 0 THEN BEGIN
 
            PLOTS,freq[coolMEEA_k_i],kx[coolMEEA_k_i], $
                  COLOR=bxCol, $
                  PSYM=pSymMEEA, $
-                 SYMSIZE=symSize
+                 SYMSIZE=symSize, $
+                 NOCLIP=0
 
         ENDIF
 
@@ -1005,10 +1085,13 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
   CASE 1 OF
      KEYWORD_SET(football_layout): BEGIN
 
-        jLineStyle = 1 ;dotted line
-        OPLOT,freq[inds],ky[inds], $
-              ;; LINESTYLE=jLineStyle, $
-              COLOR=byCol
+        IF ~KEYWORD_SET(only_ks_below_magErr_thresh) THEN BEGIN
+
+           jLineStyle = 1       ;dotted line
+           OPLOT,freq[inds],ky[inds], $
+                 ;; LINESTYLE=jLineStyle, $
+                 COLOR=byCol
+        ENDIF
 
         ;;Because of MARK_KS_BELOW_MAGERR_THRESH
         IF nCoolME_k GT 0 THEN BEGIN
@@ -1029,21 +1112,31 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         ENDIF
 
+        IF nCoolPE_k GT 0 THEN BEGIN
+
+           OPLOT,freq[coolPE_k_i],ky[coolPE_k_i], $
+                 COLOR=byCol, $
+                 PSYM=pSymPE, $
+                 SYMSIZE=symSize
+
+        ENDIF
+
         IF nCoolMEEA_k GT 0 THEN BEGIN
 
            PLOTS,freq[coolMEEA_k_i],ky[coolMEEA_k_i], $
                  COLOR=byCol, $
                  PSYM=pSymMEEA, $
-                 SYMSIZE=symSize
+                 SYMSIZE=symSize, $
+                 NOCLIP=0
 
         ENDIF
 
-        spaceFrac   = 0.2
+        spaceFrac   = 0.1
         distVec     = REVERSE(INDGEN(3)*spaceFrac - spaceFrac + 1)
-        currency    = (MAX(k_yRange)-MIN(k_yRange))+MIN(k_yRange)
+        rango       = (MAX(k_yRange)-MIN(k_yRange))
 
-        legYSymPos  = 0.7*( distVec * currency)
-        legYPos     = 0.7*( distVec * currency)-0.03*currency
+        legYSymPos  = 0.925*( distVec * rango )+MIN(k_yRange)
+        legYPos     = 0.920*( distVec * rango )+MIN(k_yRange)
 
 
         XYOUTS,legXPos1,legYPos[0],'k!Dx!N',CHARSIZE=cs
@@ -1082,12 +1175,22 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
            ENDIF
 
+           IF nCoolPE_k GT 0 THEN BEGIN
+
+              OPLOT,freq[coolPE_k_i],(SQRT(kx*kx+ky*ky))[coolPE_k_i], $
+                    ;; COLOR=bxCol, $
+                    PSYM=pSymPE, $
+                    SYMSIZE=symSize
+
+           ENDIF
+
            IF nCoolMEEA_k GT 0 THEN BEGIN
 
               PLOTS,freq[coolMEEA_k_i],(SQRT(kx*kx+ky*ky))[coolMEEA_k_i], $
                     ;; COLOR=bxCol, $
                     PSYM=pSymMEEA, $
-                    SYMSIZE=symSize
+                    SYMSIZE=symSize, $
+                    NOCLIP=0
 
            ENDIF
 
@@ -1571,7 +1674,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         yARange     = kP__angleRange
 
-        nTickV      = (MAX(kP__angleRange)-MIN(kP__angleRange))/yMajDiv
+        nTickV      = (MAX(kP__angleRange)-MIN(kP__angleRange))/yMajDiv+1
         yTickV      = INDGEN(nTickV)*yMajDiv+MIN(kP__angleRange) MOD 360
         ;; yTickName   = STRING(FORMAT='('+STRCOMPRESS(nTickV,/REMOVE_ALL)+'(I4))',yTickV MOD 360) ;doesn't work
         yTickName   = STRING(FORMAT='(I4)',yTickV MOD 360)
@@ -1635,7 +1738,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
               ;; LINESTYLE=, $
               COLOR=240
 
-        ;; !P.LINESTYLE = oldLine
+        ENDIF
 
         AXIS,YAXIS=0, $
              YTITLE='!4h!X!Dk!D' + perpAll + '!N', $
@@ -1653,7 +1756,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
              /SAVE
 
         ;;Best for last!
-        OPLOT,freq[inds],kPAngle[inds]
+        IF ~KEYWORD_SET(only_ks_below_magErr_thresh) THEN BEGIN
+           OPLOT,freq[inds],kPAngle[inds]
+        ENDIF
 
         ;;Because of MARK_KS_BELOW_MAGERR_THRESH
         IF nCoolME_k GT 0 THEN BEGIN
@@ -1674,30 +1779,106 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
 
         ENDIF
 
+        IF nCoolPE_k GT 0 THEN BEGIN
+
+           OPLOT,freq[coolPE_k_i],kPAngle[coolPE_k_i], $
+                 ;; COLOR=nei, $
+                 PSYM=pSymPE, $
+                 SYMSIZE=symSize
+
+        ENDIF
+
         IF nCoolMEEA_k GT 0 THEN BEGIN
 
            PLOTS,freq[coolMEEA_k_i],kPAngle[coolMEEA_k_i], $
                  ;; COLOR=nei, $
                  PSYM=pSymMEEA, $
-                 SYMSIZE=symSize
+                 SYMSIZE=symSize, $
+                 NOCLIP=0
 
 
         ENDIF
 
-        rango       = (MAX(yARange)-MIN(yARange))
-        ;; distVec     = REVERSE(INDGEN(3)*spaceFrac - 2.*spaceFrac + 1)
+        IF ~KEYWORD_SET(football_no_magErr) THEN BEGIN
 
-        legYSymPos  = 0.9* rango + MIN(yARange)
-        legYPos     = 0.9* rango + MIN(yARange)
+           AXIS,YAXIS=1,YRANGE=[MIN(magErr),MAX(magErr)], $
+                YSTYLE = 1, $
+                YTITLE = '|Relative Error|', $
+                ;; YTITLE = 'ABS(|J!Dpred!N|-|J!Dob!N|) (Normed)', $
+                CHARSIZE=cs, $
+                /SAVE, $
+                /NOERASE, $
+                COLOR=240
 
-        legXPos1    = 0.1*((MAX(freq)-MIN(freq))+MIN(freq))
-        legXPos2    = 0.15*((MAX(freq)-MIN(freq))+MIN(freq))
-        legXSymPos1 = 0.03*((MAX(freq)-MIN(freq))+MIN(freq))
-        legXSymPos2 = 0.08*((MAX(freq)-MIN(freq))+MIN(freq))
+           ;; oldLine = !P.LINESTYLE
+           ;; !P.LINESTYLE = [2,'AAAA'X]
+           
 
-        XYOUTS,legXPos1,legYPos[0],'!4h!X!Derr!N',CHARSIZE=cs
-        PLOTS,legXSymPos1,legYSymPos[0],COLOR=thetaErrCol
-        PLOTS,legXSymPos2,legYSymPos[0],COLOR=thetaErrCol,/CONTINUE
+           ;; jLineStyle = 4
+
+           irregular = 1
+           also_PE   = 1
+           CASE 1 OF
+              KEYWORD_SET(irregular): BEGIN
+
+                 majicNivelME = KEYWORD_SET(mark_ks_below_magErr_thresh) ? mark_ks_below_magErr_thresh : 0.05
+                 majicNivelPE = KEYWORD_SET(mark_ks_below_phaseErr_thresh) ? mark_ks_below_phaseErr_thresh : 45
+
+                 CASE 1 OF
+                    KEYWORD_SET(also_PE): BEGIN
+                       lowErr_ii  = WHERE( ( magErr[inds] LE majicNivelME                 ) AND $
+                                           ;; ( (NORMALIZE_ANGLE(phaseErr[2,inds],-!PI,!PI)*180./!PI) LE  majicNivelPE ),nLowErr, $
+                                           ( ABS(phaseErr[2,inds]*180./!PI) LE  majicNivelPE ),nLowErr, $
+                                          COMPLEMENT=highErr_ii, $
+                                          NCOMPLEMENT=nHighErr)
+                    END
+                    ELSE: BEGIN
+                       lowErr_ii  = WHERE(magErr[inds] LE majicNivelME,nLowErr, $
+                                          COMPLEMENT=highErr_ii, $
+                                          NCOMPLEMENT=nHighErr)
+                    END
+                 ENDCASE
+
+                 IF nLowErr GT 1 THEN BEGIN
+
+                    ;;If the line below is commented, you'll get a perpSym
+                    USERSYM,dashSym ;Just a dash
+
+                    OPLOT,freq[inds[lowErr_ii]],magErr[inds[lowErr_ii]], $
+                          ;; LINESTYLE=jLineStyle, $
+                          ;; LINESTYLE=, $
+                          COLOR=240, $
+                          PSYM=pSymMagErr
+
+                 ENDIF
+
+                 IF nHighErr GT 1 THEN BEGIN
+
+                    USERSYM,dashSym ;Just a dash
+
+                    OPLOT,freq[inds[highErr_ii]],magErr[inds[highErr_ii]], $
+                          ;; LINESTYLE=jLineStyle, $
+                          ;; LINESTYLE=, $
+                          COLOR=240, $
+                          PSYM=pSymMagErr
+
+                 ENDIF
+
+              END
+              ELSE: BEGIN
+
+                 OPLOT,freq[inds],magErr[inds], $
+                       ;; LINESTYLE=jLineStyle, $
+                       ;; LINESTYLE=, $
+                       COLOR=240, $
+                       PSYM=pSymMagErr
+
+              END
+           ENDCASE
+
+           ;; !P.LINESTYLE = oldLine
+
+        ENDIF
 
      ENDIF
 

@@ -105,6 +105,488 @@ PRO ADD_NOISE,Bx,By,Bz,Jx,Jy,Jz,T
 
 END
 
+PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
+                          KZ_IS_KPERP=kz_is_kPerp
+
+  sort_i = SORT(freq)
+  freqT  = freq[sort_i]
+  kxT  = kx[sort_i]
+  kyT  = ky[sort_i]
+  kzT  = kz[sort_i]
+
+  indNeg = WHERE(freqT LE 0.00,nNeg)
+  indPos = WHERE(freqT GT 0.00,nPos)
+  IF nNeg NE nPos THEN BEGIN
+     IF nNeg GT nPos THEN BEGIN
+        indNeg = indNeg[0:-2]
+     ENDIF ELSE BEGIN
+        indPos = indPos[0:-2]
+     ENDELSE
+  ENDIF
+  
+  PRINT,'avg freq oddness : ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
+  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3,T50,A0)','avg k oddness    : ', $
+        MEAN((DOUBLE(kxT))[indPos]+REVERSE((DOUBLE(kxT))[indNeg]),/DOUBLE), $
+        MEAN((DOUBLE(kyT))[indPos]+REVERSE((DOUBLE(kyT))[indNeg]),/DOUBLE), $
+        MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE), $
+        (KEYWORD_SET(kz_is_kPerp) ? "(kz is kPerp, you know)" : '')
+
+END
+
+PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,ikx,iky,ikz,freq ;,freq_sp,inds
+
+  ;; omega_sp        = freq_sp * 2. * !PI
+  omega_sp        = freq * 2. * !PI
+
+  Bx_om           = FFT(Bx)
+  By_om           = FFT(By)
+  Bz_om           = FFT(Bz)
+
+  Ex_om           = FFT(Ex_sp)
+  Ey_om           = FFT(Ey_sp)
+  Ez_om           = FFT(Ez_sp)
+
+  omegaBtotal     = 0
+  kxEtotal        = 0
+  norm            = 0           ; check that avg (k x E) = 0
+  diffs           = MAKE_ARRAY(3,N_ELEMENTS(freq),/DOUBLE)
+  FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
+     ikvectemp    = [kx[k], ky[k], kz[k]]
+     Evectemp     = [Ex_sp[k], Ey_sp[k], Ez_sp[k]]
+     Bvectemp     = [Bx_om[k], By_om[k], Bz_om[k]]
+     kxEtotal     = kxEtotal+CROSSP(ikvectemp,Evectemp)
+     omegaBtotal  = omegaBtotal + omega_sp[k]*Bvectemp
+     diffs[*,k]   = CROSSP(ikvectemp,Evectemp)-omega_sp[k]*Bvectemp
+
+     ;; norm for denominator
+     ;; norm         = norm + SQRT(kx[k]^2+ ky[k]^2+ kz[k]^2)*SQRT(Ex[k]^2+ Ey[k]^2+ Ez[k]^2)
+  ENDFOR
+  
+  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
+
+  PRINT,'norm     : ',norm
+  avgkxEtotal     = kxEtotal/T
+  PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
+
+END
+
+PRO PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
+              OUT_JPREDICTED=JPred, $
+              OUT_MAGERR=magErr, $
+              OUT_ERRANGLE=errAngle, $
+              OUT_PHASE_ERR=phaseErr
+
+  COMPILE_OPT IDL2,STRICTARRSUBS
+
+  IF N_ELEMENTS(unitFactors) EQ 0 THEN unitFactors = {B:1.D,J:1.D,BtimesJdMu:1.D}
+
+  mu_0            = DOUBLE(4.0D*!PI*1e-7)
+  iCmplx          = DCOMPLEX(0,1)
+
+  Bx_om           = FFT(Bx*unitFactors.B)
+  By_om           = FFT(By*unitFactors.B)
+  Bz_om           = FFT(Bz*unitFactors.B)
+
+  Jx_om           = FFT(Jx*unitFactors.J)
+  Jy_om           = FFT(Jy*unitFactors.J)
+  Jz_om           = FFT(Jz*unitFactors.J)
+
+  nFreq           = N_ELEMENTS(freq)
+  
+  ;; realer          = 1
+  ;; powSpec         = 1
+  CASE 1 OF
+     KEYWORD_SET(realer): BEGIN
+
+        JPred              = MAKE_ARRAY(3,nFreq,/DOUBLE)
+        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
+        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
+        phaseErr           = MAKE_ARRAY(3,nFreq,/DOUBLE,VALUE=!VALUES.F_NaN)
+        FOR k=0,nFreq-1 DO BEGIN
+
+           ;;Measured J
+           Jvectemp        = [Jx_om[k], Jy_om[k], Jz_om[k]]
+
+           ;;Measured B and derived k
+           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
+           ikvectemp       = [  ikx[k],   iky[k],   ikz[k]] 
+
+           ;;Predicted J
+           ;; JPred[*,k]      = iCmplx * CROSSP(kvectemp,Bvectemp) / mu_0
+           JPred[*,k]      = CROSSP(ikvectemp,Bvectemp) / mu_0
+
+           JPredMag        = SQRT(ABS(DOT(REAL_PART(JPred[*,k]),REAL_PART(JPred[*,k]))))
+           JvecMag         = SQRT(ABS(DOT(REAL_PART(Jvectemp)  ,REAL_PART(Jvectemp))))
+
+           ;;Error angle
+           errAngle[k]     = ACOS(DOT(REAL_PART(JPred[*,k]),REAL_PART(Jvectemp))/(JPredMag*jvecMag))
+
+           ;;Magnitude error
+           magErr[k]       = ABS(JPredMag-JvecMag)/(JPredMag+JvecMag)
+
+           phaseErr[*,k]   = [ATAN(JPred[0,k],/PHASE)-ATAN(Jvectemp[0],/PHASE), $
+                              ATAN(JPred[1,k],/PHASE)-ATAN(Jvectemp[1],/PHASE), $
+                              ATAN(JPred[2,k],/PHASE)-ATAN(Jvectemp[2],/PHASE)]
+           
+        ENDFOR
+
+     END
+     KEYWORD_SET(powSpec): BEGIN
+
+        JPred              = MAKE_ARRAY(3,nFreq,/DOUBLE)
+        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
+        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
+        phaseErr           = MAKE_ARRAY(3,nFreq,/DOUBLE,VALUE=!VALUES.F_NaN)
+        FOR k=0,nFreq-1 DO BEGIN
+
+           ;;Measured J
+           Jvectemp        = ABS([Jx_om[k], Jy_om[k], Jz_om[k]])
+
+           ;;Measured B and derived k
+           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
+           ikvectemp       = [  ikx[k],   iky[k],   ikz[k]] 
+
+           ;;Predicted J
+           ;; JPred[*,k]      = ABS(iCmplx * CROSSP(ikvectemp,Bvectemp)) / mu_0
+           JPred[*,k]      = ABS(CROSSP(ikvectemp,Bvectemp)) / mu_0
+
+           JPredMag        = SQRT(ABS(DOT(JPred[*,k],JPred[*,k])))
+           JvecMag         = SQRT(ABS(DOT(Jvectemp  ,Jvectemp)))
+
+           ;;Error angle
+           errAngle[k]     = ACOS(DOT(JPred[*,k],Jvectemp)/(JPredMag*jvecMag))
+
+           ;;Magnitude error
+           magErr[k]       = ABS(JPredMag-JvecMag)/(JPredMag+JvecMag)
+
+           phaseErr[*,k]   = [ATAN(JPred[0,k],/PHASE)-ATAN(Jvectemp[0],/PHASE), $
+                              ATAN(JPred[1,k],/PHASE)-ATAN(Jvectemp[1],/PHASE), $
+                              ATAN(JPred[2,k],/PHASE)-ATAN(Jvectemp[2],/PHASE)]
+           
+        ENDFOR
+
+     END
+     ELSE: BEGIN
+
+        JPred              = MAKE_ARRAY(3,nFreq,/DCOMPLEX)
+        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
+        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
+        phaseErr           = MAKE_ARRAY(3,nFreq,/DOUBLE,VALUE=!VALUES.F_NaN)
+        ;; phaseErr1          = MAKE_ARRAY(3,nFreq,/DOUBLE,VALUE=!VALUES.F_NaN)
+        ;; phaseErr2          = MAKE_ARRAY(3,nFreq,/DOUBLE,VALUE=!VALUES.F_NaN)
+        FOR k=0,nFreq-1 DO BEGIN
+
+           ;;Measured J
+           Jvectemp        = [Jx_om[k], Jy_om[k], Jz_om[k]]
+
+           ;;Measured B and derived k
+           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
+           ikvectemp       = [  ikx[k],   iky[k],   ikz[k]] 
+
+           ;;Predicted J
+           ;; JPred[*,k]      = iCmplx * CROSSP(ikvectemp,Bvectemp) / mu_0
+           JPred[*,k]      = CROSSP(ikvectemp,CONJ(Bvectemp)) / mu_0
+
+           JPredMag        = SQRT(ABS(DOT(JPred[*,k],CONJ(JPred[*,k]))))
+           JvecMag         = SQRT(ABS(DOT(Jvectemp  ,CONJ(Jvectemp))))
+
+           ;; PRINT,ALOG10(ABS(JPredMag)),ALOG10(ABS(JvecMag)),JPredMag-JvecMag
+           ;;Error angle
+           ;; errAngle[k]  = ACOS(DOT(JPred[*,k],CONJ(Jvectemp))/(SQRT(DOT(JPred[*,k],CONJ(JPred[*,k])))*SQRT(DOT(Jvectemp,CONJ(Jvectemp)))))
+
+           errAngle[k]     = ACOS(REAL_PART(DOT(JPred[*,k],CONJ(Jvectemp)))/(JPredMag*jvecMag))
+           ;; PRINT,DOT(JPred[*,k],CONJ(Jvectemp)),ABS(DOT(JPred[*,k],CONJ(Jvectemp)))
+           ;; errAngle[k]     = ACOS((DOT(ABS(JPred[*,k]),ABS(Jvectemp)))/(JPredMag*jvecMag))
+           ;; errAngle[k]     = REAL_PART(ACOS(DOT(JPred[*,k],CONJ(Jvectemp))/(JPredMag*jvecMag)))
+           ;; errAngle[k]     = ACOS(REAL_PART(DOT(Jvectemp,CONJ(JPred[*,k])))/(JPredMag*jvecMag)) ;;just to see what happens (no difference)
+
+           ;; errAngle[k]     = ACOS(ABS(DOT(JPred[*,k],CONJ(Jvectemp)))/(JPredMag*jvecMag))
+
+
+           ;;Magnitude error
+           magErr[k]       = ABS(JPredMag-JvecMag)/(JPredMag+JvecMag)
+
+           phaseErr[*,k]   = [ATAN(JPred[0,k],/PHASE)-ATAN(Jvectemp[0],/PHASE), $
+                              ATAN(JPred[1,k],/PHASE)-ATAN(Jvectemp[1],/PHASE), $
+                              ATAN(JPred[2,k],/PHASE)-ATAN(Jvectemp[2],/PHASE)]
+           
+           ;; phaseErr1[*,k]  = [ATAN(JPred[0,k],/PHASE), $
+           ;;                    ATAN(JPred[1,k],/PHASE), $
+           ;;                    ATAN(JPred[2,k],/PHASE)]
+           
+           ;; phaseErr2[*,k]  = [ATAN(Jvectemp[0],/PHASE), $
+           ;;                    ATAN(Jvectemp[1],/PHASE), $
+           ;;                    ATAN(Jvectemp[2],/PHASE)]
+           
+        ENDFOR
+
+     END
+  ENDCASE
+
+  ;; phaseErr[WHERE(phaseErr LT 0,/NULL)] += 2.D*!PI
+  ;; phaseErr[WHERE(phaseErr LT (-!PI),/NULL)] += 2.D*!PI
+  ;; phaseErr[WHERE(phaseErr GT ( !PI),/NULL)] -= 2.D*!PI  
+  phaseErr = NORMALIZE_ANGLE(phaseErr,-!PI,!PI)
+  ;; PRINT,MIN((ABS(phaseErr[2,*]))[WHERE(ABS(phaseErr[2,*]) GT 0)])*180.D/!PI
+  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
+
+END
+
+PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
+                     freq,kx,ky,kz,kP, $
+                     SPERIOD=sPeriod, $
+                     UNITFACTORS=unitFactors, $
+                     PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+                     DOUBLE_CALC=double_calc, $
+                     HANNING=hanning, $
+                     EFIELD=EField, $
+                     ODDNESS_CHECK=oddness_check, $
+                     OUT_NORM=norm, $
+                     OUT_AVGJXB=avgJxBtotal, $
+                     OUT_JPREDICTED=JPred, $
+                     OUT_MAGERR=magErr, $
+                     OUT_ERRANGLE=errAngle, $
+                     OUT_PHASE_ERR=phaseErr, $
+                     DIAG=diag
+
+  COMPILE_OPT idl2,strictarrsubs
+
+  ;; diag         = 1
+
+  JxBtotal     = 0
+  norm         = 0              ; check that avg J x B =0
+  FOR TT=0,T-1 DO BEGIN         ; integrate over time
+     Jvectemp  = [Jx[TT], Jy[TT], Jz[TT]]
+     Bvectemp  = [Bx[TT], By[TT], Bz[TT]]
+     JxBtotal  = JxBtotal+CROSSP(Jvectemp,Bvectemp)
+
+     ;; norm for denominator
+     norm      = norm + SQRT(Jx[TT]^2+ Jy[TT]^2+ Jz[TT]^2)*SQRT(Bx[TT]^2+ By[TT]^2+ Bz[TT]^2)
+
+     IF KEYWORD_SET(diag) THEN BEGIN
+        PRINT,FORMAT='("avgJxBtotal/norm[",I0,"]: ",G12.5,T40,G12.5,T54,G10.5)',TT,JxBtotal/T/norm ; small (supposed to be zero)
+     ENDIF
+
+  ENDFOR
+
+  PRINT,'norm             : ',norm
+  avgJxBtotal = JxBtotal/T
+  PRINT,'avgJxBtotal/norm : ',avgJxBtotal/norm ; small (supposed to be zero)
+
+  ;; auto-correlation of B, i.e, <B_VEC(t) dot B_VEC(t+tau)>
+  BBautocorr = CORRELATION(Bx,Bx,T) + CORRELATION(By,By,T) + CORRELATION(Bz,Bz,T)
+
+  ;;components of cross correlation <J_VEC(t) cross B_vec (t+tau)>
+  JxB_xcomponent_corr  = CORRELATION(Jy,Bz,T) - CORRELATION(Jz,By,T)
+
+  JxB_ycomponent_corr  = CORRELATION(Jz,Bx,T) - CORRELATION(Jx,Bz,T)
+  JxB_zcomponent_corr  = CORRELATION(Jx,By,T) - CORRELATION(Jy,Bx,T)
+
+  ;; Fourier transform of <B_vec(t) dot B_vec(t+tau)>
+  CASE 1 OF
+     KEYWORD_SET(hanning): BEGIN
+        hWindow              = HANNING(N_ELEMENTS(BBautocorr),/DOUBLE)
+        BB_FFT               = FFT(BBautocorr*hWindow)
+     END
+     ELSE: BEGIN
+        BB_FFT               = FFT(BBautocorr)
+     END
+  ENDCASE
+
+  ;; Fourier transform of components of <B_vec(t) dot B_vec(t+tau)>
+  CASE 1 OF
+     KEYWORD_SET(hanning): BEGIN
+        hWindow              = HANNING(N_ELEMENTS(JxB_xcomponent_corr),/DOUBLE)
+        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr*hWindow)
+        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr*hWindow)
+        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr*hWindow)
+     END
+     ELSE: BEGIN
+        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr)
+        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr)
+        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr)
+     END
+  ENDCASE
+
+  ;; calculate k components, put 0.001 in denom to avoid dividing zero by zero
+  ;; ikx                  = -JxB_xcomponent_FFT/(BB_FFT+.001)
+  ;; iky                  = -JxB_ycomponent_FFT/(BB_FFT+.001)
+  ;; ikz                  = -JxB_zcomponent_FFT/(BB_FFT+.001)
+
+  IF KEYWORD_SET(double_calc) THEN nonZ = 1D-10 ELSE nonZ = .0001
+  ;; nonZ = COMPLEX(1.e-10,1.e-10)
+  ikx                  = -JxB_xcomponent_FFT/(BB_FFT+nonZ)
+  iky                  = -JxB_ycomponent_FFT/(BB_FFT+nonZ)
+  ikz                  = -JxB_zcomponent_FFT/(BB_FFT+nonZ)
+
+  ;;extract imaginary part
+  kx                   = IMAGINARY(ikx)
+  ky                   = IMAGINARY(iky)
+  kz                   = IMAGINARY(ikz)
+
+  ;;Multiply by unit factor to get k in m^-1, if it exists
+  IF unitFactors.BtimesJdMu NE 1 THEN BEGIN
+     kx               *= unitFactors.BtimesJdMu
+     ky               *= unitFactors.BtimesJdMu
+     kz               *= unitFactors.BtimesJdMu
+
+     ;;These guys too, for the sake ofP REDICT_J
+     ikx              *= unitFactors.BtimesJdMu
+     iky              *= unitFactors.BtimesJdMu
+     ikz              *= unitFactors.BtimesJdMu
+  ENDIF
+
+  ;;Maggitude
+  kP = SQRT(kx^2+ky^2)
+
+  ;;Frequencies
+  ;; T is an integer giving the number of elements in a particular dimension
+  ;; sPeriod is a floating-point number giving the sampling interval
+  X = FINDGEN((T - 1)/2) + 1
+  is_T_even = (T MOD 2) EQ 0
+  IF (is_T_even) THEN BEGIN
+     freq = [0.0, X, T/2, -T/2 + X]/(T*sPeriod)
+  ENDIF ELSE BEGIN
+     freq = [0.0, X, -(T/2 + 1) + X]/(T*sPeriod)
+  ENDELSE
+
+  IF KEYWORD_SET(Efield) THEN BEGIN
+     CHECK_E_OMEGA_B_THING,Bx,By,Bz,EField[0,*],EField[1,*],EField[2,*],kx,ky,kz,freq
+  ENDIF
+
+  IF KEYWORD_SET(oddness_check) THEN BEGIN
+     CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
+                          KZ_IS_KPERP=plot_kperp_magnitude_for_kz
+  ENDIF
+
+  ;;Calculate error thing?
+  predict_current = 1
+  IF KEYWORD_SET(predict_current) THEN BEGIN
+     PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
+               OUT_JPREDICTED=JPred, $
+               OUT_MAGERR=magErr, $
+               OUT_ERRANGLE=errAngle, $
+               OUT_PHASE_ERR=phaseErr
+  ENDIF
+
+  ;;Don't do this nifty little trick until AFTER the error calc
+  ;;thing. kz is definitely zero for application of this method to FAST
+  IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
+     kz = kP
+  ENDIF
+
+END
+
+PRO DEAL_WITH_BADNESS,datSerie,improvSerie
+
+  COMPILE_OPT idl2,strictarrsubs
+
+  improvSerie  = datSerie
+
+  bad_i        = WHERE(~FINITE(datSerie),nBad,COMPLEMENT=good_i,NCOMPLEMENT=nGood)
+  nDat         = nGood+nBad
+
+  IF nBad GT 0 THEN BEGIN
+
+     GET_STREAKS,bad_i,START_I=strtB_ii,STOP_I=stopB_ii,/QUIET,/NO_PRINT_SUMMARY
+     GET_STREAKS,good_i,START_I=strtG_ii,STOP_I=stopG_ii,/QUIET,/NO_PRINT_SUMMARY
+     strtB_i  = bad_i[strtB_ii]
+     stopB_i  = bad_i[stopB_ii]
+
+     strtG_i  = bad_i[strtG_ii]
+     stopG_i  = bad_i[stopG_ii]
+
+     FOR k=0,N_ELEMENTS(strtB_i)-1 DO BEGIN
+
+        ;;If bad streak strts at beginning of TS or ends and end of TS, no interp
+        strtTmp = strtB_i[k]
+        stopTmp = stopB_i[k]
+
+        IF strtTmp EQ 0 OR stopTmp EQ nDat-1 THEN BEGIN
+           PRINT,'Skipping ...'
+           CONTINUE
+        ENDIF
+
+        ;;Just zero this bit
+        improvSerie[strtTmp:stopTmp] = 0.
+     ENDFOR
+
+  ENDIF
+
+END
+
+PRO SET_TSHIFTS, $
+   PTSHIFT=ptShift, $
+   SHIFT_UNIVERSAL_OFFSET=univOffset, $
+   NOSHIFT=noShift, $
+   NO_PTSHIFT_BACK=no_ptShift_back, $
+   NO_PTSHIFT_FWD=no_ptShift_fwd, $
+   LOCK_FWDSHIFT_TO_BACKSHIFT=lock_shifts, $
+   OUT_BACKSHIFTS=backShifts, $
+   OUT_FWDSHIFTS=fwdShifts, $
+   OUT_EXTRASUFF=extraSuff
+
+  IF ~KEYWORD_SET(noShift) THEN BEGIN
+
+     ;; minShiftBack  = -20
+     ;; maxShiftBack  = 20
+     ;; stepShiftBack = 1
+
+     ;; minShiftFwd   = -20
+     ;; maxShiftFwd   = 20
+     ;; stepShiftFwd  = 1
+
+     univOffset    = N_ELEMENTS(univOffset) EQ 0 ? 0 : univOffset
+
+     ptShift       = N_ELEMENTS(ptShift   ) EQ 0 ? 20 : ptShift
+     stepShift     = 1
+     minShiftBack  = -ptShift+univOffset
+     maxShiftBack  = ptShift+univOffset
+     stepShiftBack = N_ELEMENTS(stepShiftBack) EQ 0 ? stepShift : stepShiftBack
+
+     minShiftFwd   = -ptShift+univOffset
+     maxShiftFwd   = ptShift+univOffset
+     stepShiftFwd  = N_ELEMENTS(stepShiftFwd ) EQ 0 ? stepShift : stepShiftFwd
+
+     nFwd          = (maxShiftFwd -minShiftFwd )/stepShiftFwd + 1
+
+     IF KEYWORD_SET(no_ptShift_back) THEN BEGIN
+        nBack      = 0
+        backShifts = 0
+        BKStr      = ''
+     ENDIF ELSE BEGIN
+        nBack      = (maxShiftBack-minShiftBack)/stepShiftBack + 1
+        backShifts = INDGEN(nBack)*stepShiftBack+minShiftBack
+        BKStr      = STRING(FORMAT='("NB",I0)',nBack)
+     ENDELSE
+
+     CASE 1 OF
+        KEYWORD_SET(no_ptShift_fwd): BEGIN
+           nFwd       = 0
+           fwdShifts  = 0
+           FWStr      = ''
+        END
+        KEYWORD_SET(lock_shifts): BEGIN
+           nFwd       = 1
+           FWStr      = '_LkF'
+        END
+        ELSE: BEGIN
+           fwdShifts  = INDGEN(nFwd )*stepShiftFwd+minShiftFwd
+           FWStr      = STRING(FORMAT='("_NF",I0)',nFwd)
+        END
+     ENDCASE
+
+     univStr          = ''
+     IF KEYWORD_SET(univOffset) THEN BEGIN
+        univStr       = STRING(FORMAT='("_univ",I0)',univOffset)
+     ENDIF
+
+     extraSuff          = STRING(FORMAT='(A0,A0,A0)',BKStr,FWStr,univStr)
+
+  ENDIF
+
+END
+
 PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactors,sPeriod,saveVar, $
                   SAVEDIR=saveDir, $
                   EXAMPLE=example, $
@@ -306,373 +788,6 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactors,sPeriod,saveVar, $
      READF,1,Jz
      CLOSE,1
      PRINT,'closing ',filename
-  ENDIF
-
-END
-
-PRO CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
-                          KZ_IS_KPERP=kz_is_kPerp
-
-  sort_i = SORT(freq)
-  freqT  = freq[sort_i]
-  kxT  = kx[sort_i]
-  kyT  = ky[sort_i]
-  kzT  = kz[sort_i]
-
-  indNeg = WHERE(freqT LE 0.00,nNeg)
-  indPos = WHERE(freqT GT 0.00,nPos)
-  IF nNeg NE nPos THEN BEGIN
-     IF nNeg GT nPos THEN BEGIN
-        indNeg = indNeg[0:-2]
-     ENDIF ELSE BEGIN
-        indPos = indPos[0:-2]
-     ENDELSE
-  ENDIF
-  
-  PRINT,'avg freq oddness : ',MEAN(DOUBLE(freq[indPos])+DOUBLE(freq[indNeg]),/DOUBLE)
-  PRINT,FORMAT='(A0,T20,G0.3,T30,G0.3,T40,G0.3,T50,A0)','avg k oddness    : ', $
-        MEAN((DOUBLE(kxT))[indPos]+REVERSE((DOUBLE(kxT))[indNeg]),/DOUBLE), $
-        MEAN((DOUBLE(kyT))[indPos]+REVERSE((DOUBLE(kyT))[indNeg]),/DOUBLE), $
-        MEAN((DOUBLE(kzT))[indPos]+REVERSE((DOUBLE(kzT))[indNeg]),/DOUBLE), $
-        (KEYWORD_SET(kz_is_kPerp) ? "(kz is kPerp, you know)" : '')
-
-END
-
-PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,kx,ky,kz,freq ;,freq_sp,inds
-
-  ;; omega_sp        = freq_sp * 2. * !PI
-  omega_sp        = freq * 2. * !PI
-
-  Bx_om           = FFT(Bx)
-  By_om           = FFT(By)
-  Bz_om           = FFT(Bz)
-
-  Ex_om           = FFT(Ex_sp)
-  Ey_om           = FFT(Ey_sp)
-  Ez_om           = FFT(Ez_sp)
-
-  omegaBtotal     = 0
-  kxEtotal        = 0
-  norm            = 0           ; check that avg (k x E) = 0
-  diffs           = MAKE_ARRAY(3,N_ELEMENTS(freq),/DOUBLE)
-  FOR k=0,N_ELEMENTS(freq)-1 DO BEGIN
-     kvectemp     = [kx[k], ky[k], kz[k]]
-     Evectemp     = [Ex_sp[k], Ey_sp[k], Ez_sp[k]]
-     Bvectemp     = [Bx_om[k], By_om[k], Bz_om[k]]
-     kxEtotal     = kxEtotal+CROSSP(kvectemp,Evectemp)
-     omegaBtotal  = omegaBtotal + omega_sp[k]*Bvectemp
-     diffs[*,k]   = CROSSP(kvectemp,Evectemp)-omega_sp[k]*Bvectemp
-
-     ;; norm for denominator
-     ;; norm         = norm + SQRT(kx[k]^2+ ky[k]^2+ kz[k]^2)*SQRT(Ex[k]^2+ Ey[k]^2+ Ez[k]^2)
-  ENDFOR
-  
-  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
-
-  PRINT,'norm     : ',norm
-  avgkxEtotal     = kxEtotal/T
-  PRINT, 'avgkxEtotal/norm : ',avgkxEtotal/norm ; small (supposed to be zero)
-
-END
-
-PRO PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
-              OUT_JPREDICTED=JPred, $
-              OUT_MAGERR=magErr, $
-              OUT_ERRANGLE=errAngle
-
-  COMPILE_OPT IDL2,STRICTARRSUBS
-
-  IF N_ELEMENTS(unitFactors) EQ 0 THEN unitFactors = {B:1.D,J:1.D,BtimesJdMu:1.D}
-
-  mu_0            = DOUBLE(4.0D*!PI*1e-7)
-  iCmplx          = DCOMPLEX(0,1)
-
-  Bx_om           = FFT(Bx*unitFactors.B)
-  By_om           = FFT(By*unitFactors.B)
-  Bz_om           = FFT(Bz*unitFactors.B)
-
-  Jx_om           = FFT(Jx*unitFactors.J)
-  Jy_om           = FFT(Jy*unitFactors.J)
-  Jz_om           = FFT(Jz*unitFactors.J)
-
-  nFreq           = N_ELEMENTS(freq)
-  
-  ;; realer          = 1
-  ;; powSpec         = 1
-  CASE 1 OF
-     KEYWORD_SET(realer): BEGIN
-
-        JPred              = MAKE_ARRAY(3,nFreq,/DOUBLE)
-        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
-        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
-        FOR k=0,nFreq-1 DO BEGIN
-
-           ;;Measured J
-           Jvectemp        = REAL_PART([Jx_om[k], Jy_om[k], Jz_om[k]]) ;Can use real part(??) because we don't want fakers
-
-           ;;Measured B and derived k
-           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
-           kvectemp        = [kx[k], ky[k], kz[k]] 
-
-           ;;Predicted J
-           Jpred[*,k]      = REAL_PART(iCmplx * CROSSP(kvectemp,Bvectemp)) / mu_0
-
-           JpredMag        = SQRT(ABS(DOT(Jpred[*,k],Jpred[*,k])))
-           JvecMag         = SQRT(ABS(DOT(Jvectemp  ,Jvectemp)))
-
-           ;;Error angle
-           errAngle[k]     = ACOS(DOT(Jpred[*,k],Jvectemp)/(JpredMag*jvecMag))
-
-           ;;Magnitude error
-           magErr[k]       = ABS(JpredMag-JvecMag)/(JpredMag+JvecMag)
-
-        ENDFOR
-
-     END
-     KEYWORD_SET(powSpec): BEGIN
-
-        JPred              = MAKE_ARRAY(3,nFreq,/DOUBLE)
-        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
-        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
-        FOR k=0,nFreq-1 DO BEGIN
-
-           ;;Measured J
-           Jvectemp        = ABS([Jx_om[k], Jy_om[k], Jz_om[k]])
-
-           ;;Measured B and derived k
-           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
-           kvectemp        = [kx[k], ky[k], kz[k]] 
-
-           ;;Predicted J
-           Jpred[*,k]      = ABS(iCmplx * CROSSP(kvectemp,Bvectemp)) / mu_0
-
-           JpredMag        = SQRT(ABS(DOT(Jpred[*,k],Jpred[*,k])))
-           JvecMag         = SQRT(ABS(DOT(Jvectemp  ,Jvectemp)))
-
-           ;;Error angle
-           errAngle[k]     = ACOS(DOT(Jpred[*,k],Jvectemp)/(JpredMag*jvecMag))
-
-           ;;Magnitude error
-           magErr[k]       = ABS(JpredMag-JvecMag)/(JpredMag+JvecMag)
-
-        ENDFOR
-
-     END
-     ELSE: BEGIN
-
-        JPred              = MAKE_ARRAY(3,nFreq,/DCOMPLEX)
-        errAngle           = MAKE_ARRAY(nFreq,/DOUBLE)
-        magErr             = MAKE_ARRAY(nFreq,/DOUBLE)
-        FOR k=0,nFreq-1 DO BEGIN
-
-           ;;Measured J
-           Jvectemp        = [Jx_om[k], Jy_om[k], Jz_om[k]]
-
-           ;;Measured B and derived k
-           Bvectemp        = [Bx_om[k], By_om[k], Bz_om[k]]
-           kvectemp        = [kx[k], ky[k], kz[k]] 
-
-           ;;Predicted J
-           Jpred[*,k]      = iCmplx * CROSSP(kvectemp,Bvectemp) / mu_0
-
-           JpredMag        = SQRT(ABS(DOT(Jpred[*,k],CONJ(Jpred[*,k]))))
-           JvecMag         = SQRT(ABS(DOT(Jvectemp  ,CONJ(Jvectemp))))
-
-           ;;Error angle
-           ;; errAngle[k]  = ACOS(DOT(Jpred[*,k],CONJ(Jvectemp))/(SQRT(DOT(Jpred[*,k],CONJ(Jpred[*,k])))*SQRT(DOT(Jvectemp,CONJ(Jvectemp)))))
-
-           ;; errAngle[k]     = ACOS(REAL_PART(DOT(Jpred[*,k],CONJ(Jvectemp)))/(JpredMag*jvecMag))
-           errAngle[k]     = REAL_PART(ACOS(DOT(Jpred[*,k],CONJ(Jvectemp))/(JpredMag*jvecMag)))
-           ;; errAngle[k]     = ACOS(REAL_PART(DOT(Jvectemp,CONJ(Jpred[*,k])))/(JpredMag*jvecMag)) ;;just to see what happens (no difference)
-
-           ;; errAngle[k]     = ACOS(ABS(DOT(Jpred[*,k],CONJ(Jvectemp)))/(JpredMag*jvecMag))
-
-
-           ;;Magnitude error
-           magErr[k]       = ABS(JpredMag-JvecMag)/(JpredMag+JvecMag)
-
-        ENDFOR
-
-     END
-  ENDCASE
-
-  
-  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
-
-END
-
-PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
-                     freq,kx,ky,kz,kP, $
-                     SPERIOD=sPeriod, $
-                     UNITFACTORS=unitFactors, $
-                     PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-                     DOUBLE_CALC=double_calc, $
-                     HANNING=hanning, $
-                     EFIELD=EField, $
-                     ODDNESS_CHECK=oddness_check, $
-                     OUT_NORM=norm, $
-                     OUT_AVGJXB=avgJxBtotal, $
-                     OUT_JPREDICTED=JPred, $
-                     OUT_MAGERR=magErr, $
-                     OUT_ERRANGLE=errAngle, $
-                     DIAG=diag
-
-  COMPILE_OPT idl2,strictarrsubs
-
-  ;; diag         = 1
-
-  JxBtotal     = 0
-  norm         = 0              ; check that avg J x B =0
-  FOR TT=0,T-1 DO BEGIN         ; integrate over time
-     Jvectemp  = [Jx[TT], Jy[TT], Jz[TT]]
-     Bvectemp  = [Bx[TT], By[TT], Bz[TT]]
-     JxBtotal  = JxBtotal+CROSSP(Jvectemp,Bvectemp)
-
-     ;; norm for denominator
-     norm      = norm + SQRT(Jx[TT]^2+ Jy[TT]^2+ Jz[TT]^2)*SQRT(Bx[TT]^2+ By[TT]^2+ Bz[TT]^2)
-
-     IF KEYWORD_SET(diag) THEN BEGIN
-        PRINT,FORMAT='("avgJxBtotal/norm[",I0,"]: ",G12.5,T40,G12.5,T54,G10.5)',TT,JxBtotal/T/norm ; small (supposed to be zero)
-     ENDIF
-
-  ENDFOR
-
-  PRINT,'norm             : ',norm
-  avgJxBtotal = JxBtotal/T
-  PRINT,'avgJxBtotal/norm : ',avgJxBtotal/norm ; small (supposed to be zero)
-
-  ;; auto-correlation of B, i.e, <B_VEC(t) dot B_VEC(t+tau)>
-  BBautocorr = CORRELATION(Bx,Bx,T) + CORRELATION(By,By,T) + CORRELATION(Bz,Bz,T)
-
-  ;;components of cross correlation <J_VEC(t) cross B_vec (t+tau)>
-  JxB_xcomponent_corr  = CORRELATION(Jy,Bz,T) - CORRELATION(Jz,By,T)
-
-  JxB_ycomponent_corr  = CORRELATION(Jz,Bx,T) - CORRELATION(Jx,Bz,T)
-  JxB_zcomponent_corr  = CORRELATION(Jx,By,T) - CORRELATION(Jy,Bx,T)
-
-  ;; Fourier transform of <B_vec(t) dot B_vec(t+tau)>
-  CASE 1 OF
-     KEYWORD_SET(hanning): BEGIN
-        hWindow              = HANNING(N_ELEMENTS(BBautocorr),/DOUBLE)
-        BB_FFT               = FFT(BBautocorr*hWindow)
-     END
-     ELSE: BEGIN
-        BB_FFT               = FFT(BBautocorr)
-     END
-  ENDCASE
-
-  ;; Fourier transform of components of <B_vec(t) dot B_vec(t+tau)>
-  CASE 1 OF
-     KEYWORD_SET(hanning): BEGIN
-        hWindow              = HANNING(N_ELEMENTS(JxB_xcomponent_corr),/DOUBLE)
-        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr*hWindow)
-        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr*hWindow)
-        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr*hWindow)
-     END
-     ELSE: BEGIN
-        JxB_xcomponent_FFT   = FFT(JxB_xcomponent_corr)
-        JxB_ycomponent_FFT   = FFT(JxB_ycomponent_corr)
-        JxB_zcomponent_FFT   = FFT(JxB_zcomponent_corr)
-     END
-  ENDCASE
-
-  ;; calculate k components, put 0.001 in denom to avoid dividing zero by zero
-  ;; ikx                  = -JxB_xcomponent_FFT/(BB_FFT+.001)
-  ;; iky                  = -JxB_ycomponent_FFT/(BB_FFT+.001)
-  ;; ikz                  = -JxB_zcomponent_FFT/(BB_FFT+.001)
-
-  IF KEYWORD_SET(double_calc) THEN nonZ = DOUBLE(1.e-10) ELSE nonZ = .001
-  ;; nonZ = COMPLEX(1.e-10,1.e-10)
-  ikx                  = -JxB_xcomponent_FFT/(BB_FFT+nonZ)
-  iky                  = -JxB_ycomponent_FFT/(BB_FFT+nonZ)
-  ikz                  = -JxB_zcomponent_FFT/(BB_FFT+nonZ)
-
-  ;;extract imaginary part
-  kx                   = IMAGINARY(ikx)
-  ky                   = IMAGINARY(iky)
-  kz                   = IMAGINARY(ikz)
-
-  ;;Multiply by unit factor to get k in m^-1, if it exists
-  IF unitFactors.BtimesJdMu NE 1 THEN BEGIN
-     kx               *= unitFactors.BtimesJdMu
-     ky               *= unitFactors.BtimesJdMu
-     kz               *= unitFactors.BtimesJdMu
-  ENDIF
-
-  ;;Maggitude
-  kP = SQRT(kx^2+ky^2)
-
-  ;;Frequencies
-  ;; T is an integer giving the number of elements in a particular dimension
-  ;; sPeriod is a floating-point number giving the sampling interval
-  X = FINDGEN((T - 1)/2) + 1
-  is_T_even = (T MOD 2) EQ 0
-  IF (is_T_even) THEN BEGIN
-     freq = [0.0, X, T/2, -T/2 + X]/(T*sPeriod)
-  ENDIF ELSE BEGIN
-     freq = [0.0, X, -(T/2 + 1) + X]/(T*sPeriod)
-  ENDELSE
-
-  IF KEYWORD_SET(Efield) THEN BEGIN
-     CHECK_E_OMEGA_B_THING,Bx,By,Bz,EField[0,*],EField[1,*],EField[2,*],kx,ky,kz,freq
-  ENDIF
-
-  IF KEYWORD_SET(oddness_check) THEN BEGIN
-     CHECK_K_OMEGA_ODDNESS,freq,kx,ky,kz, $
-                          KZ_IS_KPERP=plot_kperp_magnitude_for_kz
-  ENDIF
-
-  ;;Calculate error thing?
-  predict_current = 1
-  IF KEYWORD_SET(predict_current) THEN BEGIN
-     PREDICT_J,freq,kx,ky,kz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
-               OUT_JPREDICTED=JPred, $
-               OUT_MAGERR=magErr, $
-               OUT_ERRANGLE=errAngle
-  ENDIF
-
-  ;;Don't do this nifty little trick until AFTER the error calc
-  ;;thing. kz is definitely zero for application of this method to FAST
-  IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
-     kz = kP
-  ENDIF
-
-END
-
-PRO DEAL_WITH_BADNESS,datSerie,improvSerie
-
-  COMPILE_OPT idl2,strictarrsubs
-
-  improvSerie  = datSerie
-
-  bad_i        = WHERE(~FINITE(datSerie),nBad,COMPLEMENT=good_i,NCOMPLEMENT=nGood)
-  nDat         = nGood+nBad
-
-  IF nBad GT 0 THEN BEGIN
-
-     GET_STREAKS,bad_i,START_I=strtB_ii,STOP_I=stopB_ii,/QUIET,/NO_PRINT_SUMMARY
-     GET_STREAKS,good_i,START_I=strtG_ii,STOP_I=stopG_ii,/QUIET,/NO_PRINT_SUMMARY
-     strtB_i  = bad_i[strtB_ii]
-     stopB_i  = bad_i[stopB_ii]
-
-     strtG_i  = bad_i[strtG_ii]
-     stopG_i  = bad_i[stopG_ii]
-
-     FOR k=0,N_ELEMENTS(strtB_i)-1 DO BEGIN
-
-        ;;If bad streak strts at beginning of TS or ends and end of TS, no interp
-        strtTmp = strtB_i[k]
-        stopTmp = stopB_i[k]
-
-        IF strtTmp EQ 0 OR stopTmp EQ nDat-1 THEN BEGIN
-           PRINT,'Skipping ...'
-           CONTINUE
-        ENDIF
-
-        ;;Just zero this bit
-        improvSerie[strtTmp:stopTmp] = 0.
-     ENDFOR
-
   ENDIF
 
 END
@@ -1819,6 +1934,12 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
    CUSTOM_ADDSEC=custom_addSec, $
+   CUSTOM_MULTI_ADDSEC=custom_multi_addSec, $
+   PTSHIFT=ptShift, $
+   SHIFT_UNIVERSAL_OFFSET=univOffset, $
+   NOSHIFT=noShift, $
+   NO_PTSHIFT_BACK=no_ptShift_back, $
+   NO_PTSHIFT_FWD=no_ptShift_fwd, $
    SHIFT_NPTS=shift_nPts, $
    BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
    FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
@@ -1835,7 +1956,11 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
    MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
    MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+   MARK_KS_BELOW_PHASE_ERR_THRESH=mark_ks_below_phaseErr_thresh, $
    MARK_KS_BELOW_BOTH=mark_ks_below_both, $
+   ONLY_KS_BELOW_MAGERR_THRESH=only_ks_below_magErr_thresh, $
+   ;; ONLY_KS_BELOW_ERRANGLE_THRESH=only_ks_below_errAngle_thresh, $
+   ;; ONLY_KS_BELOW_PHASE_ERR_THRESH=only_ks_below_phaseErr_thresh, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
@@ -1882,6 +2007,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    FOOTBALL_YLOG=football_yLog, $
    FOOTBALL_COL2TITLE=football_col2Title, $
    FOOTBALL_KMAG=football_kMag, $
+   FOOTBALL_NO_ERRANGLE=football_no_errAngle, $
+   FOOTBALL_NO_MAGERR=football_no_magErr, $
    ODDNESS_CHECK=oddness_check, $
    FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
@@ -1904,7 +2031,6 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    OUT_JZ=out_Jz, $
    OUT_AVGJXBNRM=out_avgJxBNrm
 
-
   COMPILE_OPT idl2,strictarrsubs
 
   doPlot    = ~KEYWORD_SET(no_plots)
@@ -1915,359 +2041,577 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   
   splitFFTs = ~KEYWORD_SET(combine_and_average_intervals)
 
-  IF N_ELEMENTS(extra_suffix) EQ 0 THEN extra_suffix = ''
-
-  ;; IF N_ELEMENTS(double_calc) EQ 0 THEN double_calc = 1
-
-  ;;N points to smooth k components with
-  smInd         = KEYWORD_SET(smInd                 ) ? smInd                  : 5
-  dbSmInd       = KEYWORD_SET(dbSmInd               ) ? dbSmInd                : 10
-  edge_truncate = KEYWORD_SET(kSmooth__edge_truncate) ? kSmooth__edge_truncate : 0
-  edge_mirror   = KEYWORD_SET(kSmooth__edge_mirror  ) ? kSmooth__edge_mirror   : 1
-  edge_wrap     = KEYWORD_SET(kSmooth__edge_wrap    ) ? kSmooth__edge_wrap     : 0
-
-  IF N_ELEMENTS(oddness_check) EQ 0 THEN oddness_check = 1
-
-  ;;select one of three examples
-  ;; First example : A few discrete k components
-  ;; Second example: Continuum of k components following some complicated function of omega
-  ;; Third example : Same as second example, except noise added
-
-  ;; example   = 3
-
-  saveVar  = 'dB_fac_V'
-  IF KEYWORD_SET(use_dB_fac) THEN saveVar = 'dB_fac'
-
-  suff = 'TEST'
-  CASE 1 OF
-     KEYWORD_SET(use_all_streaks): BEGIN
-     END
-     ELSE: BEGIN
-        suff = 'Bellan'+'-'+ $
-               extra_suffix+'-'+ $
-               saveVar
-     END
-  ENDCASE
-
-  saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
-
-  CASE 1 OF
-     KEYWORD_SET(use_all_streaks): BEGIN
-        suff += '-all_streaks'
-     END
-     ELSE: BEGIN
-        IF N_ELEMENTS(streakInd) GT 0 THEN BEGIN
-           suff += '-streak_' + STRCOMPRESS(streakInd,/REMOVE_ALL)
-        ENDIF
-     END
-  ENDCASE
-
-  ;;Aligned to mag or j time series?
-  CASE 1 OF
-     KEYWORD_SET(use_lowRes_time_series): BEGIN
-        suff += '-lR_ts'
-     END
-     KEYWORD_SET(use_J_time_series): BEGIN
-        suff += '-jz_ts'
-     END
-     ELSE: BEGIN
-        suff += '-mag_ts'
-     END
-  ENDCASE
-
-  IF KEYWORD_SET(use_avged_for_smooth) THEN BEGIN
-     suff += '-avgd_iSm'
+  IF KEYWORD_SET(custom_multi_addSec) AND KEYWORD_SET(custom_addSec) THEN BEGIN
+     PRINT,"Conflict: just set him (custom_multi_addSec) or him (custom_addSec)"
   ENDIF
 
-  IF KEYWORD_SET(smooth_J_dat) THEN BEGIN
-     suff += '-sm_je'
-  ENDIF
+  IF N_ELEMENTS(custom_addSec      ) EQ 0 THEN custom_addSec = 0.0D
+  IF N_ELEMENTS(custom_multi_addSec) EQ 0 THEN custom_multi_addSec = custom_addSec
 
-  IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
-     ;; suff += '-kPerp'
-  ENDIF
+  nGoes = N_ELEMENTS(custom_multi_addSec)
+  FOR jord=0,nGoes-1 DO BEGIN
 
-  IF KEYWORD_SET(tmpFFTsize) THEN BEGIN
-     suff += '-FFTsize_' + STRCOMPRESS(FFTsize,/REMOVE_ALL)
-  ENDIF
+     custom_addSec = custom_multi_addSec[jord]
 
-  IF KEYWORD_SET(hanning    ) THEN BEGIN
-     PRINT,"You shouldn't apply a window to correlation functions ..."
-     WAIT,2
-     suff += '-hanning'
-  ENDIF
-  IF KEYWORD_SET(double_calc) THEN suff += '-double_arithmetic'
-  IF KEYWORD_SET(bonus_suff ) THEN suff += (STRMATCH(bonus_suff,'-*') ? '' : '-' ) + bonus_suff
+     IF N_ELEMENTS(extra_suffix) EQ 0 THEN extra_suffix = ''
 
-  example = 1
+     IF N_ELEMENTS(double_calc) EQ 0 THEN double_calc = 1
 
-  CASE 1 OF
-     KEYWORD_SET(plot_posFreq): BEGIN
-        suff += '-pos'
-     END
-     KEYWORD_SET(fold_negFreq): BEGIN
-        suff += '-foldNeg'
-     END
-     ELSE: BEGIN
+     ;;N points to smooth k components with
+     smInd         = KEYWORD_SET(smInd                 ) ? smInd                  : 5
+     dbSmInd       = KEYWORD_SET(dbSmInd               ) ? dbSmInd                : 10
+     edge_truncate = KEYWORD_SET(kSmooth__edge_truncate) ? kSmooth__edge_truncate : 0
+     edge_mirror   = KEYWORD_SET(kSmooth__edge_mirror  ) ? kSmooth__edge_mirror   : 1
+     edge_wrap     = KEYWORD_SET(kSmooth__edge_wrap    ) ? kSmooth__edge_wrap     : 0
 
-     END
-  ENDCASE
+     IF N_ELEMENTS(oddness_check) EQ 0 THEN oddness_check = 1
 
-  CASE 1 OF
-     KEYWORD_SET(football_layout): BEGIN
-        suff += '-ftbl' + (KEYWORD_SET(football_yLog) ? 'Log' : '')
+     ;;select one of three examples
+     ;; First example : A few discrete k components
+     ;; Second example: Continuum of k components following some complicated function of omega
+     ;; Third example : Same as second example, except noise added
 
-     END
-     KEYWORD_SET(PRE_VIII_layout): BEGIN
-        suff += '-PREVIII'
-     END
-     ELSE: BEGIN
+     ;; example   = 3
 
-     END
-  ENDCASE
+     saveVar  = 'dB_fac_V'
+     IF KEYWORD_SET(use_dB_fac) THEN saveVar = 'dB_fac'
 
-  CASE 1 OF
-     KEYWORD_SET(shift_nPts): BEGIN
-        CASE N_ELEMENTS(shift_nPts) OF
-           1: BEGIN
-              shift_nPts = [shift_nPts,shift_nPts]
-              backShifts_for_avging = shift_nPts
-              fwdShifts_for_avging  = shift_nPts
-           END
-           2: BEGIN
-              backShifts_for_avging = shift_nPts[0]
-              fwdShifts_for_avging  = shift_nPts[1]
-           END
-           ELSE: BEGIN
-              PRINT,"Bogus! No more than two shifties"
-              STOP
-           END
-        ENDCASE
-     END
-     ELSE: BEGIN
-        IF N_ELEMENTS(backShifts_for_avging) EQ 0 THEN BEGIN
-           backShifts_for_avging = 0
-      ENDIF
-        
-        IF N_ELEMENTS(fwdShifts_for_avging) EQ 0 THEN BEGIN
-           fwdShifts_for_avging = 0
-        ENDIF
-     END
-  ENDCASE
+     suff = 'TEST'
+     CASE 1 OF
+        KEYWORD_SET(use_all_streaks): BEGIN
+        END
+        ELSE: BEGIN
+           suff = 'Bellan'+'-'+ $
+                  extra_suffix+'-'+ $
+                  saveVar
+        END
+     ENDCASE
 
-  nBack = N_ELEMENTS(backShifts_for_avging)
-  IF KEYWORD_SET(lock_shifts) THEN BEGIN
-     nFwd  = 1
-  ENDIF ELSE BEGIN
-     nFwd  = N_ELEMENTS(fwdShifts_for_avging)
-  ENDELSE
+     saveDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
 
-  IF nBack GT 1 THEN BEGIN
-     junk       = MIN(ABS(backShifts_for_avging),minJJInd)
-  ENDIF ELSE BEGIN
-     minJJInd   = 0
-  ENDELSE
-  IF nFwd GT 1 THEN BEGIN
-     junk       = MIN(ABS(fwdShifts_for_avging),minKKInd)
-  ENDIF ELSE BEGIN
-     minKKInd   = 0
-  ENDELSE
-  
-  TArrList      = LIST()
-  freqList      = LIST()
-  fDiffList     = LIST()
-  kxList        = LIST()
-  kyList        = LIST()
-  kzList        = LIST()
-  ;; kPList        = LIST()
-  ;; kPAngleList   = LIST()
-  indsList      = LIST()
-  avgJxBNrmList = LIST()
-  normList      = LIST()
+     CASE 1 OF
+        KEYWORD_SET(use_all_streaks): BEGIN
+           suff += '-all_streaks'
+        END
+        ELSE: BEGIN
+           IF N_ELEMENTS(streakInd) GT 0 THEN BEGIN
+              suff += '-streak_' + STRCOMPRESS(streakInd,/REMOVE_ALL)
+           ENDIF
+        END
+     ENDCASE
 
-  JPredList     = LIST()
-  magErrList    = LIST()
-  errAngleList  = LIST()
+     ;;Aligned to mag or j time series?
+     CASE 1 OF
+        KEYWORD_SET(use_lowRes_time_series): BEGIN
+           suff += '-lR_ts'
+        END
+        KEYWORD_SET(use_J_time_series): BEGIN
+           suff += '-jz_ts'
+        END
+        ELSE: BEGIN
+           suff += '-mag_ts'
+        END
+     ENDCASE
 
-  IF KEYWORD_SET(football_layout) THEN BEGIN
-     BSpecList  = LIST()
-     JSpecList  = LIST()
-     magCSpecList = LIST()
-     powFreqList  = LIST()
-  ENDIF
+     IF KEYWORD_SET(use_avged_for_smooth) THEN BEGIN
+        suff += '-avgd_iSm'
+     ENDIF
 
-  avgCount      = 0
+     IF KEYWORD_SET(smooth_J_dat) THEN BEGIN
+        suff += '-sm_je'
+     ENDIF
 
-  FOR jj=0,nBack-1 DO BEGIN
-     FOR kk=0,nFwd-1 DO BEGIN
+     IF KEYWORD_SET(plot_kperp_magnitude_for_kz) THEN BEGIN
+        ;; suff += '-kPerp'
+     ENDIF
 
-        IF KEYWORD_SET(lock_shifts) THEN BEGIN
-           shift_nPts = [backShifts_for_avging[jj],backShifts_for_avging[jj]]
-        ENDIF ELSE BEGIN
-           shift_nPts = [backShifts_for_avging[jj],fwdShifts_for_avging[kk]]
-        ENDELSE
+     IF KEYWORD_SET(FFTsize) THEN BEGIN
+        suff += '-FFTsize_' + STRCOMPRESS(FFTsize,/REMOVE_ALL)
+     ENDIF
 
-        tmpFFTSize = KEYWORD_SET(FFTSize) ? FFTSize : !NULL
-        tmpSuff = STRING(FORMAT='("__shft_",I0,"_",I0)',backShifts_for_avging[jj],fwdShifts_for_avging[kk])
-        PRINT,FORMAT='("********",T10,I0,T20,A0,T40,"*********")',avgCount,tmpSuff
+     IF KEYWORD_SET(hanning    ) THEN BEGIN
+        PRINT,"You shouldn't apply a window to correlation functions ..."
+        WAIT,2
+        suff += '-hanning'
+     ENDIF
+     ;; IF KEYWORD_SET(double_calc) THEN suff += '-double_arithmetic'
+     IF KEYWORD_SET(bonus_suff ) THEN suff += (STRMATCH(bonus_suff,'-*') ? '' : '-' ) + bonus_suff
+
+     example = 1
+
+     CASE 1 OF
+        KEYWORD_SET(plot_posFreq): BEGIN
+           suff += '-pos'
+        END
+        KEYWORD_SET(fold_negFreq): BEGIN
+           suff += '-foldNeg'
+        END
+        ELSE: BEGIN
+
+        END
+     ENDCASE
+
+     CASE 1 OF
+        KEYWORD_SET(football_layout): BEGIN
+           suff += '-ftbl' + (KEYWORD_SET(football_yLog) ? 'Log' : '')
+
+        END
+        KEYWORD_SET(PRE_VIII_layout): BEGIN
+           suff += '-PREVIII'
+        END
+        ELSE: BEGIN
+
+        END
+     ENDCASE
+
+     noShift = N_ELEMENTS(noShift) GT 0 ? noShift : 1B
+     IF ~KEYWORD_SET(noShift) THEN BEGIN
+
+        SET_TSHIFTS, $
+           PTSHIFT=ptShift, $
+           SHIFT_UNIVERSAL_OFFSET=univOffset, $
+           NOSHIFT=noShift, $
+           NO_PTSHIFT_BACK=no_ptShift_back, $
+           NO_PTSHIFT_FWD=no_ptShift_fwd, $
+           LOCK_FWDSHIFT_TO_BACKSHIFT=lock_shifts, $
+           OUT_BACKSHIFTS=backShifts, $
+           OUT_FWDSHIFTS=fwdShifts, $
+           OUT_EXTRASUFF=extraSuff
+
+        suff += extraSuff
+
+     ENDIF
+
+     CASE 1 OF
+        KEYWORD_SET(shift_nPts): BEGIN
+           CASE N_ELEMENTS(shift_nPts) OF
+              1: BEGIN
+                 shift_nPts = [shift_nPts,shift_nPts]
+                 backShifts_for_avging = shift_nPts
+                 fwdShifts_for_avging  = shift_nPts
+              END
+              2: BEGIN
+                 backShifts_for_avging = shift_nPts[0]
+                 fwdShifts_for_avging  = shift_nPts[1]
+              END
+              ELSE: BEGIN
+                 PRINT,"Bogus! No more than two shifties"
+                 STOP
+              END
+           ENDCASE
+        END
+        ELSE: BEGIN
+           IF N_ELEMENTS(backShifts_for_avging) EQ 0 THEN BEGIN
+              backShifts_for_avging = 0
+           ENDIF
+           
+           IF N_ELEMENTS(fwdShifts_for_avging) EQ 0 THEN BEGIN
+              fwdShifts_for_avging = 0
+           ENDIF
+        END
+     ENDCASE
+
+     nBack = N_ELEMENTS(backShifts_for_avging)
+     IF KEYWORD_SET(lock_shifts) THEN BEGIN
+        nFwd  = 1
+     ENDIF ELSE BEGIN
+        nFwd  = N_ELEMENTS(fwdShifts_for_avging)
+     ENDELSE
+
+     IF nBack GT 1 THEN BEGIN
+        junk       = MIN(ABS(backShifts_for_avging),minJJInd)
+     ENDIF ELSE BEGIN
+        minJJInd   = 0
+     ENDELSE
+     IF nFwd GT 1 THEN BEGIN
+        junk       = MIN(ABS(fwdShifts_for_avging),minKKInd)
+     ENDIF ELSE BEGIN
+        minKKInd   = 0
+     ENDELSE
+     
+     TArrList      = LIST()
+     freqList      = LIST()
+     fDiffList     = LIST()
+     kxList        = LIST()
+     kyList        = LIST()
+     kzList        = LIST()
+     ;; kPList        = LIST()
+     ;; kPAngleList   = LIST()
+     indsList      = LIST()
+     avgJxBNrmList = LIST()
+     normList      = LIST()
+
+     JPredList     = LIST()
+     magErrList    = LIST()
+     errAngleList  = LIST()
+     phaseErrList  = LIST()
+     
+     IF KEYWORD_SET(football_layout) THEN BEGIN
+        BSpecList  = LIST()
+        JSpecList  = LIST()
+        magCSpecList = LIST()
+        powFreqList  = LIST()
+     ENDIF
+
+     avgCount      = 0
+
+     FOR jj=0,nBack-1 DO BEGIN
+        FOR kk=0,nFwd-1 DO BEGIN
+
+           IF KEYWORD_SET(lock_shifts) THEN BEGIN
+              shift_nPts = [backShifts_for_avging[jj],backShifts_for_avging[jj]]
+           ENDIF ELSE BEGIN
+              shift_nPts = [backShifts_for_avging[jj],fwdShifts_for_avging[kk]]
+           ENDELSE
+
+           tmpFFTSize = KEYWORD_SET(FFTSize) ? FFTSize : !NULL
+           tmpSuff = STRING(FORMAT='("__shft_",I0,"_",I0)',backShifts_for_avging[jj],fwdShifts_for_avging[kk])
+           PRINT,FORMAT='("********",T10,I0,T20,A0,T40,"*********")',avgCount,tmpSuff
 
 
-        IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
+           IF KEYWORD_SET(parse_B_and_J_saveFile) THEN BEGIN
 
-           IF ~CHUNK_SAVE_FILE(T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
-                               magC, $
-                               unitFactors,sPeriod,saveVar, $
-                               B_AND_J_FILE=saveFile, $
-                               SAVEDIR=saveDir, $
-                               USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
-                               CUSTOM_T1=custom_t1, $
-                               CUSTOM_T2=custom_t2, $
-                               CUSTOM_ADDSEC=custom_addSec, $
-                               SHIFT_NPTS=shift_nPts, $
-                               USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
-                               USE_J_TIME_SERIES=use_J_time_series, $
-                               SMOOTH_J_DAT_TO_B=smooth_J_dat, $
-                               PRESMOOTH_MAG=presmooth_mag, $
-                               PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
-                               STREAKNUM=streakNum, $
-                               OUT_STREAKNUM=streakInd, $
-                               USE_ALL_STREAKS=use_all_streaks, $
-                               USE_DB_FAC=use_dB_fac, $
-                               EFIELD=EField, $
-                               FFT__NEAREST_TWO_POWER=nearest_two_power, $
-                               SRATES=sRates) $
-           THEN BEGIN
-              MESSAGE,"Failed to parse!",/CONT
-              RETURN
+              IF ~CHUNK_SAVE_FILE(T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
+                                  magC, $
+                                  unitFactors,sPeriod,saveVar, $
+                                  B_AND_J_FILE=saveFile, $
+                                  SAVEDIR=saveDir, $
+                                  USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
+                                  CUSTOM_T1=custom_t1, $
+                                  CUSTOM_T2=custom_t2, $
+                                  CUSTOM_ADDSEC=custom_addSec, $
+                                  SHIFT_NPTS=shift_nPts, $
+                                  USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
+                                  USE_J_TIME_SERIES=use_J_time_series, $
+                                  SMOOTH_J_DAT_TO_B=smooth_J_dat, $
+                                  PRESMOOTH_MAG=presmooth_mag, $
+                                  PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+                                  STREAKNUM=streakNum, $
+                                  OUT_STREAKNUM=streakInd, $
+                                  USE_ALL_STREAKS=use_all_streaks, $
+                                  USE_DB_FAC=use_dB_fac, $
+                                  EFIELD=EField, $
+                                  FFT__NEAREST_TWO_POWER=nearest_two_power, $
+                                  SRATES=sRates) $
+              THEN BEGIN
+                 MESSAGE,"Failed to parse!",/CONT
+                 RETURN
+              ENDIF
+
+              CASE 1 OF
+                 KEYWORD_SET(use_all_streaks): BEGIN
+                    sRate = !NULL 
+                    FOR k=0,N_ELEMENTS(Bx)-1 DO BEGIN
+                       sRate = [sRate,1./( (TArr[k])[1:-1]-(TArr[k])[0:-2] )]
+                    ENDFOR
+                 END
+                 ELSE: BEGIN
+                    sRate = 1./(TArr[1:-1]-TArr[0:-2])
+
+                 END
+              ENDCASE
+
+              maxFreq = (MIN([MEDIAN(sRates.mag),MEDIAN(sRates.eESA),MEDIAN(sRates.iESA)]))/2.
+              maxFreq = 4.
+
+           ENDIF ELSE BEGIN
+              unitFactors = {B:1.D,J:1.D,BtimesJdMu:1.D} ;Don't adjust k in this case
+           ENDELSE
+
+           IF KEYWORD_SET(example_mode) THEN BEGIN
+              SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactors,sPeriod,saveVar, $
+                            SAVEDIR=saveDir, $
+                            EXAMPLE=example, $
+                            PARSE_B_AND_J_SAVEFILE=parse_B_AND_J_saveFile
+           ENDIF
+
+           ;;Now do some calcs
+           defFFTsize = T[0]
+           IF ( N_ELEMENTS(tmpFFTsize) EQ 0 ) AND KEYWORD_SET(splitFFTs) THEN BEGIN
+              tmpFFTsize = defFFTsize ;The other way for tmpFFTsize to be set is user input, toward the beginning 
+           ENDIF
+
+           IF KEYWORD_SET(FFTpercent) THEN BEGIN
+              IF FFTpercent GT 1 THEN FFTpercent /= 100.
+              tmpFFTsize = FIX(T[0]*FFTpercent)
            ENDIF
 
            CASE 1 OF
-              KEYWORD_SET(use_all_streaks): BEGIN
-                 sRate = !NULL 
-                 FOR k=0,N_ELEMENTS(Bx)-1 DO BEGIN
-                    sRate = [sRate,1./( (TArr[k])[1:-1]-(TArr[k])[0:-2] )]
-                 ENDFOR
-              END
-              ELSE: BEGIN
-                 sRate = 1./(TArr[1:-1]-TArr[0:-2])
+              KEYWORD_SET(tmpFFTsize): BEGIN
 
-              END
-           ENDCASE
+                 IF KEYWORD_SET(use_all_streaks) THEN BEGIN
 
-           maxFreq = (MIN([MEDIAN(sRates.mag),MEDIAN(sRates.eESA),MEDIAN(sRates.iESA)]))/2.
-           maxFreq = 4.
+                    ;;First get the total number of FFTs we're going to do for each streak of measurements
+                    nFFTsArr        = !NULL
+                    FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
+                       TTmp         = T[kk]
+                       lastInd      = TTmp-1
 
-        ENDIF ELSE BEGIN
-           unitFactors = {B:1.D,J:1.D,BtimesJdMu:1.D} ;Don't adjust k in this case
-        ENDELSE
+                       nFFTsArr     = [nFFTsArr,TTmp/tmpFFTSize]
+                       ;; FOR k=0,nFFTs-1 DO BEGIN
+                       ;;    tmpI   = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]                 
+                       ;; ENDFOR
+                    ENDFOR
+                    nFFTs           = TOTAL(nFFTsArr)
 
-        IF KEYWORD_SET(example_mode) THEN BEGIN
-           SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactors,sPeriod,saveVar, $
-                         SAVEDIR=saveDir, $
-                         EXAMPLE=example, $
-                         PARSE_B_AND_J_SAVEFILE=parse_B_AND_J_saveFile
-        ENDIF
+                    fArr            = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    kxArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    kyArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    kzArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    avgJxBArr       = MAKE_ARRAY(nFFTs,3)
+                    normArr         = MAKE_ARRAY(nFFTs,3)
+                    ;; kpArr        = MAKE_ARRAY(nFFTs,tmpFFTSize)
 
-        ;;Now do some calcs
-        defFFTsize = T[0]
-        IF ( N_ELEMENTS(tmpFFTsize) EQ 0 ) AND KEYWORD_SET(splitFFTs) THEN BEGIN
-           tmpFFTsize = defFFTsize ;The other way for tmpFFTsize to be set is user input, toward the beginning 
-        ENDIF
+                    magErrArr       = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    errAngleArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    phaseErrArr     = MAKE_ARRAY(3,nFFTs,tmpFFTSize)
 
-        IF KEYWORD_SET(FFTpercent) THEN BEGIN
-           IF FFTpercent GT 1 THEN FFTpercent /= 100.
-           tmpFFTsize = FIX(T[0]*FFTpercent)
-        ENDIF
+                    IF KEYWORD_SET(football_layout) THEN BEGIN
+                       ;; myNum     = tmpFFTSize
+                       myNum        = tmpFFTSize/2+1
+                       dComplex     = 0
+                       double       = 1
+                       powFrac      = 1
 
-        CASE 1 OF
-           KEYWORD_SET(tmpFFTsize): BEGIN
+                       BxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       BySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       BzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       JxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       JySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       JzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       magCSpecArr  = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       powFreqArr   = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
 
-              IF KEYWORD_SET(use_all_streaks) THEN BEGIN
-
-                 ;;First get the total number of FFTs we're going to do for each streak of measurements
-                 nFFTsArr        = !NULL
-                 FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
-                    TTmp         = T[kk]
-                    lastInd      = TTmp-1
-
-                    nFFTsArr     = [nFFTsArr,TTmp/tmpFFTSize]
-                    ;; FOR k=0,nFFTs-1 DO BEGIN
-                    ;;    tmpI   = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]                 
-                    ;; ENDFOR
-                 ENDFOR
-                 nFFTs           = TOTAL(nFFTsArr)
-
-                 fArr            = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kxArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kyArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kzArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 avgJxBArr       = MAKE_ARRAY(nFFTs,3)
-                 normArr         = MAKE_ARRAY(nFFTs,3)
-                 ;; kpArr        = MAKE_ARRAY(nFFTs,tmpFFTSize)
-
-                 magErrArr       = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 errAngleArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
-
-                 IF KEYWORD_SET(football_layout) THEN BEGIN
-                    ;; myNum     = tmpFFTSize
-                    myNum        = tmpFFTSize/2+1
-                    dComplex     = 0
-                    double       = 1
-                    powFrac      = 1
-
-                    BxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    BySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    BzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    magCSpecArr  = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    powFreqArr   = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
-
-                 ENDIF
-
-                 FFTCount  = 0
-                 include_i = !NULL
-                 prevFFTs  = 0
-                 FFTi_list = LIST()
-
-                 ;;Remember, Bx is a LIST (not an array) and so contains sets of streaks of Bx measurements
-                 ;;Here we loop over streaks of measurements
-                 FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
-
-                    TTmp  = T[kk]
-                    TArrTmp = TArr[kk]
-
-                    BxTmp = Bx[kk]
-                    ByTmp = By[kk]
-                    BzTmp = Bz[kk]
-
-                    JxTmp = Jx[kk]
-                    JyTmp = Jy[kk]
-                    JzTmp = Jz[kk]
-                    
-                    IF N_ELEMENTS(magC) GT 0 THEN BEGIN
-                       magCTmp = magC[kk]
                     ENDIF
-                    
-                    ;; lastInd  = TTmp-1
-                    lastInd  = TTmp-1
-                    nArr     = !NULL
-                    PRINT,"Interval: ",kk
 
-                    ;;If we're doing multiple FFTs per streak, it happens here. Otherwise this loop is only traversed once.
-                    FOR k=FFTCount,FFTCount+nFFTsArr[kk]-1 DO BEGIN
+                    FFTCount  = 0
+                    include_i = !NULL
+                    prevFFTs  = 0
+                    FFTi_list = LIST()
 
-                       tmpI = [((k-prevFFTs)*tmpFFTSize):( ((k-prevFFTs+1)*tmpFFTSize-1) < lastInd )]
+                    ;;Remember, Bx is a LIST (not an array) and so contains sets of streaks of Bx measurements
+                    ;;Here we loop over streaks of measurements
+                    FOR kk=0,N_ELEMENTS(Bx)-1 DO BEGIN
+
+                       TTmp  = T[kk]
+                       TArrTmp = TArr[kk]
+
+                       BxTmp = Bx[kk]
+                       ByTmp = By[kk]
+                       BzTmp = Bz[kk]
+
+                       JxTmp = Jx[kk]
+                       JyTmp = Jy[kk]
+                       JzTmp = Jz[kk]
+                       
+                       IF N_ELEMENTS(magC) GT 0 THEN BEGIN
+                          magCTmp = magC[kk]
+                       ENDIF
+                       
+                       ;; lastInd  = TTmp-1
+                       lastInd  = TTmp-1
+                       nArr     = !NULL
+                       PRINT,"Interval: ",kk
+
+                       ;;If we're doing multiple FFTs per streak, it happens here. Otherwise this loop is only traversed once.
+                       FOR k=FFTCount,FFTCount+nFFTsArr[kk]-1 DO BEGIN
+
+                          tmpI = [((k-prevFFTs)*tmpFFTSize):( ((k-prevFFTs+1)*tmpFFTSize-1) < lastInd )]
+                          nTmp = N_ELEMENTS(tmpI)
+                          nArr = [nArr,nTmp]
+                          PRINT,k," ",nTmp
+
+                          IF nTmp LT tmpFFTSize THEN CONTINUE
+                          include_i = [include_i,k]
+
+                          BELLAN_2016__BRO,nTmp,JxTmp[tmpI],JyTmp[tmpI],JzTmp[tmpI], $
+                                           BxTmp[tmpI],ByTmp[tmpI],BzTmp[tmpI], $
+                                           freq,kx,ky,kz,kP, $
+                                           SPERIOD=sPeriod, $
+                                           UNITFACTORS=unitFactors, $
+                                           PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+                                           DOUBLE_CALC=double_calc, $
+                                           HANNING=hanning, $
+                                           EFIELD=EField, $
+                                           ODDNESS_CHECK=oddness_check, $
+                                           OUT_NORM=norm, $
+                                           OUT_AVGJXB=avgJxBtotal, $
+                                           OUT_JPREDICTED=JPred, $
+                                           OUT_MAGERR=magErr, $
+                                           OUT_ERRANGLE=errAngle, $
+                                           OUT_PHASE_ERR=phaseErr
+
+                          this = ARRAY_INDICES(TRANSPOSE(fArr),(k*N_ELEMENTS(fArr[0,*])+LINDGEN(N_ELEMENTS(tmpI))))
+                          ;; this = [this[1,*],this[0,*]]
+                          ;; PRINT,this
+
+                          CASE NDIMEN(this) OF
+                             1: BEGIN
+
+                                fArr [this]                    = TEMPORARY(freq)
+                                kxArr[this]                    = TEMPORARY(kx  )
+                                kyArr[this]                    = TEMPORARY(ky  )
+                                kzArr[this]                    = TEMPORARY(kz  )
+
+                                magErrArr[this]                = TEMPORARY(magErr)
+                                errAngleArr[this]              = TEMPORARY(errAngle)
+                                phaseErrArr[*,this]            = TEMPORARY(phaseErr)
+
+                                IF KEYWORD_SET(football_layout) THEN BEGIN
+
+                                   BxSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(BxTmp[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
+                                   BySpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(ByTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                   BzSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(BzTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                   JxSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JxTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                   JySpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JyTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                   JzSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JzTmp[tmpI],sPeriod,FRACTION=powFrac)
+                                   magCSpecArr[FFTCount,*]     = FFT_POWERSPECTRUM(magCTmp[tmpI],sPeriod,FRACTION=powFrac)
+
+                                   powFreqArr[FFTCount,*]      = powFreq
+                                   ;; BxSpecArr[FFTCount,*]    = FFT(BxTmp[tmpI])
+                                   ;; BySpecArr[FFTCount,*]    = FFT(ByTmp[tmpI])
+                                   ;; BzSpecArr[FFTCount,*]    = FFT(BzTmp[tmpI])
+                                   ;; JxSpecArr[FFTCount,*]    = FFT(JxTmp[tmpI])
+                                   ;; JySpecArr[FFTCount,*]    = FFT(JyTmp[tmpI])
+                                   ;; JzSpecArr[FFTCount,*]    = FFT(JzTmp[tmpI])
+                                   ;; magCSpecArr[FFTCount,*]  = FFT(magCTmp[tmpI])
+
+                                ENDIF
+
+                             END
+                             2: BEGIN
+
+                                fArr [this[1,*],this[0,*]] = TEMPORARY(freq)
+                                kxArr[this[1,*],this[0,*]] = TEMPORARY(kx  )
+                                kyArr[this[1,*],this[0,*]] = TEMPORARY(ky  )
+                                kzArr[this[1,*],this[0,*]] = TEMPORARY(kz  )
+                                ;; kPArr[this] = kP
+
+                             END
+                          ENDCASE
+
+                          ;;avgJxB doesn't depend on FFT dimensions
+                          avgJxBArr[k,*] = TEMPORARY(avgJxBtotal)
+                          normArr[k,*]   = REPLICATE(TEMPORARY(norm),3)
+                          
+                       ENDFOR
+
+                       FFTCount += nFFTsArr[kk]
+                       prevFFTs = FFTCount
+                       FFTi_list.Add,TEMPORARY(tmpI)
+                    ENDFOR
+
+                    fArr      = fArr[include_i,*]
+                    kxArr     = kxArr[include_i,*]
+                    kyArr     = kyArr[include_i,*]
+                    kzArr     = kzArr[include_i,*]
+
+                    magErrArr   = magErrArr[include_i,*]
+                    errAngleArr = errAngleArr[include_i,*]
+                    phaseErrArr = phaseErrArr[*,include_i,*]
+
+                    freq      = MEAN(TEMPORARY(fArr) ,DIMENSION=1)
+                    kx        = MEAN(TEMPORARY(kxArr),DIMENSION=1)
+                    ky        = MEAN(TEMPORARY(kyArr),DIMENSION=1)
+                    kz        = MEAN(TEMPORARY(kzArr),DIMENSION=1)
+                    kP        = SQRT(kx*kx+ky*ky)
+
+                    magErr    = MEAN(TEMPORARY(magErrArr),DIMENSION=1)
+                    errAngle  = MEAN(TEMPORARY(errAngleArr),DIMENSION=1)
+                    phaseErr  = MEAN(TEMPORARY(phaseErrArr),DIMENSION=2)
+
+                    avgJxBNrm = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
+
+                    IF KEYWORD_SET(football_layout) THEN BEGIN
+
+                       BxSpec = MEAN(BxSpecArr,DIMENSION=1)
+                       BySpec = MEAN(BySpecArr,DIMENSION=1)
+                       BzSpec = MEAN(BzSpecArr,DIMENSION=1)
+                       JxSpec = MEAN(JxSpecArr,DIMENSION=1)
+                       JySpec = MEAN(JySpecArr,DIMENSION=1)
+                       JzSpec = MEAN(JzSpecArr,DIMENSION=1)
+                       magCSpec = MEAN(magCSpecArr,DIMENSION=1)
+
+                       powFreq = MEAN(powFreqArr,DIMENSION=1)
+
+                       BSpec  = [[TEMPORARY(BxSpec)],[TEMPORARY(BySpec)],[TEMPORARY(BzSpec)]]
+                       JSpec  = [[TEMPORARY(JxSpec)],[TEMPORARY(JySpec)],[TEMPORARY(JzSpec)]]
+
+                    ENDIF
+
+                    usedInds  = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
+
+                 ENDIF ELSE BEGIN
+
+                    eMulieribus   = T/tmpFFTSize
+                    IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
+
+                       IF (N_ELEMENTS(which_FFTs) GT eMulieribus) OR which_FFTs[0] GT eMulieribus THEN BEGIN
+                          PRINT,"You're WRONG"
+                          STOP
+                       ENDIF
+
+                       nFFTs = N_ELEMENTS(which_FFTs)
+
+                       FFTSuff = '-FFT_itvls'
+                       FOR k=0,nFFTs-1 DO FFTSuff += STRING(FORMAT='("_",I0)',which_FFTs[k])
+                       suff   += FFTSuff
+
+                    ENDIF ELSE BEGIN
+
+                       nFFTs = eMulieribus
+
+                    ENDELSE
+
+                    lastInd         = T-1
+                    nArr            = !NULL
+                    fArr            = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    kxArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    kyArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    kzArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    avgJxBArr       = MAKE_ARRAY(nFFTs,3)
+                    normArr         = MAKE_ARRAY(nFFTs,3)
+
+                    ;; kpArr        = MAKE_ARRAY(nFFTs,tmpFFTSize)
+
+                    magErrArr       = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    errAngleArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
+                    phaseErrArr     = MAKE_ARRAY(3,nFFTs,tmpFFTSize)
+
+                    IF KEYWORD_SET(football_layout) THEN BEGIN
+                       ;; myNum     = tmpFFTSize
+                       myNum        = tmpFFTSize/2+1
+                       dComplex     = 0
+                       double       = 1
+                       powFrac      = 1
+
+                       BxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       BySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       BzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       JxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       JySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       JzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       magCSpecArr  = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
+                       powFreqArr   = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
+
+                    ENDIF
+
+                    FFTCount  = 0
+                    FFTi_list = LIST()
+                    FOR k=0,eMulieribus-1 DO BEGIN
+
+                       IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
+                          IF (WHERE(k EQ which_FFTs))[0] EQ -1 THEN CONTINUE
+                       ENDIF
+
+                       tmpI = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]
                        nTmp = N_ELEMENTS(tmpI)
                        nArr = [nArr,nTmp]
-                       PRINT,k," ",nTmp
-
-                       IF nTmp LT tmpFFTSize THEN CONTINUE
-                       include_i = [include_i,k]
-
-                       BELLAN_2016__BRO,nTmp,JxTmp[tmpI],JyTmp[tmpI],JzTmp[tmpI], $
-                                        BxTmp[tmpI],ByTmp[tmpI],BzTmp[tmpI], $
+                       PRINT,FORMAT='(A0,T10,A0,T20,A0,T45,A0,T72,A0)',"Itvl","nPts","Start T","Stop T","sFreq"
+                       PRINT,FORMAT='(I0,T10,I0,T20,A0,T45,A0,T72,F0.3)',k,nTmp, $
+                             TIME_TO_STR(TArr[tmpI[0]],/MS),TIME_TO_STR(TArr[tmpI[-1]],/MS), $
+                             1.D/(TArr[1]-TArr[0])
+                       BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
                                         freq,kx,ky,kz,kP, $
                                         SPERIOD=sPeriod, $
                                         UNITFACTORS=unitFactors, $
@@ -2280,633 +2624,469 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                         OUT_AVGJXB=avgJxBtotal, $
                                         OUT_JPREDICTED=JPred, $
                                         OUT_MAGERR=magErr, $
-                                        OUT_ERRANGLE=errAngle
+                                        OUT_ERRANGLE=errAngle, $
+                                        OUT_PHASE_ERR=phaseErr
 
-                       this = ARRAY_INDICES(TRANSPOSE(fArr),(k*N_ELEMENTS(fArr[0,*])+LINDGEN(N_ELEMENTS(tmpI))))
-                       ;; this = [this[1,*],this[0,*]]
-                       ;; PRINT,this
+                       fArr [FFTCount,*]           = TEMPORARY(freq       )
+                       kxArr[FFTCount,*]           = TEMPORARY(kx         )
+                       kyArr[FFTCount,*]           = TEMPORARY(ky         )
+                       kzArr[FFTCount,*]           = TEMPORARY(kz         )
 
-                       CASE NDIMEN(this) OF
-                          1: BEGIN
+                       avgJxBArr[FFTCount,*]       = TEMPORARY(avgJxBtotal)
+                       normArr[FFTCount,*]         = REPLICATE(TEMPORARY(norm),3)
 
-                             fArr [this]                    = TEMPORARY(freq)
-                             kxArr[this]                    = TEMPORARY(kx  )
-                             kyArr[this]                    = TEMPORARY(ky  )
-                             kzArr[this]                    = TEMPORARY(kz  )
-
-                             magErrArr[this]                = TEMPORARY(magErr)
-                             errAngleArr[this]              = TEMPORARY(errAngle)
-
-                             IF KEYWORD_SET(football_layout) THEN BEGIN
-
-                                BxSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(BxTmp[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
-                                BySpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(ByTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                BzSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(BzTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                JxSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JxTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                JySpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JyTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                JzSpecArr[FFTCount,*]       = FFT_POWERSPECTRUM(JzTmp[tmpI],sPeriod,FRACTION=powFrac)
-                                magCSpecArr[FFTCount,*]     = FFT_POWERSPECTRUM(magCTmp[tmpI],sPeriod,FRACTION=powFrac)
-
-                                powFreqArr[FFTCount,*]      = powFreq
-                                ;; BxSpecArr[FFTCount,*]    = FFT(BxTmp[tmpI])
-                                ;; BySpecArr[FFTCount,*]    = FFT(ByTmp[tmpI])
-                                ;; BzSpecArr[FFTCount,*]    = FFT(BzTmp[tmpI])
-                                ;; JxSpecArr[FFTCount,*]    = FFT(JxTmp[tmpI])
-                                ;; JySpecArr[FFTCount,*]    = FFT(JyTmp[tmpI])
-                                ;; JzSpecArr[FFTCount,*]    = FFT(JzTmp[tmpI])
-                                ;; magCSpecArr[FFTCount,*]  = FFT(magCTmp[tmpI])
-
-                             ENDIF
-
-                          END
-                          2: BEGIN
-
-                             fArr [this[1,*],this[0,*]] = TEMPORARY(freq)
-                             kxArr[this[1,*],this[0,*]] = TEMPORARY(kx  )
-                             kyArr[this[1,*],this[0,*]] = TEMPORARY(ky  )
-                             kzArr[this[1,*],this[0,*]] = TEMPORARY(kz  )
-                             ;; kPArr[this] = kP
-
-                          END
-                       ENDCASE
-
-                       ;;avgJxB doesn't depend on FFT dimensions
-                       avgJxBArr[k,*] = TEMPORARY(avgJxBtotal)
-                       normArr[k,*]   = REPLICATE(TEMPORARY(norm),3)
+                       magErrArr[FFTCount,*]       = TEMPORARY(magErr)
+                       errAngleArr[FFTCount,*]     = TEMPORARY(errAngle)
+                       phaseErrArr[*,FFTCount,*]   = TEMPORARY(phaseErr)
                        
+                       IF KEYWORD_SET(football_layout) THEN BEGIN
+
+                          BxSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Bx[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
+                          BySpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(By[tmpI],sPeriod,FRACTION=powFrac)
+                          BzSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Bz[tmpI],sPeriod,FRACTION=powFrac)
+                          JxSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jx[tmpI],sPeriod,FRACTION=powFrac)
+                          JySpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jy[tmpI],sPeriod,FRACTION=powFrac)
+                          JzSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jz[tmpI],sPeriod,FRACTION=powFrac)
+                          magCSpecArr[FFTCount,*]  = FFT_POWERSPECTRUM(magC[tmpI],sPeriod,FRACTION=powFrac)
+
+                          powFreqArr[FFTCount,*]   = powFreq
+
+                          ;; BxSpecArr[FFTCount,*] = FFT(Bx[tmpI])
+                          ;; BySpecArr[FFTCount,*] = FFT(By[tmpI])
+                          ;; BzSpecArr[FFTCount,*] = FFT(Bz[tmpI])
+                          ;; JxSpecArr[FFTCount,*] = FFT(Jx[tmpI])
+                          ;; JySpecArr[FFTCount,*] = FFT(Jy[tmpI])
+                          ;; JzSpecArr[FFTCount,*] = FFT(Jz[tmpI])
+                          ;; magCSpecArr[FFTCount,*] = FFT(magC[tmpI])
+
+                       ENDIF
+
+                       FFTCount++
+
+                       FFTi_list.Add,TEMPORARY(tmpI)
+
                     ENDFOR
 
-                    FFTCount += nFFTsArr[kk]
-                    prevFFTs = FFTCount
-                    FFTi_list.Add,TEMPORARY(tmpI)
-                 ENDFOR
+                    keepEm        = WHERE(nArr EQ MEDIAN(nArr),nKeep)
+                    freq          = MEAN(fArr ,DIMENSION=1)
+                    kx            = MEAN(kxArr,DIMENSION=1)
+                    ky            = MEAN(kyArr,DIMENSION=1)
+                    kz            = MEAN(kzArr,DIMENSION=1)
+                    kP            = SQRT(kx*kx+ky*ky)
 
-                 fArr      = fArr[include_i,*]
-                 kxArr     = kxArr[include_i,*]
-                 kyArr     = kyArr[include_i,*]
-                 kzArr     = kzArr[include_i,*]
+                    magErr        = MEAN(magErrArr,DIMENSION=1)
+                    errAngle      = MEAN(errAngleArr,DIMENSION=1)
+                    phaseErr      = MEAN(phaseErrArr,DIMENSION=2)
 
-                 magErrArr   = magErrArr[include_i,*]
-                 errAngleArr = errAngleArr[include_i,*]
+                    avgJxBNrm     = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
 
-                 freq      = MEAN(TEMPORARY(fArr) ,DIMENSION=1)
-                 kx        = MEAN(TEMPORARY(kxArr),DIMENSION=1)
-                 ky        = MEAN(TEMPORARY(kyArr),DIMENSION=1)
-                 kz        = MEAN(TEMPORARY(kzArr),DIMENSION=1)
-                 kP        = SQRT(kx*kx+ky*ky)
+                    IF KEYWORD_SET(football_layout) THEN BEGIN
 
-                 magErr    = MEAN(TEMPORARY(magErrArr),DIMENSION=1)
-                 errAngle  = MEAN(TEMPORARY(errAngleArr),DIMENSION=1)
+                       BxSpec = MEAN(BxSpecArr,DIMENSION=1)
+                       BySpec = MEAN(BySpecArr,DIMENSION=1)
+                       BzSpec = MEAN(BzSpecArr,DIMENSION=1)
+                       JxSpec = MEAN(JxSpecArr,DIMENSION=1)
+                       JySpec = MEAN(JySpecArr,DIMENSION=1)
+                       JzSpec = MEAN(JzSpecArr,DIMENSION=1)
 
-                 avgJxBNrm = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
+                       magCSpec = MEAN(magCSpecArr,DIMENSION=1)
 
-                 IF KEYWORD_SET(football_layout) THEN BEGIN
+                       powFreq = MEAN(powFreqArr,DIMENSION=1)
 
-                    BxSpec = MEAN(BxSpecArr,DIMENSION=1)
-                    BySpec = MEAN(BySpecArr,DIMENSION=1)
-                    BzSpec = MEAN(BzSpecArr,DIMENSION=1)
-                    JxSpec = MEAN(JxSpecArr,DIMENSION=1)
-                    JySpec = MEAN(JySpecArr,DIMENSION=1)
-                    JzSpec = MEAN(JzSpecArr,DIMENSION=1)
-                    magCSpec = MEAN(magCSpecArr,DIMENSION=1)
+                       BSpec  = [[TEMPORARY(BxSpec)],[TEMPORARY(BySpec)],[TEMPORARY(BzSpec)]]
+                       JSpec  = [[TEMPORARY(JxSpec)],[TEMPORARY(JySpec)],[TEMPORARY(JzSpec)]]
 
-                    powFreq = MEAN(powFreqArr,DIMENSION=1)
-
-                    BSpec  = [[TEMPORARY(BxSpec)],[TEMPORARY(BySpec)],[TEMPORARY(BzSpec)]]
-                    JSpec  = [[TEMPORARY(JxSpec)],[TEMPORARY(JySpec)],[TEMPORARY(JzSpec)]]
-
-                 ENDIF
-
-                 usedInds  = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
-
-              ENDIF ELSE BEGIN
-
-                 eMulieribus   = T/tmpFFTSize
-                 IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
-
-                    IF (N_ELEMENTS(which_FFTs) GT eMulieribus) OR which_FFTs[0] GT eMulieribus THEN BEGIN
-                       PRINT,"You're WRONG"
-                       STOP
                     ENDIF
 
-                    nFFTs = N_ELEMENTS(which_FFTs)
-
-                    FFTSuff = '-FFT_itvls'
-                    FOR k=0,nFFTs-1 DO FFTSuff += STRING(FORMAT='("_",I0)',which_FFTs[k])
-                    suff   += FFTSuff
-
-                 ENDIF ELSE BEGIN
-
-                    nFFTs = eMulieribus
+                    usedInds      = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
 
                  ENDELSE
 
-                 lastInd         = T-1
-                 nArr            = !NULL
-                 fArr            = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kxArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kyArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 kzArr           = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 avgJxBArr       = MAKE_ARRAY(nFFTs,3)
-                 normArr         = MAKE_ARRAY(nFFTs,3)
-
-                 ;; kpArr        = MAKE_ARRAY(nFFTs,tmpFFTSize)
-
-                 magErrArr       = MAKE_ARRAY(nFFTs,tmpFFTSize)
-                 errAngleArr     = MAKE_ARRAY(nFFTs,tmpFFTSize)
-
-                 IF KEYWORD_SET(football_layout) THEN BEGIN
-                    ;; myNum     = tmpFFTSize
-                    myNum        = tmpFFTSize/2+1
-                    dComplex     = 0
-                    double       = 1
-                    powFrac      = 1
-
-                    BxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    BySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    BzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JxSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JySpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    JzSpecArr    = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    magCSpecArr  = MAKE_ARRAY(nFFTs,myNum,DCOMPLEX=dComplex,DOUBLE=double)
-                    powFreqArr   = MAKE_ARRAY(nFFTs,myNum,DOUBLE=double)
-
-                 ENDIF
-
-                 FFTCount  = 0
-                 FFTi_list = LIST()
-                 FOR k=0,eMulieribus-1 DO BEGIN
-
-                    IF N_ELEMENTS(which_FFTs) GT 0 THEN BEGIN
-                       IF (WHERE(k EQ which_FFTs))[0] EQ -1 THEN CONTINUE
-                    ENDIF
-
-                    tmpI = [(k*tmpFFTSize):( ((k+1)*tmpFFTSize-1) < lastInd )]
-                    nTmp = N_ELEMENTS(tmpI)
-                    nArr = [nArr,nTmp]
-                    PRINT,FORMAT='(A0,T10,A0,T20,A0,T45,A0,T72,A0)',"Itvl","nPts","Start T","Stop T","sFreq"
-                    PRINT,FORMAT='(I0,T10,I0,T20,A0,T45,A0,T72,F0.3)',k,nTmp, $
-                          TIME_TO_STR(TArr[tmpI[0]],/MS),TIME_TO_STR(TArr[tmpI[-1]],/MS), $
-                          1.D/(TArr[1]-TArr[0])
-                    BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
-                                     freq,kx,ky,kz,kP, $
-                                     SPERIOD=sPeriod, $
-                                     UNITFACTORS=unitFactors, $
-                                     PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-                                     DOUBLE_CALC=double_calc, $
-                                     HANNING=hanning, $
-                                     EFIELD=EField, $
-                                     ODDNESS_CHECK=oddness_check, $
-                                     OUT_NORM=norm, $
-                                     OUT_AVGJXB=avgJxBtotal, $
-                                     OUT_JPREDICTED=JPred, $
-                                     OUT_MAGERR=magErr, $
-                                     OUT_ERRANGLE=errAngle
-
-                    fArr [FFTCount,*]        = TEMPORARY(freq       )
-                    kxArr[FFTCount,*]        = TEMPORARY(kx         )
-                    kyArr[FFTCount,*]        = TEMPORARY(ky         )
-                    kzArr[FFTCount,*]        = TEMPORARY(kz         )
-
-                    avgJxBArr[FFTCount,*]    = TEMPORARY(avgJxBtotal)
-                    normArr[FFTCount,*]      = REPLICATE(TEMPORARY(norm),3)
-
-                    magErrArr[FFTCount,*]    = TEMPORARY(magErr)
-                    errAngleArr[FFTCount,*]  = TEMPORARY(errAngle)
-
-                    
-                    IF KEYWORD_SET(football_layout) THEN BEGIN
-
-                       BxSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Bx[tmpI],sPeriod,FRACTION=powFrac,FREQ=powFreq)
-                       BySpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(By[tmpI],sPeriod,FRACTION=powFrac)
-                       BzSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Bz[tmpI],sPeriod,FRACTION=powFrac)
-                       JxSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jx[tmpI],sPeriod,FRACTION=powFrac)
-                       JySpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jy[tmpI],sPeriod,FRACTION=powFrac)
-                       JzSpecArr[FFTCount,*]    = FFT_POWERSPECTRUM(Jz[tmpI],sPeriod,FRACTION=powFrac)
-                       magCSpecArr[FFTCount,*]  = FFT_POWERSPECTRUM(magC[tmpI],sPeriod,FRACTION=powFrac)
-
-                       powFreqArr[FFTCount,*]   = powFreq
-
-                       ;; BxSpecArr[FFTCount,*] = FFT(Bx[tmpI])
-                       ;; BySpecArr[FFTCount,*] = FFT(By[tmpI])
-                       ;; BzSpecArr[FFTCount,*] = FFT(Bz[tmpI])
-                       ;; JxSpecArr[FFTCount,*] = FFT(Jx[tmpI])
-                       ;; JySpecArr[FFTCount,*] = FFT(Jy[tmpI])
-                       ;; JzSpecArr[FFTCount,*] = FFT(Jz[tmpI])
-                       ;; magCSpecArr[FFTCount,*] = FFT(magC[tmpI])
-
-                    ENDIF
-
-                    FFTCount++
-
-                    FFTi_list.Add,TEMPORARY(tmpI)
-                 ENDFOR
-
-                 keepEm        = WHERE(nArr EQ MEDIAN(nArr),nKeep)
-                 freq          = MEAN(fArr ,DIMENSION=1)
-                 kx            = MEAN(kxArr,DIMENSION=1)
-                 ky            = MEAN(kyArr,DIMENSION=1)
-                 kz            = MEAN(kzArr,DIMENSION=1)
-                 kP            = SQRT(kx*kx+ky*ky)
-
-                 magErr        = MEAN(magErrArr,DIMENSION=1)
-                 errAngle      = MEAN(errAngleArr,DIMENSION=1)
-
-                 avgJxBNrm     = MEAN(TEMPORARY(avgJxBArr)/TEMPORARY(normArr),DIMENSION=1)
-
-                 IF KEYWORD_SET(football_layout) THEN BEGIN
-
-                    BxSpec = MEAN(BxSpecArr,DIMENSION=1)
-                    BySpec = MEAN(BySpecArr,DIMENSION=1)
-                    BzSpec = MEAN(BzSpecArr,DIMENSION=1)
-                    JxSpec = MEAN(JxSpecArr,DIMENSION=1)
-                    JySpec = MEAN(JySpecArr,DIMENSION=1)
-                    JzSpec = MEAN(JzSpecArr,DIMENSION=1)
-
-                    magCSpec = MEAN(magCSpecArr,DIMENSION=1)
-
-                    powFreq = MEAN(powFreqArr,DIMENSION=1)
-
-                    BSpec  = [[TEMPORARY(BxSpec)],[TEMPORARY(BySpec)],[TEMPORARY(BzSpec)]]
-                    JSpec  = [[TEMPORARY(JxSpec)],[TEMPORARY(JySpec)],[TEMPORARY(JzSpec)]]
-
-                 ENDIF
-
-                 usedInds      = LIST_TO_1DARRAY(FFTi_list,/WARN,/SKIP_NEG1_ELEMENTS,/SKIP_NANS)
-
-              ENDELSE
-
-           END
-           ELSE: BEGIN
-
-              BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
-                               freq,kx,ky,kz,kP, $
-                               SPERIOD=sPeriod, $
-                               UNITFACTORS=unitFactors, $
-                               PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-                               DOUBLE_CALC=double_calc, $
-                               HANNING=hanning, $
-                               EFIELD=EField, $
-                               ODDNESS_CHECK=oddness_check, $
-                               OUT_NORM=norm, $
-                               OUT_AVGJXB=avgJxBtotal, $
-                               OUT_JPREDICTED=JPred, $
-                               OUT_MAGERR=magErr, $
-                               OUT_ERRANGLE=errAngle
-
-              avgJxBNrm        = TEMPORARY(avgJxBtotal)/TEMPORARY(norm)
-              usedInds         = LINDGEN(T)
-
-           END
-        ENDCASE
-
-        ;;Put 'em in km^-1
-        kx          *= 1000.
-        ky          *= 1000.
-        kz          *= 1000.
-        kP          *= 1000.
-
-        bro          = 1
-        IF KEYWORD_SET(bro) THEN BEGIN
-
-           tmp       = SORT(freq)
-           freq      = freq[tmp]
-           kx        = kx[tmp]
-           ky        = ky[tmp]
-           kz        = kz[tmp]
-           kP        = kP[tmp]
-
-           JPred     = JPred[*,tmp]
-           magErr    = magErr[tmp]
-           errAngle  = errAngle[tmp]
-
-           ;; IF KEYWORD_SET(EField) THEN BEGIN
-           ;; ENDIF
-           
-        ENDIF
-
-        IF KEYWORD_SET(use_all_streaks) THEN BEGIN
-           Tarr = LIST_TO_1DARRAY(Tarr)
-           Bx   = LIST_TO_1DARRAY(Bx)
-           By   = LIST_TO_1DARRAY(By)
-           Bz   = LIST_TO_1DARRAY(Bz)
-           Jx   = LIST_TO_1DARRAY(Jx)
-           Jy   = LIST_TO_1DARRAY(Jy)
-           Jz   = LIST_TO_1DARRAY(Jz)
-        END
-
-        ;;Kperp angle
-        kPAngle = ATAN(ky,kx)*!RADEG
-        IF KEYWORD_SET(kP__angleRange) THEN BEGIN
-
-           rotate_kPA = 0
-
-           kPAngle    = NORMALIZE_ANGLE(kPAngle,MIN(kP__angleRange),MAX(kP__angleRange), $
-                                        /DEGREE)
-
-           ;; those = WHERE(kPAngle LT MIN(kP__angleRange),nThose)
-           ;; IF nThose GT 0 THEN BEGIN
-           ;;    kPAngle[those] = (kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
-           ;; ENDIF
-
-           ;; kPAngle = UNWRAP(kPAngle,DIVISOR=360)
-
-        ENDIF ELSE BEGIN
-           histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
-           rotate_kPA = (histo[0]+histo[3]) GT (histo[1]+histo[2])
-           IF rotate_kPA THEN BEGIN
-              kPAngle = (kPAngle + 360) MOD 360
-           ENDIF
-        ENDELSE
-
-        ;;Rotation matrix?
-        ;; angle      = 20.*!DTOR
-        ;; kxprime    = kx*COS(angle) - ky*SIN(angle)
-        ;; kyprime    = kx*SIN(angle) + ky*COS(angle)
-        ;; kx         = TEMPORARY(kxprime)
-        ;; ky         = TEMPORARY(kyprime)
-        
-        freqList.Add,freq
-        fDiffList.Add,freq[1]-freq[0]
-        kxList.Add,kx
-        kyList.Add,ky
-        kzList.Add,kz
-        ;; kPList.Add,kP
-        ;; kPAngleList.Add,kPAngle
-        ;; indsList.Add,inds
-
-        avgJxBNrmList.Add,avgJxBNrm
-        
-        magErrList.Add,magErr
-        errAngleList.Add,errAngle
-
-        IF KEYWORD_SET(football_layout) THEN BEGIN
-
-           BSpecList.Add,BSpec
-           JSpecList.Add,JSpec
-           magCSpecList.Add,magCSpec
-           powFreqList.Add,powFreq
-
-        ENDIF
-
-        IF (kk EQ minKKInd) AND (jj EQ minJJInd) THEN BEGIN
-
-           ;;Get time string
-           milli = 1
-           CASE SIZE(Tarr,/TYPE) OF
-              11: BEGIN
-                 tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
-                           ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
               END
               ELSE: BEGIN
-                 tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
-                           ((STRSPLIT(TIME_TO_STR(TArr[usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
+
+                 BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
+                                  freq,kx,ky,kz,kP, $
+                                  SPERIOD=sPeriod, $
+                                  UNITFACTORS=unitFactors, $
+                                  PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+                                  DOUBLE_CALC=double_calc, $
+                                  HANNING=hanning, $
+                                  EFIELD=EField, $
+                                  ODDNESS_CHECK=oddness_check, $
+                                  OUT_NORM=norm, $
+                                  OUT_AVGJXB=avgJxBtotal, $
+                                  OUT_JPREDICTED=JPred, $
+                                  OUT_MAGERR=magErr, $
+                                  OUT_ERRANGLE=errAngle, $
+                                  OUT_PHASE_ERR=phaseErr
+
+                 avgJxBNrm        = TEMPORARY(avgJxBtotal)/TEMPORARY(norm)
+                 usedInds         = LINDGEN(T)
+
               END
            ENDCASE
-           tString = tString.Replace('.','_')
-           suff   += tString
 
-           orig_freq      = freq
-           orig_kx        = kx
-           orig_ky        = ky
-           orig_kz        = kz
-           orig_kP        = kP
-           orig_kPAngle   = kPAngle
-           ;; orig_inds      = inds
+           ;;Put 'em in km^-1
+           kx          *= 1000.
+           ky          *= 1000.
+           kz          *= 1000.
+           kP          *= 1000.
 
-           orig_JPred     = JPred
-           orig_magErr    = magErr
-           orig_errAngle  = errAngle
+           bro          = 1
+           IF KEYWORD_SET(bro) THEN BEGIN
 
-           send_TArr      = TArr
-           send_usedInds  = usedInds
-           send_Bx        = Bx
-           send_By        = By
-           send_Bz        = Bz
-           send_Jx        = Jx
-           send_Jy        = Jy
-           send_Jz        = Jz
+              tmp       = SORT(freq)
+              freq      = freq[tmp]
+              kx        = kx[tmp]
+              ky        = ky[tmp]
+              kz        = kz[tmp]
+              kP        = kP[tmp]
+
+              JPred     = JPred[*,tmp]
+              magErr    = magErr[tmp]
+              errAngle  = errAngle[tmp]
+              phaseErr  = phaseErr[*,tmp]
+              ;; IF KEYWORD_SET(EField) THEN BEGIN
+              ;; ENDIF
+              
+           ENDIF
+
+           IF KEYWORD_SET(use_all_streaks) THEN BEGIN
+              Tarr = LIST_TO_1DARRAY(Tarr)
+              Bx   = LIST_TO_1DARRAY(Bx)
+              By   = LIST_TO_1DARRAY(By)
+              Bz   = LIST_TO_1DARRAY(Bz)
+              Jx   = LIST_TO_1DARRAY(Jx)
+              Jy   = LIST_TO_1DARRAY(Jy)
+              Jz   = LIST_TO_1DARRAY(Jz)
+           END
+
+           ;;Kperp angle
+           kPAngle = ATAN(ky,kx)*!RADEG
+           IF KEYWORD_SET(kP__angleRange) THEN BEGIN
+
+              rotate_kPA = 0
+
+              kPAngle    = NORMALIZE_ANGLE(kPAngle,MIN(kP__angleRange),MAX(kP__angleRange), $
+                                           /DEGREE)
+
+              ;; those = WHERE(kPAngle LT MIN(kP__angleRange),nThose)
+              ;; IF nThose GT 0 THEN BEGIN
+              ;;    kPAngle[those] = (kPAngle[those] + MAX(kP__angleRange)) MOD MAX(kP__angleRange)
+              ;; ENDIF
+
+              ;; kPAngle = UNWRAP(kPAngle,DIVISOR=360)
+
+           ENDIF ELSE BEGIN
+              histo   = HISTOGRAM(kPAngle,BINSIZE=90,MIN=-180,MAX=180,LOCATIONS=locs)
+              rotate_kPA = (histo[0]+histo[3]) GT (histo[1]+histo[2])
+              IF rotate_kPA THEN BEGIN
+                 kPAngle = (kPAngle + 360) MOD 360
+              ENDIF
+           ENDELSE
+
+           ;;Rotation matrix?
+           ;; angle      = 20.*!DTOR
+           ;; kxprime    = kx*COS(angle) - ky*SIN(angle)
+           ;; kyprime    = kx*SIN(angle) + ky*COS(angle)
+           ;; kx         = TEMPORARY(kxprime)
+           ;; ky         = TEMPORARY(kyprime)
+           
+           freqList.Add,freq
+           fDiffList.Add,freq[1]-freq[0]
+           kxList.Add,kx
+           kyList.Add,ky
+           kzList.Add,kz
+           ;; kPList.Add,kP
+           ;; kPAngleList.Add,kPAngle
+           ;; indsList.Add,inds
+
+           avgJxBNrmList.Add,avgJxBNrm
+           
+           magErrList.Add,magErr
+           errAngleList.Add,errAngle
+           phaseErrList.Add,phaseErr
 
            IF KEYWORD_SET(football_layout) THEN BEGIN
 
-              send_BSpec    = BSpec
-              send_JSpec    = JSpec
-              send_magCSpec = magCSpec
-              send_powFreq  = powFreq
+              BSpecList.Add,BSpec
+              JSpecList.Add,JSpec
+              magCSpecList.Add,magCSpec
+              powFreqList.Add,powFreq
+
+           ENDIF
+
+           IF (kk EQ minKKInd) AND (jj EQ minJJInd) THEN BEGIN
+
+              ;;Get time string
+              milli = 1
+              CASE SIZE(Tarr,/TYPE) OF
+                 11: BEGIN
+                    tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
+                              ((STRSPLIT(TIME_TO_STR(TArr[0,usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
+                 END
+                 ELSE: BEGIN
+                    tString = '__' + ((STRSPLIT(TIME_TO_STR(TArr[usedInds[0]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_') + '-' + $
+                              ((STRSPLIT(TIME_TO_STR(TArr[usedInds[-1]],MS=milli),'/',/EXTRACT))[1]).Replace(':','_')
+                 END
+              ENDCASE
+              tString = tString.Replace('.','_')
+              suff   += tString
+
+              orig_freq      = freq
+              orig_kx        = kx
+              orig_ky        = ky
+              orig_kz        = kz
+              orig_kP        = kP
+              orig_kPAngle   = kPAngle
+              ;; orig_inds      = inds
+
+              orig_JPred     = JPred
+              orig_magErr    = magErr
+              orig_errAngle  = errAngle
+              orig_phaseErr  = phaseErr
+
+              send_TArr      = TArr
+              send_usedInds  = usedInds
+              send_Bx        = Bx
+              send_By        = By
+              send_Bz        = Bz
+              send_Jx        = Jx
+              send_Jy        = Jy
+              send_Jz        = Jz
+
+              IF KEYWORD_SET(football_layout) THEN BEGIN
+
+                 send_BSpec    = BSpec
+                 send_JSpec    = JSpec
+                 send_magCSpec = magCSpec
+                 send_powFreq  = powFreq
+
+              ENDIF
+
+           ENDIF
+
+           avgCount++
+
+        ENDFOR
+     ENDFOR
+     
+     CASE avgCount OF
+        1: BEGIN
+           ;;Disregard lists; we'll just take it straight
+
+        END
+        ELSE: BEGIN
+
+           freqs     = LIST_TO_1DARRAY(freqList,/WARN)
+           kxs       = LIST_TO_1DARRAY(kxList,/WARN)
+           kys       = LIST_TO_1DARRAY(kyList,/WARN)
+           kzs       = LIST_TO_1DARRAY(kzList,/WARN)
+
+           magErrs   = LIST_TO_1DARRAY(magErrList,/WARN)
+           errAngles = LIST_TO_1DARRAY(errAngleList,/WARN)
+           phaseErrs = LIST_TO_1DARRAY(phaseErrList,/WARN)
+
+           avgJxBNrm = LIST_TO_1DARRAY(avgJxBNrmList,/WARN,/PRESERVE_DIMENSIONALITY)
+
+           IF KEYWORD_SET(football_layout) THEN BEGIN
+
+              BSpecs    = LIST_TO_1DARRAY(BSpecList,/PRESERVE_DIMENSIONALITY)
+              JSpecs    = LIST_TO_1DARRAY(JSpecList,/PRESERVE_DIMENSIONALITY)
+              magCSpecs = LIST_TO_1DARRAY(magCSpecList,/PRESERVE_DIMENSIONALITY)
+              powFreqs  = LIST_TO_1DARRAY(powFreqList,/PRESERVE_DIMENSIONALITY)
+
+           ENDIF
+
+           ;;Pick up rebin size from user, or else from data
+           IF KEYWORD_SET(avg_binSize) THEN BEGIN
+
+              binSz  = avg_binSize
+
+           ENDIF ELSE BEGIN
+
+              ;; binSz     = 0.2
+              ;; binSz     = orig_freq[1]-orig_freq[0]
+              binSz     = MAX(LIST_TO_1DARRAY(fDiffList,/WARN))
+
+           ENDELSE
+
+           kx        = HIST1D(freqs,kxs,BINSIZE=binSz,OBIN=freq)/avgCount
+           ky        = HIST1D(freqs,kys,BINSIZE=binSz,OBIN=freq)/avgCount
+           kz        = HIST1D(freqs,kzs,BINSIZE=binSz,OBIN=freq)/avgCount
+
+           magErr    = HIST1D(freqs,magErrs,BINSIZE=binSz,OBIN=freq)/avgCount
+           errAngle  = HIST1D(freqs,errAngles,BINSIZE=binSz,OBIN=freq)/avgCount
+           phaseErr  = HIST1D(freqs,phaseErrs,BINSIZE=binSz,OBIN=freq)/avgCount
+
+           kP        = SQRT(kx*kx+ky*ky)
+           kPAngle = ATAN(ky,kx)*!RADEG
+
+           IF KEYWORD_SET(football_layout) THEN BEGIN
+
+              BSpec  = MEAN(BSpecs,DIMENSION=3)
+              JSpec  = MEAN(JSpecs,DIMENSION=3)
+              magCSpec = MEAN(magCSpecs,DIMENSION=2)
+              powFreq  = MEAN(powFreqs,DIMENSION=2)
+
+           ENDIF
+
+        END
+     ENDCASE
+
+     IF doPlot THEN BEGIN
+
+        IF KEYWORD_SET(use_avged_for_smooth) THEN BEGIN
+
+           IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
+              plot_smoothed_ks = {freq:freq, $
+                                  kx:kx, $
+                                  ky:ky}
+
+           ENDIF
+
+           IF KEYWORD_SET(kx_vs_ky__plot_smoothed) THEN BEGIN
+
+              kx_vs_ky__plot_smoothed = {kx:kx, $
+                                         ky:ky}
+
+           ENDIF
+
+           IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
+
+              kP_angle__plot_smoothed = {freq:freq, $
+                                         angle:kPAngle}
+
+           ENDIF
+           
+           ;;Now give 'em what we got
+           freq       =  orig_freq   
+           kx         =  orig_kx     
+           ky         =  orig_ky     
+           kz         =  orig_kz     
+           kP         =  orig_kP     
+           kPAngle    =  orig_kPAngle
+           ;; inds       =  orig_inds   
+
+           IF KEYWORD_SET(football_layout) THEN BEGIN
+
+              BSpec    = send_BSpec
+              JSpec    = send_JSpec
+              magCSpec = send_magCSpec
+              powFreq  = send_powFreq
 
            ENDIF
 
         ENDIF
 
-        avgCount++
+        PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,send_TArr,freq, $
+                                             send_Bx,send_By,send_Bz, $
+                                             send_Jx,send_Jy,send_Jz, $
+                                             kx,ky,kz, $
+                                             kP,kPAngle, $
+                                             ;; inds, $
+                                             send_usedInds, $
+                                             example, $
+                                             BSPEC=BSpec, $
+                                             JSPEC=JSpec, $
+                                             MAGCSPEC=magCSpec, $
+                                             MAGERR=magErr, $
+                                             ERRANGLE=errAngle, $
+                                             PHASE_ERR=phaseErr, $
+                                             POWFREQ=powFreq, $
+                                             EXAMPLE_MODE=example_mode, $
+                                             PLOTDIR=plotDir, $
+                                             SUFF=suff, $
+                                             PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
+                                             SAVE_PS=save_ps, $
+                                             TO_PDF=to_pdf, $
+                                             PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
+                                             REMOVE_EPS=remove_eps, $
+                                             KX_SPECIALFREQS=kx_specialFreqs, $
+                                             KY_SPECIALFREQS=ky_specialFreqs, $
+                                             KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
+                                             KX_SPECIALBOUNDS=kx_specialBounds, $
+                                             KY_SPECIALBOUNDS=ky_specialBounds, $
+                                             KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
+                                             MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
+                                             MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
+                                             MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
+                                             MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+                                             MARK_KS_BELOW_PHASE_ERR_THRESH=mark_ks_below_phaseErr_thresh, $
+                                             MARK_KS_BELOW_BOTH=mark_ks_below_both, $
+                                             ONLY_KS_BELOW_MAGERR_THRESH=only_ks_below_magErr_thresh, $
+                                             ;; ONLY_KS_BELOW_ERRANGLE_THRESH=only_ks_below_errAngle_thresh, $
+                                             ;; ONLY_KS_BELOW_PHASE_ERR_THRESH=only_ks_below_phaseErr_thresh, $
+                                             PLOT_POSFREQ=plot_posFreq, $
+                                             FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
+                                             PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
+                                             PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
+                                             PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
+                                             PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
+                                             KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
+                                             KP_ANGLE__PLOT_SMOOTHED=kP_angle__plot_smoothed, $
+                                             KSMOOTH__NSMOOTHS=smInd, $
+                                             KSMOOTH__DOUBLENSMOOTHS=dbSmInd, $
+                                             KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
+                                             KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
+                                             KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
+                                             FREQLIMS=freqLims, $
+                                             PAGE1__FREQRANGE=page1__freqRange, $
+                                             PAGE2__FREQRANGE=page2__freqRange, $
+                                             KP__ANGLERANGE=kP__angleRange, $
+                                             THIRD_PAGE=third_page, $
+                                             OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
+                                             PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
+                                             FITLINE__USE_ABS=fitline__use_abs, $
+                                             FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
+                                             PUBLICATION_SETTINGS=pubSettings, $
+                                             PRE_VIII_LAYOUT=PRE_VIII_layout, $
+                                             FOOTBALL_LAYOUT=football_layout, $
+                                             FOOTBALL_YLOG=football_yLog, $
+                                             FOOTBALL_COL2TITLE=football_col2Title, $
+                                             FOOTBALL_KMAG=football_kMag, $
+                                             FOOTBALL_NO_ERRANGLE=football_no_errAngle, $
+                                             FOOTBALL_NO_MAGERR=football_no_magErr
 
-     ENDFOR
-  ENDFOR
-  
-  CASE avgCount OF
-     1: BEGIN
-        ;;Disregard lists; we'll just take it straight
-
-     END
-     ELSE: BEGIN
-
-        freqs     = LIST_TO_1DARRAY(freqList,/WARN)
-        kxs       = LIST_TO_1DARRAY(kxList,/WARN)
-        kys       = LIST_TO_1DARRAY(kyList,/WARN)
-        kzs       = LIST_TO_1DARRAY(kzList,/WARN)
-
-        magErrs   = LIST_TO_1DARRAY(magErrList,/WARN)
-        errAngles = LIST_TO_1DARRAY(errAngleList,/WARN)
-
-        avgJxBNrm = LIST_TO_1DARRAY(avgJxBNrmList,/WARN,/PRESERVE_DIMENSIONALITY)
-
-        IF KEYWORD_SET(football_layout) THEN BEGIN
-
-           BSpecs    = LIST_TO_1DARRAY(BSpecList,/PRESERVE_DIMENSIONALITY)
-           JSpecs    = LIST_TO_1DARRAY(JSpecList,/PRESERVE_DIMENSIONALITY)
-           magCSpecs = LIST_TO_1DARRAY(magCSpecList,/PRESERVE_DIMENSIONALITY)
-           powFreqs  = LIST_TO_1DARRAY(powFreqList,/PRESERVE_DIMENSIONALITY)
-
-        ENDIF
-
-        ;;Pick up rebin size from user, or else from data
-        IF KEYWORD_SET(avg_binSize) THEN BEGIN
-
-           binSz  = avg_binSize
-
-        ENDIF ELSE BEGIN
-
-        ;; binSz     = 0.2
-        ;; binSz     = orig_freq[1]-orig_freq[0]
-           binSz     = MAX(LIST_TO_1DARRAY(fDiffList,/WARN))
-
-        ENDELSE
-
-        kx        = HIST1D(freqs,kxs,BINSIZE=binSz,OBIN=freq)/avgCount
-        ky        = HIST1D(freqs,kys,BINSIZE=binSz,OBIN=freq)/avgCount
-        kz        = HIST1D(freqs,kzs,BINSIZE=binSz,OBIN=freq)/avgCount
-
-        magErr    = HIST1D(freqs,magErrs,BINSIZE=binSz,OBIN=freq)/avgCount
-        errAngle  = HIST1D(freqs,errAngles,BINSIZE=binSz,OBIN=freq)/avgCount
-
-        kP        = SQRT(kx*kx+ky*ky)
-        kPAngle = ATAN(ky,kx)*!RADEG
-
-        IF KEYWORD_SET(football_layout) THEN BEGIN
-
-           BSpec  = MEAN(BSpecs,DIMENSION=3)
-           JSpec  = MEAN(JSpecs,DIMENSION=3)
-           magCSpec = MEAN(magCSpecs,DIMENSION=2)
-           powFreq  = MEAN(powFreqs,DIMENSION=2)
-
-        ENDIF
-
-     END
-  ENDCASE
-
-  IF doPlot THEN BEGIN
-
-     IF KEYWORD_SET(use_avged_for_smooth) THEN BEGIN
-
-        IF KEYWORD_SET(plot_smoothed_ks) THEN BEGIN
-           plot_smoothed_ks = {freq:freq, $
-                               kx:kx, $
-                               ky:ky}
-
-        ENDIF
-
-        IF KEYWORD_SET(kx_vs_ky__plot_smoothed) THEN BEGIN
-
-           kx_vs_ky__plot_smoothed = {kx:kx, $
-                                      ky:ky}
-
-        ENDIF
-
-        IF KEYWORD_SET(kP_angle__plot_smoothed) THEN BEGIN
-
-           kP_angle__plot_smoothed = {freq:freq, $
-                                      angle:kPAngle}
-
-        ENDIF
-        
-        ;;Now give 'em what we got
-        freq       =  orig_freq   
-        kx         =  orig_kx     
-        ky         =  orig_ky     
-        kz         =  orig_kz     
-        kP         =  orig_kP     
-        kPAngle    =  orig_kPAngle
-        ;; inds       =  orig_inds   
-
-        IF KEYWORD_SET(football_layout) THEN BEGIN
-
-           BSpec    = send_BSpec
-           JSpec    = send_JSpec
-           magCSpec = send_magCSpec
-           powFreq  = send_powFreq
-
-        ENDIF
 
      ENDIF
 
-     PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,send_TArr,freq, $
-                                          send_Bx,send_By,send_Bz, $
-                                          send_Jx,send_Jy,send_Jz, $
-                                          kx,ky,kz, $
-                                          kP,kPAngle, $
-                                          ;; inds, $
-                                          send_usedInds, $
-                                          example, $
-                                          BSPEC=BSpec, $
-                                          JSPEC=JSpec, $
-                                          MAGCSPEC=magCSpec, $
-                                          MAGERR=magErr, $
-                                          ERRANGLE=errAngle, $
-                                          POWFREQ=powFreq, $
-                                          EXAMPLE_MODE=example_mode, $
-                                          PLOTDIR=plotDir, $
-                                          SUFF=suff, $
-                                          PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
-                                          SAVE_PS=save_ps, $
-                                          TO_PDF=to_pdf, $
-                                          PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
-                                          REMOVE_EPS=remove_eps, $
-                                          KX_SPECIALFREQS=kx_specialFreqs, $
-                                          KY_SPECIALFREQS=ky_specialFreqs, $
-                                          KPANGLE_SPECIALFREQS=kPAngle_specialFreqs, $
-                                          KX_SPECIALBOUNDS=kx_specialBounds, $
-                                          KY_SPECIALBOUNDS=ky_specialBounds, $
-                                          KPANGLE_SPECIALBOUNDS=kPAngle_specialBounds, $
-                                          MAKE_KX_VS_KY_SPECIAL=make_kx_vs_ky_special, $
-                                          MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
-                                          MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
-                                          MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
-                                          MARK_KS_BELOW_BOTH=mark_ks_below_both, $
-                                          PLOT_POSFREQ=plot_posFreq, $
-                                          FOLD_NEGFREQ_ONTO_POS=fold_negFreq, $
-                                          PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
-                                          PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
-                                          PLOT_SMOOTHED_K_COMPONENTS=plot_smoothed_ks, $
-                                          PLOT_ABS_SMOOTHED_K_COMPONENTS=plot_abs_smoothed_ks, $
-                                          KX_VS_KY__PLOT_SMOOTHED=kx_vs_ky__plot_smoothed, $
-                                          KP_ANGLE__PLOT_SMOOTHED=kP_angle__plot_smoothed, $
-                                          KSMOOTH__NSMOOTHS=smInd, $
-                                          KSMOOTH__DOUBLENSMOOTHS=dbSmInd, $
-                                          KSMOOTH__EDGE_TRUNCATE=kSmooth__edge_truncate, $
-                                          KSMOOTH__EDGE_MIRROR=kSmooth__edge_mirror, $
-                                          KSMOOTH__EDGE_WRAP=kSmooth__edge_wrap, $
-                                          FREQLIMS=freqLims, $
-                                          PAGE1__FREQRANGE=page1__freqRange, $
-                                          PAGE2__FREQRANGE=page2__freqRange, $
-                                          KP__ANGLERANGE=kP__angleRange, $
-                                          THIRD_PAGE=third_page, $
-                                          OVERPLOT_DOUBLY_SMOOTHED=overplot_doubly_smoothed, $
-                                          PREPLOT_CURRENTS_AND_STOP=prePlot_currents_and_stop, $
-                                          FITLINE__USE_ABS=fitline__use_abs, $
-                                          FITLINE__USE_SMOOTHED=fitline__use_smoothed, $
-                                          PUBLICATION_SETTINGS=pubSettings, $
-                                          PRE_VIII_LAYOUT=PRE_VIII_layout, $
-                                          FOOTBALL_LAYOUT=football_layout, $
-                                          FOOTBALL_YLOG=football_yLog, $
-                                          FOOTBALL_COL2TITLE=football_col2Title, $
-                                          FOOTBALL_KMAG=football_kMag
+     out_inds      = TEMPORARY(inds   ) 
+     out_freqs     = TEMPORARY(freq   )
+     out_kx        = TEMPORARY(kx     )
+     out_ky        = TEMPORARY(ky     )
+     out_kz        = TEMPORARY(kz     )
+     out_kP        = TEMPORARY(kP     )
+     out_kPAngle   = TEMPORARY(kPAngle)
 
-  ENDIF
+     out_avgJxBNrm = TEMPORARY(avgJxBNrm)
+     IF N_ELEMENTS(SIZE(out_avgJxBNrm,/DIM)) GT 1 THEN BEGIN
+        slideMn_JxB   = MEAN(out_avgJxBNrm,DIMENSION=2)
+        fluc          = [out_avgJxBNrm[0,*] - slideMn_JxB[0], $
+                         out_avgJxBNrm[1,*] - slideMn_JxB[1], $
+                         out_avgJxBNrm[2,*] - slideMn_JxB[2]]
+     ENDIF ELSE BEGIN
 
-        out_inds      = TEMPORARY(inds   ) 
-        out_freqs     = TEMPORARY(freq   )
-        out_kx        = TEMPORARY(kx     )
-        out_ky        = TEMPORARY(ky     )
-        out_kz        = TEMPORARY(kz     )
-        out_kP        = TEMPORARY(kP     )
-        out_kPAngle   = TEMPORARY(kPAngle)
+     ENDELSE
 
-        out_avgJxBNrm = TEMPORARY(avgJxBNrm)
-        IF N_ELEMENTS(SIZE(out_avgJxBNrm,/DIM)) GT 1 THEN BEGIN
-           slideMn_JxB   = MEAN(out_avgJxBNrm,DIMENSION=2)
-           fluc          = [out_avgJxBNrm[0,*] - slideMn_JxB[0], $
-                            out_avgJxBNrm[1,*] - slideMn_JxB[1], $
-                            out_avgJxBNrm[2,*] - slideMn_JxB[2]]
-        ENDIF ELSE BEGIN
+     ;; out_inds      = (TEMPORARY(inds   ))[inds] 
+     ;; out_freqs     = (TEMPORARY(freq   ))[inds]
+     ;; out_kx        = (TEMPORARY(kx     ))[inds]
+     ;; out_ky        = (TEMPORARY(ky     ))[inds]
+     ;; out_kz        = (TEMPORARY(kz     ))[inds]
+     ;; out_kP        = (TEMPORARY(kP     ))[inds]
+     ;; out_kPAngle   = (TEMPORARY(kPAngle))[inds]
 
-        ENDELSE
+     out_usedInds  = TEMPORARY(usedInds)
+     out_TArr      = TEMPORARY(TArr    )
+     out_Bx        = TEMPORARY(Bx      )
+     out_By        = TEMPORARY(By      )
+     out_Bz        = TEMPORARY(Bz      )
+     out_Jx        = TEMPORARY(Jx      )
+     out_Jy        = TEMPORARY(Jy      )
+     out_Jz        = TEMPORARY(Jz      )
 
-        ;; out_inds      = (TEMPORARY(inds   ))[inds] 
-        ;; out_freqs     = (TEMPORARY(freq   ))[inds]
-        ;; out_kx        = (TEMPORARY(kx     ))[inds]
-        ;; out_ky        = (TEMPORARY(ky     ))[inds]
-        ;; out_kz        = (TEMPORARY(kz     ))[inds]
-        ;; out_kP        = (TEMPORARY(kP     ))[inds]
-        ;; out_kPAngle   = (TEMPORARY(kPAngle))[inds]
-
-        out_usedInds  = TEMPORARY(usedInds)
-        out_TArr      = TEMPORARY(TArr    )
-        out_Bx        = TEMPORARY(Bx      )
-        out_By        = TEMPORARY(By      )
-        out_Bz        = TEMPORARY(Bz      )
-        out_Jx        = TEMPORARY(Jx      )
-        out_Jy        = TEMPORARY(Jy      )
-        out_Jz        = TEMPORARY(Jz      )
-
+  ENDFOR
 
 END
