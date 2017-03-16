@@ -988,6 +988,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
           SYMSIZE=symSize, $
           POSITION=KEYWORD_SET(football_layout) ? poskxy : !NULL, $
           NOERASE=KEYWORD_SET(football_layout), $
+          YTICK_GET=kPlot_yTicks, $
           /NODATA
      ;; IF KEYWORD_SET(diag) THEN BEGIN & diagInd++ & PRINT,diagInd,'  ',!P.MULTI & ENDIF
 
@@ -1131,12 +1132,15 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
 
         ENDIF
 
-        spaceFrac   = 0.1
-        distVec     = REVERSE(INDGEN(3)*spaceFrac - spaceFrac + 1)
-        rango       = (MAX(k_yRange)-MIN(k_yRange))
+        spaceFrac   = 0.08
+        distVec     = REVERSE(INDGEN(3)*spaceFrac - 2*spaceFrac + 1)
+        ;; refY        = k_yRange
+        refY        = kPlot_yTicks
+        rango       = (MAX(refY)-MIN(refY))
 
-        legYSymPos  = 0.925*( distVec * rango )+MIN(k_yRange)
-        legYPos     = 0.920*( distVec * rango )+MIN(k_yRange)
+
+        legYSymPos  = 0.935*( distVec * rango )+MIN(refY)
+        legYPos     = 0.930*( distVec * rango )+MIN(refY)
 
 
         XYOUTS,legXPos1,legYPos[0],'k!Dx!N',CHARSIZE=cs
