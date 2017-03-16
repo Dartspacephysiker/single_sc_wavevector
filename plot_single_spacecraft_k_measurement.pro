@@ -366,8 +366,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
   
   dashSym         = [[-.5,0],[.5,0]]
   perpSym         = [[-.5,0.],[0.,0.],[0.,0.75],[0.,0.],[0.5,0.]]
+  crossSym        = [[-.25,0.],[0.,0.],[0.,0.75],[0.,0.],[0.25,0.],[0.,0.],[0.,0.-.75]]
 
-  USERSYM, perpSym              ;Just a dash
+  USERSYM,perpSym               ;Just a dash
   pSymMagErr      = 8
 
   ;;Only for special people (see Beck)
@@ -381,8 +382,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
   freqTitle       = 'Frequency (Hz)'
   freqTitle       = 'f!Dsp!N (Hz)'
 
-  perpSym         = STRING(120B)
-  perpAll         = '!9' + perpSym + '!X'
+  ;; perpSym         = STRING(120B)
+  perpAll         = '!9' + STRING(120B) + '!X'
 
   GET_FREQ_INDS,freq,kx,ky,kz, $
                 kP,kPAngle, $
@@ -1719,23 +1720,46 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
         ;;And error angle
         IF ~KEYWORD_SET(football_no_errAngle) THEN BEGIN
 
+           use_crossSym = 1
+           
+           IF KEYWORD_SET(use_crossSym) THEN BEGIN
+              USERSYM,crossSym  ;to cross
+           ENDIF
            OPLOT,freq[inds],errAngle[inds]*180.D/!PI, $
-                 COLOR=thetaErrCol
+                 COLOR=thetaErrCol, $
+                 PSYM=KEYWORD_SET(use_crossSym) ? 8 : !NULL
 
+           ;;Now labels
            rango       = (MAX(yARange)-MIN(yARange))
            ;; distVec     = REVERSE(INDGEN(3)*spaceFrac - 2.*spaceFrac + 1)
 
-           legYSymPos  = 0.9* rango + MIN(yARange)
-           legYPos     = 0.9* rango + MIN(yARange)
+           legYSymPos  = 0.925* rango + MIN(yARange)
+           legYPos     = 0.900* rango + MIN(yARange)
 
-           legXPos1    = 0.1*((MAX(freq)-MIN(freq))+MIN(freq))
-           legXPos2    = 0.15*((MAX(freq)-MIN(freq))+MIN(freq))
-           legXSymPos1 = 0.03*((MAX(freq)-MIN(freq))+MIN(freq))
-           legXSymPos2 = 0.08*((MAX(freq)-MIN(freq))+MIN(freq))
+           IF KEYWORD_SET(use_crossSym) THEN BEGIN
+              ;;For cross sym
+              legXPos1    = 0.68*((MAX(freq)-MIN(freq))+MIN(freq))
+              legXSymPos1 = 0.66*((MAX(freq)-MIN(freq))+MIN(freq))
 
-           XYOUTS,legXPos1,legYPos[0],'!4h!X!Derr!N',CHARSIZE=cs
-           PLOTS,legXSymPos1,legYSymPos[0],COLOR=thetaErrCol
-           PLOTS,legXSymPos2,legYSymPos[0],COLOR=thetaErrCol,/CONTINUE
+              PLOTS,legXSymPos1,legYSymPos[0], $
+                    COLOR=thetaErrCol, $
+                    PSYM=8
+
+              ;;back to perpSym
+              USERSYM,perpSym
+           ENDIF ELSE BEGIN
+              legXPos1    = 0.9*((MAX(freq)-MIN(freq))+MIN(freq))
+              legXPos2    = 0.95*((MAX(freq)-MIN(freq))+MIN(freq))
+              legXSymPos1 = 0.83*((MAX(freq)-MIN(freq))+MIN(freq))
+              legXSymPos2 = 0.88*((MAX(freq)-MIN(freq))+MIN(freq))
+
+              PLOTS,legXSymPos1,legYSymPos[0],COLOR=thetaErrCol
+              PLOTS,legXSymPos2,legYSymPos[0],COLOR=thetaErrCol,/CONTINUE
+           ENDELSE
+           
+           XYOUTS,legXPos1,legYPos[0],'!4h!X!Derr!N', $
+                  CHARSIZE=cs, $
+                  COLOR=thetaErrCol
 
         ENDIF
 
@@ -1840,6 +1864,9 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
 
                  IF nLowErr GT 1 THEN BEGIN
 
+                    ;;If the line below is commented, you'll get a perpSym
+                    USERSYM,dashSym ;Just a dash
+
                     OPLOT,freq[inds[lowErr_ii]],magErr[inds[lowErr_ii]], $
                           ;; LINESTYLE=jLineStyle, $
                           ;; LINESTYLE=, $
@@ -1850,7 +1877,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
 
                  IF nHighErr GT 1 THEN BEGIN
 
-                    USERSYM, dashSym ;Just a dash
+                    USERSYM,dashSym ;Just a dash
 
                     OPLOT,freq[inds[highErr_ii]],magErr[inds[highErr_ii]], $
                           ;; LINESTYLE=jLineStyle, $
