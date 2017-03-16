@@ -28,6 +28,12 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
    CUSTOM_ADDSEC=custom_addSec, $
+   CUSTOM_MULTI_ADDSEC=custom_multi_addSec, $
+   PTSHIFT=ptShift, $
+   SHIFT_UNIVERSAL_OFFSET=univOffset, $
+   NOSHIFT=noShift, $
+   NO_PTSHIFT_BACK=no_ptShift_back, $
+   NO_PTSHIFT_FWD=no_ptShift_fwd, $
    SHIFT_NPTS=shift_nPts, $
    BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
    FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
@@ -44,7 +50,11 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
    MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
    MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+   MARK_KS_BELOW_PHASE_ERR_THRESH=mark_ks_below_phaseErr_thresh, $
    MARK_KS_BELOW_BOTH=mark_ks_below_both, $
+   ONLY_KS_BELOW_MAGERR_THRESH=only_ks_below_magErr_thresh, $
+   ONLY_KS_BELOW_ERRANGLE_THRESH=only_ks_below_errAngle_thresh, $
+   ONLY_KS_BELOW_PHASE_ERR_THRESH=only_ks_below_phaseErr_thresh, $
    EXAMPLE_MODE=example_mode, $
    PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
    PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
@@ -91,6 +101,8 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    FOOTBALL_YLOG=football_yLog, $
    FOOTBALL_COL2TITLE=football_col2Title, $
    FOOTBALL_KMAG=football_kMag, $
+   FOOTBALL_NO_ERRANGLE=football_no_errAngle, $
+   FOOTBALL_NO_MAGERR=football_no_magErr, $
    ODDNESS_CHECK=oddness_check, $
    FFT__NEAREST_TWO_POWER=nearest_two_power, $
    FFTSIZE=FFTsize, $
@@ -160,6 +172,12 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      CUSTOM_T1=custom_t1, $
      CUSTOM_T2=custom_t2, $
      CUSTOM_ADDSEC=custom_addSec, $
+     CUSTOM_MULTI_ADDSEC=custom_multi_addSec, $
+     PTSHIFT=ptShift, $
+     SHIFT_UNIVERSAL_OFFSET=univOffset, $
+     NOSHIFT=noShift, $
+     NO_PTSHIFT_BACK=no_ptShift_back, $
+     NO_PTSHIFT_FWD=no_ptShift_fwd, $
      SHIFT_NPTS=shift_nPts, $
      BACKSHIFTS_FOR_AVGING=backShifts_for_avging, $
      FWDSHIFTS_FOR_AVGING=fwdShifts_for_avging, $
@@ -176,7 +194,11 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      MAKE_KPANGLE_SPECIAL=make_kPAngle_special, $
      MARK_KS_BELOW_MAGERR_THRESH=mark_ks_below_magErr_thresh, $
      MARK_KS_BELOW_ERRANGLE_THRESH=mark_ks_below_errAngle_thresh, $
+     MARK_KS_BELOW_PHASE_ERR_THRESH=mark_ks_below_phaseErr_thresh, $
      MARK_KS_BELOW_BOTH=mark_ks_below_both, $
+     ONLY_KS_BELOW_MAGERR_THRESH=only_ks_below_magErr_thresh, $
+     ;; ONLY_KS_BELOW_ERRANGLE_THRESH=only_ks_below_errAngle_thresh, $
+     ;; ONLY_KS_BELOW_PHASE_ERR_THRESH=only_ks_below_phaseErr_thresh, $
      EXAMPLE_MODE=example_mode, $
      PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
      PLOT_KX_VS_KY_FOR_KZ=plot_kx_vs_ky_for_kz, $
@@ -223,6 +245,8 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      FOOTBALL_YLOG=football_yLog, $
      FOOTBALL_COL2TITLE=football_col2Title, $
      FOOTBALL_KMAG=football_kMag, $
+     FOOTBALL_NO_ERRANGLE=football_no_errAngle, $
+     FOOTBALL_NO_MAGERR=football_no_magErr, $
      ODDNESS_CHECK=oddness_check, $
      FFT__NEAREST_TWO_POWER=nearest_two_power, $
      FFTSIZE=FFTsize, $
