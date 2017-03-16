@@ -1615,8 +1615,8 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
      IF KEYWORD_SET(football_layout) THEN BEGIN
 
         ;;And error angle
-        OPLOT,freq[inds],errAngle[inds]*180.D/!PI, $
-              COLOR=thetaErrCol
+        ;; OPLOT,freq[inds],errAngle[inds]*180.D/!PI, $
+        ;;       COLOR=thetaErrCol
 
         AXIS,YAXIS=1,YRANGE=[MIN(magErr),MAX(magErr)], $
              YSTYLE = 1, $
@@ -1626,10 +1626,10 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT,TArr,freq, $
              /NOERASE, $
              COLOR=240
 
-        ;; oldLine = !P.LINESTYLE
-        ;; !P.LINESTYLE = [2,'AAAA'X]
+        ;; ;; oldLine = !P.LINESTYLE
+        ;; ;; !P.LINESTYLE = [2,'AAAA'X]
              
-        ;; jLineStyle = 4
+        ;; ;; jLineStyle = 4
         OPLOT,freq[inds],magErr[inds], $
               ;; LINESTYLE=jLineStyle, $
               ;; LINESTYLE=, $
