@@ -1679,9 +1679,13 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
         yARange     = kP__angleRange
 
         nTickV      = (MAX(kP__angleRange)-MIN(kP__angleRange))/yMajDiv+1
-        yTickV      = INDGEN(nTickV)*yMajDiv+MIN(kP__angleRange) MOD 360
+        yTickV      = INDGEN(nTickV)*yMajDiv+MIN(kP__angleRange)
         ;; yTickName   = STRING(FORMAT='('+STRCOMPRESS(nTickV,/REMOVE_ALL)+'(I4))',yTickV MOD 360) ;doesn't work
         yTickName   = STRING(FORMAT='(I4)',yTickV MOD 360)
+        fixer       = WHERE(yTickV EQ 360,nFixer)
+        IF nFixer GT 0 THEN BEGIN
+           yTickName[fixer] = STRING(FORMAT='(I4)',yTickV[fixer])
+        ENDIF
 
      ENDIF ELSE BEGIN
 
@@ -1742,10 +1746,12 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
 
            IF KEYWORD_SET(use_crossSym) THEN BEGIN
               ;;For cross sym
-              legXPos1    = 0.68*((MAX(freq)-MIN(freq))+MIN(freq))
-              legXSymPos1 = 0.66*((MAX(freq)-MIN(freq))+MIN(freq))
+              ;; legXPos1    = 0.68*((MAX(freq)-MIN(freq))+MIN(freq))
+              ;; legXSymPos1 = 0.66*((MAX(freq)-MIN(freq))+MIN(freq))
+              ;; legXPos1    = 0.85*((MAX(freq)-MIN(freq))+MIN(freq))
+              ;; legXSymPos1 = 0.83*((MAX(freq)-MIN(freq))+MIN(freq))
 
-              PLOTS,legXSymPos1,legYSymPos[0], $
+              PLOTS,MEAN([legXSymPos1,legXSymPos2]),legYSymPos[0], $
                     COLOR=thetaErrCol, $
                     PSYM=8
 

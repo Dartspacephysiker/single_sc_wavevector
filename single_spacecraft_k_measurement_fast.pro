@@ -171,6 +171,7 @@ PRO CHECK_E_OMEGA_B_THING,Bx,By,Bz,Ex_sp,Ey_sp,Ez_sp,ikx,iky,ikz,freq ;,freq_sp,
 END
 
 PRO PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
+              IN_TIME=time, $
               OUT_JPREDICTED=JPred, $
               OUT_MAGERR=magErr, $
               OUT_ERRANGLE=errAngle, $
@@ -330,6 +331,50 @@ PRO PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
   ;; PRINT,MIN((ABS(phaseErr[2,*]))[WHERE(ABS(phaseErr[2,*]) GT 0)])*180.D/!PI
   PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
 
+  JPredX   = FFT(REFORM(JPred[0,*]),1)/unitFactors.J
+  JPredY   = FFT(REFORM(JPred[1,*]),1)/unitFactors.J
+  JPredZ   = FFT(REFORM(JPred[2,*]),1)/unitFactors.J
+  Jinv_t   = FFT(             Jz_om,1)/unitFactors.J
+
+  predSty  = '-'
+  obsSty   = '-'
+  obsInvSty = '-:'
+  plotX    = PLOT(time,REVERSE(JPredX), $
+                  NAME='J!Dx,Pred!N (FFT!U-1!N)', $
+                  XTITLE='Time', $
+                  YTITLE='Current ($\mu$A/m!U2!N)', $
+                  COLOR='Brown', $
+                  LINESTYLE=predSty)
+  plotY    = PLOT(time,REVERSE(JPredY), $
+                  NAME='J!Dy,Pred!N (FFT!U-1!N)', $
+                  XTITLE='Time', $
+                  YTITLE='Current ($\mu$A/m!U2!N)', $
+                  COLOR='Orange', $
+                  LINESTYLE=predSty, $
+                  /OVERPLOT)
+  plotZ    = PLOT(time,REVERSE(JPredZ), $
+                  NAME='J!Dz,Pred!N (FFT!U-1!N)', $
+                  XTITLE='Time', $
+                  YTITLE='Current ($\mu$A/m!U2!N)', $
+                  COLOR='Red', $
+                  LINESTYLE=predSty, $
+                  /OVERPLOT)
+
+  plot1    = PLOT(time,Jinv_t, $
+                  NAME='Obs (FFT!U-1!N)', $
+                  /OVERPLOT, $
+                  COLOR='Blue', $
+                  LINESTYLE=obsInvSty)
+  plot2    = PLOT(time,Jz, $
+                  NAME='Obs (Actual)', $
+                  COLOR='Black', $
+                  LINESTYLE=obsSty, $
+                  /OVERPLOT)
+
+  legend   = LEGEND(TARGET=[plotX,plotY,plotZ,plot1,plot2])
+
+  ;; STOP
+
 END
 
 PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
@@ -463,6 +508,7 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
   predict_current = 1
   IF KEYWORD_SET(predict_current) THEN BEGIN
      PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
+               IN_TIME=FINDGEN(T)*sPeriod, $
                OUT_JPREDICTED=JPred, $
                OUT_MAGERR=magErr, $
                OUT_ERRANGLE=errAngle, $
@@ -800,7 +846,8 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
                          USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                          CUSTOM_T1=custom_t1, $
                          CUSTOM_T2=custom_t2, $
-                         CUSTOM_ADDSEC=custom_addSec, $
+                         CUSTOM_T_EXTEND=custom_t_extend, $
+                         CUSTOM_SHIFTSEC=custom_shiftSec, $
                          SHIFT_NPTS=shift_nPts, $
                          USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
                          USE_J_TIME_SERIES=use_J_time_series, $
@@ -958,9 +1005,21 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
      analysis_t2        = KEYWORD_SET(tBar_t2) ? TEMPORARY(tBar_t2) : t2BKUP
   ENDELSE
 
-  IF N_ELEMENTS(custom_addSec) GT 0 THEN BEGIN
-     analysis_t1       += custom_addSec
-     analysis_t2       += custom_addSec
+  IF N_ELEMENTS(custom_shiftSec) GT 0 THEN BEGIN
+     analysis_t1       += custom_shiftSec
+     analysis_t2       += custom_shiftSec
+  ENDIF
+
+  IF N_ELEMENTS(custom_t_extend) GT 0 THEN BEGIN
+     CASE N_ELEMENTS(custom_t_extend) OF
+        1: BEGIN
+           analysis_t2 += custom_t_extend
+        END
+        2: BEGIN
+           analysis_t1 += custom_t_extend[0]
+           analysis_t2 += custom_t_extend[1]
+        END
+     ENDCASE
   ENDIF
 
   ;; bFactor = 1.e-9 ;Get 'em out of nT
@@ -1933,8 +1992,10 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
-   CUSTOM_ADDSEC=custom_addSec, $
-   CUSTOM_MULTI_ADDSEC=custom_multi_addSec, $
+   CUSTOM_T_EXTEND=custom_t_extend, $
+   CUSTOM_MULTI_T_EXTEND=custom_multi_t_extend, $
+   CUSTOM_SHIFTSEC=custom_shiftSec, $
+   CUSTOM_MULTI_SHIFTSEC=custom_multi_shiftSec, $
    PTSHIFT=ptShift, $
    SHIFT_UNIVERSAL_OFFSET=univOffset, $
    NOSHIFT=noShift, $
@@ -2041,17 +2102,59 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
   
   splitFFTs = ~KEYWORD_SET(combine_and_average_intervals)
 
-  IF KEYWORD_SET(custom_multi_addSec) AND KEYWORD_SET(custom_addSec) THEN BEGIN
-     PRINT,"Conflict: just set him (custom_multi_addSec) or him (custom_addSec)"
+  have_shiftSec = KEYWORD_SET(custom_multi_shiftSec) OR KEYWORD_SET(custom_shiftSec)
+  have_t_extend = KEYWORD_SET(custom_multi_t_extend) OR KEYWORD_SET(custom_t_extend)
+
+  IF have_shiftSec AND have_t_extend THEN BEGIN
+     PRINT,"No need for both t_extend and shiftSec. Just pick one or the other."
+     RETURN
   ENDIF
 
-  IF N_ELEMENTS(custom_addSec      ) EQ 0 THEN custom_addSec = 0.0D
-  IF N_ELEMENTS(custom_multi_addSec) EQ 0 THEN custom_multi_addSec = custom_addSec
+  ;;Shifting at all?
+  IF KEYWORD_SET(custom_multi_shiftSec) AND KEYWORD_SET(custom_shiftSec) THEN BEGIN
+     PRINT,"Conflict: just set him (custom_multi_shiftSec) or him (custom_shiftSec)"
+  ENDIF
 
-  nGoes = N_ELEMENTS(custom_multi_addSec)
+  IF N_ELEMENTS(custom_shiftSec      ) EQ 0 THEN custom_shiftSec = 0.0D
+  IF N_ELEMENTS(custom_multi_shiftSec) EQ 0 THEN custom_multi_shiftSec = custom_shiftSec
+
+  ;;Now t extenders
+  IF KEYWORD_SET(custom_multi_t_extend) AND KEYWORD_SET(custom_t_extend) THEN BEGIN
+     PRINT,"Conflict: just set him (custom_multi_t_extend) or him (custom_t_extend)"
+  ENDIF
+
+  ;; IF N_ELEMENTS(custom_t_extend      ) EQ 0 THEN custom_t_extend = 0.0D
+  ;; IF N_ELEMENTS(custom_multi_t_extend) EQ 0 THEN custom_multi_t_extend = custom_t_extend
+
+  nDim_tExt = NDIMEN(custom_multi_t_extend)
+  CASE nDim_tExt OF
+     -1: BEGIN
+        nGoes = N_ELEMENTS(custom_multi_shiftSec)
+     END
+     0: BEGIN
+        nGoes = N_ELEMENTS(custom_multi_t_extend)
+     END
+     1: BEGIN
+        nGoes = N_ELEMENTS(custom_multi_t_extend)
+     END
+     2: BEGIN
+        nGoes = N_ELEMENTS(custom_multi_t_extend[0,*])
+     END
+  ENDCASE
+
   FOR jord=0,nGoes-1 DO BEGIN
 
-     custom_addSec = custom_multi_addSec[jord]
+     CASE nDim_tExt OF
+        -1: BEGIN
+           custom_shiftSec = custom_multi_shiftSec[jord]
+        END
+        1: BEGIN
+           custom_t_extend = custom_multi_t_extend[jord]
+        END
+        2: BEGIN
+           custom_t_extend = custom_multi_t_extend[*,jord]
+        END
+     ENDCASE
 
      IF N_ELEMENTS(extra_suffix) EQ 0 THEN extra_suffix = ''
 
@@ -2279,7 +2382,8 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                   USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                                   CUSTOM_T1=custom_t1, $
                                   CUSTOM_T2=custom_t2, $
-                                  CUSTOM_ADDSEC=custom_addSec, $
+                                  CUSTOM_T_EXTEND=custom_t_extend, $
+                                  CUSTOM_SHIFTSEC=custom_shiftSec, $
                                   SHIFT_NPTS=shift_nPts, $
                                   USE_LOWRES_TIME_SERIES=use_lowRes_time_series, $
                                   USE_J_TIME_SERIES=use_J_time_series, $

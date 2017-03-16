@@ -1,10 +1,17 @@
 ;2017/03/15
 ;So Jim and I settled on orbits 9585 and 9627. Orbit 10832 could be reserved for another day.
+;
+;Maybe final—but you know, you never really know:
+;JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION,ORBIT=9585,/FOOTBALL_LAYOUT,/FOOTBALL_COL2TITLE,/FOOTBALL_YLOG,KP__ANGLERANGE=[-45,315],PAGE1__FREQRANGE=[0,6],PAGE2__FREQRANGE=[0,6],/SAVE_PS,/PUBLICATION_SETTINGS,CUSTOM_MULTI_SHIFTSEC=[0.D],/ITVL_MODE,INTERVAL=0
+;
+;
 PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
-   CUSTOM_ADDSEC=custom_addSec, $
-   CUSTOM_MULTI_ADDSEC=custom_multi_addSec, $
+   CUSTOM_T_EXTEND=custom_t_extend, $
+   CUSTOM_MULTI_T_EXTEND=custom_multi_t_extend, $
+   CUSTOM_SHIFTSEC=custom_shiftSec, $
+   CUSTOM_MULTI_SHIFTSEC=custom_multi_shiftSec, $
    DATE=date, $
    ORBIT=orbit, $
    PLOT_POSFREQ=plot_posFreq, $
@@ -215,8 +222,10 @@ PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
      USE_DB_FAC=use_dB_fac, $
      CUSTOM_T1=custom_t1, $
      CUSTOM_T2=custom_t2, $
-     CUSTOM_ADDSEC=custom_addSec, $
-     CUSTOM_MULTI_ADDSEC=custom_multi_addSec, $
+     CUSTOM_T_EXTEND=custom_t_extend, $
+     CUSTOM_MULTI_T_EXTEND=custom_multi_t_extend, $
+     CUSTOM_SHIFTSEC=custom_shiftSec, $
+     CUSTOM_MULTI_SHIFTSEC=custom_multi_shiftSec, $
      /USE_REPRETCAL_FILE, $
      KP__ANGLERANGE=kP__angleRange, $
      PRE_VIII_LAYOUT=KEYWORD_SET(save_ps) AND ~KEYWORD_SET(football_layout), $

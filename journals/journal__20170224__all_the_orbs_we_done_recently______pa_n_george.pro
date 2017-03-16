@@ -27,8 +27,10 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
-   CUSTOM_ADDSEC=custom_addSec, $
-   CUSTOM_MULTI_ADDSEC=custom_multi_addSec, $
+   CUSTOM_T_EXTEND=custom_t_extend, $
+   CUSTOM_MULTI_T_EXTEND=custom_multi_t_extend, $
+   CUSTOM_SHIFTSEC=custom_shiftSec, $
+   CUSTOM_MULTI_SHIFTSEC=custom_multi_shiftSec, $
    PTSHIFT=ptShift, $
    SHIFT_UNIVERSAL_OFFSET=univOffset, $
    NOSHIFT=noShift, $
@@ -171,8 +173,10 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
      CUSTOM_T1=custom_t1, $
      CUSTOM_T2=custom_t2, $
-     CUSTOM_ADDSEC=custom_addSec, $
-     CUSTOM_MULTI_ADDSEC=custom_multi_addSec, $
+     CUSTOM_T_EXTEND=custom_t_extend, $
+     CUSTOM_MULTI_T_EXTEND=custom_multi_t_extend, $
+     CUSTOM_SHIFTSEC=custom_shiftSec, $
+     CUSTOM_MULTI_SHIFTSEC=custom_multi_shiftSec, $
      PTSHIFT=ptShift, $
      SHIFT_UNIVERSAL_OFFSET=univOffset, $
      NOSHIFT=noShift, $
