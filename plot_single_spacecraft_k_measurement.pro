@@ -1718,25 +1718,48 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
      IF KEYWORD_SET(football_layout) THEN BEGIN
 
         ;;And error angle
-        ;; OPLOT,freq[inds],errAngle[inds]*180.D/!PI, $
-        ;;       COLOR=thetaErrCol
+        IF ~KEYWORD_SET(football_no_errAngle) THEN BEGIN
 
-        AXIS,YAXIS=1,YRANGE=[MIN(magErr),MAX(magErr)], $
-             YSTYLE = 1, $
-             YTITLE = '|Relative Error|', $
-             CHARSIZE=cs, $
-             /SAVE, $
-             /NOERASE, $
-             COLOR=240
+           use_crossSym = 1
+           
+           IF KEYWORD_SET(use_crossSym) THEN BEGIN
+              USERSYM,crossSym  ;to cross
+           ENDIF
+           OPLOT,freq[inds],errAngle[inds]*180.D/!PI, $
+                 COLOR=thetaErrCol, $
+                 PSYM=KEYWORD_SET(use_crossSym) ? 8 : !NULL
 
-        ;; ;; oldLine = !P.LINESTYLE
-        ;; ;; !P.LINESTYLE = [2,'AAAA'X]
-             
-        ;; ;; jLineStyle = 4
-        OPLOT,freq[inds],magErr[inds], $
-              ;; LINESTYLE=jLineStyle, $
-              ;; LINESTYLE=, $
-              COLOR=240
+           ;;Now labels
+           rango       = (MAX(yARange)-MIN(yARange))
+           ;; distVec     = REVERSE(INDGEN(3)*spaceFrac - 2.*spaceFrac + 1)
+
+           legYSymPos  = 0.925* rango + MIN(yARange)
+           legYPos     = 0.900* rango + MIN(yARange)
+
+           IF KEYWORD_SET(use_crossSym) THEN BEGIN
+              ;;For cross sym
+              legXPos1    = 0.68*((MAX(freq)-MIN(freq))+MIN(freq))
+              legXSymPos1 = 0.66*((MAX(freq)-MIN(freq))+MIN(freq))
+
+              PLOTS,legXSymPos1,legYSymPos[0], $
+                    COLOR=thetaErrCol, $
+                    PSYM=8
+
+              ;;back to perpSym
+              USERSYM,perpSym
+           ENDIF ELSE BEGIN
+              legXPos1    = 0.9*((MAX(freq)-MIN(freq))+MIN(freq))
+              legXPos2    = 0.95*((MAX(freq)-MIN(freq))+MIN(freq))
+              legXSymPos1 = 0.83*((MAX(freq)-MIN(freq))+MIN(freq))
+              legXSymPos2 = 0.88*((MAX(freq)-MIN(freq))+MIN(freq))
+
+              PLOTS,legXSymPos1,legYSymPos[0],COLOR=thetaErrCol
+              PLOTS,legXSymPos2,legYSymPos[0],COLOR=thetaErrCol,/CONTINUE
+           ENDELSE
+           
+           XYOUTS,legXPos1,legYPos[0],'!4h!X!Derr!N', $
+                  CHARSIZE=cs, $
+                  COLOR=thetaErrCol
 
         ENDIF
 
