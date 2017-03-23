@@ -38,6 +38,7 @@ PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
    PAGE1__FREQRANGE=page1__freqRange, $
    PAGE2__FREQRANGE=page2__freqRange, $
    KP__ANGLERANGE=kP__angleRange, $
+   WRITE_ASCIIS=write_ASCIIs, $
    SAVE_PS=save_ps, $
    FOOTBALL_LAYOUT=football_layout, $
    FOOTBALL_YLOG=football_yLog, $
@@ -261,6 +262,7 @@ PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
      ONLY_KS_BELOW_MAGERR_THRESH=only_ks_below_magErr_thresh, $
      ;; ONLY_KS_BELOW_ERRANGLE_THRESH=only_ks_below_errAngle_thresh, $
      ;; ONLY_KS_BELOW_PHASE_ERR_THRESH=only_ks_below_phaseErr_thresh, $
+     WRITE_ASCIIS=write_ASCIIs, $
      OUT_FREQS=out_freqs, $
      OUT_KX=out_kx, $
      OUT_KY=out_ky, $

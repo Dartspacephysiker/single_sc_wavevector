@@ -110,6 +110,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    FFTSIZE=FFTsize, $
    FFTPERCENT=FFTpercent,$
    WHICH_FFTS=which_FFTs, $
+   WRITE_ASCIIS=write_ASCIIs, $
    OUT_FREQS=out_freqs, $
    OUT_KX=out_kx, $
    OUT_KY=out_ky, $
@@ -256,6 +257,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      FFTSIZE=FFTsize, $
      FFTPERCENT=FFTpercent,$
      WHICH_FFTS=which_FFTs, $
+     WRITE_ASCIIS=write_ASCIIs, $
      OUT_FREQS=out_freqs, $
      OUT_KX=out_kx, $
      OUT_KY=out_ky, $

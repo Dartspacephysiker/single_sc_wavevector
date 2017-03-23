@@ -838,11 +838,54 @@ PRO SETUP_EXAMPLE,T,TArr,Bx,By,Bz,Jx,Jy,Jz,unitFactors,sPeriod,saveVar, $
 
 END
 
+PRO WRITE_ASCII, $
+   var,tVar, $
+   analysis_t1,analysis_t2, $
+   FPREF=fPref, $
+   VARNAME=varName, $
+   TVARNAME=tVarName
+
+  ASCIIPref = KEYWORD_SET(fPref) ? fPref : 'Orbitzzz'
+  ASCIIDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/'
+
+  IF N_ELEMENTS(var) NE N_ELEMENTS(tVar) THEN STOP
+
+  pickMe = WHERE(tVar GE analysis_t1 AND $
+                 tVar LE analysis_t2,nPicked)
+
+  IF nPicked EQ 0 THEN STOP
+
+  tDelta = tVar - analysis_t1
+
+  fileName = ASCIIPref + '-' + varName + '.ascii'
+
+  PRINT,"Writing  " + STRCOMPRESS(nPicked,/REMOVE_ALL) + ' ' + $
+        varName + ' obs to ' + fileName + ' ...'
+
+  OPENW,tmpLun,ASCIIDir+fileName,/GET_LUN
+
+  ;;Header
+  PRINTF,tmpLun,'delta_t is time since ' + TIME_TO_STR(analysis_t1,/MS)
+  PRINTF,tmpLun,''
+  PRINTF,tmpLun,FORMAT='(A0,T8,A0,T23,A0)','i','delta_t',varName
+
+  ;;Now all lines
+  tDeltTmp = tDelta[pickMe]
+  measTmp  = var[pickMe]
+  FOR k=0,nPicked-1 DO BEGIN
+     PRINTF,tmpLun,FORMAT='(I0,T8,F-13.5,T23,F-13.5)',k,tDeltTmp[k],measTmp[k]
+  ENDFOR
+
+  CLOSE,tmpLun
+  FREE_LUN,tmpLun
+
+END
 FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
                          magC, $
                          unitFactors,sPeriod,saveVar, $
                          B_AND_J_FILE=saveFile, $
                          SAVEDIR=saveDir, $
+                         WRITE_ASCIIS=write_ASCIIs, $
                          USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                          CUSTOM_T1=custom_t1, $
                          CUSTOM_T2=custom_t2, $
@@ -1206,6 +1249,58 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
   sRates     = {mag:mag_sRate, $
                 eESA:eESA_sRate, $
                 iESA:iESA_sRate}
+
+  ;;Last chance for a slow dance!
+  IF KEYWORD_SET(write_ASCIIs) THEN BEGIN
+     checkers = ['Bx','By','Bz', $
+                 'Je_z', $
+                 'magCurrent']
+     hasTime  = ['Bt','Bt','Bt', $
+                 'self', $
+                 'Bt']
+
+     GET_FA_ORBIT,[analysis_t1,analysis_t2],/TIME_ARRAY
+     GET_DATA,'ORBIT',DATA=orbit
+     fPref = STRING(FORMAT='(A0,I0)',"Orbit_",orbit.y[0])
+
+     nCheckers = N_ELEMENTS(checkers)
+     FOR k=0,nCheckers-1 DO BEGIN
+        execStr = 'tmpCheck = N_ELEMENTS('+checkers[k]+') GT 0'
+
+        IF ~EXECUTE(execStr) THEN STOP
+
+        IF tmpCheck THEN BEGIN
+
+           CASE STRUPCASE(hasTime[k]) OF
+              'SELF': BEGIN
+                 var  = checkers[k] + '.y'
+                 tVar = checkers[k] + '.x'
+              END
+              ELSE: BEGIN
+                 var  = checkers[k]
+                 tVar = hasTime[k]
+              END
+           ENDCASE
+
+           execStr2 = 'tmpCheck2 = N_ELEMENTS('+tVar+') GT 0'
+           IF ~EXECUTE(execStr2) THEN STOP
+
+           IF tmpCheck2 THEN BEGIN
+
+              execStr3 = 'WRITE_ASCII,' + var + ',' + tVar + ',' + $
+                         'analysis_t1,analysis_t2,' + $
+                         'FPREF=' + (KEYWORD_SET(fPref) ? '"' + fPref + '"' : !NULL) + ',' + $
+                         'VARNAME="' + (STRSPLIT(var,'.',/EXTRACT))[0] + '",' + $
+                         'TVARNAME="'+ (STRSPLIT(tVar,'.',/EXTRACT))[0] + '"'
+
+              IF ~EXECUTE(execStr3) THEN STOP
+
+           ENDIF
+
+        ENDIF
+     ENDFOR
+
+  ENDIF
 
   IF KEYWORD_SET(use_lowRes_time_series) THEN BEGIN
 
@@ -1989,6 +2084,7 @@ END
 PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    PARSE_B_AND_J_SAVEFILE=parse_B_and_J_saveFile, $
    B_AND_J_FILE=saveFile, $
+   WRITE_ASCIIS=write_ASCIIs, $
    USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
    CUSTOM_T1=custom_t1, $
    CUSTOM_T2=custom_t2, $
@@ -2379,6 +2475,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                   unitFactors,sPeriod,saveVar, $
                                   B_AND_J_FILE=saveFile, $
                                   SAVEDIR=saveDir, $
+                                  WRITE_ASCIIS=write_ASCIIs, $
                                   USE_TIMEBAR_TIME__FROM_FILE=use_timeBar_time__from_file, $
                                   CUSTOM_T1=custom_t1, $
                                   CUSTOM_T2=custom_t2, $
