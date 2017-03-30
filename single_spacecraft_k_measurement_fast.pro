@@ -1981,7 +1981,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
 
         ENDIF
 
-        ;; have_perp = 0
+        ;; have_perp = 1
         IF have_perp THEN BEGIN
 
            GET_FA_FAC_VECTORS,Tarr, $
@@ -2000,7 +2000,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
            Jx    = jx_i      
            Jy    = jy_i      
 
-           all_perp = 1
+           all_perp = 0
            IF KEYWORD_SET(all_perp) THEN BEGIN
               Jx += jx_e
               Jy += jy_e
