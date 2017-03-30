@@ -1123,6 +1123,7 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
 
      END
   ENDCASE
+  have_perp = (N_ELEMENTS(ji_perp) GT 0) AND (N_ELEMENTS(je_perp) GT 0)
 
   ;;Now make 'em Bellan-useable
   Bx      = dB.y[*,0] * bFactor
@@ -1410,6 +1411,29 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
                              DELT_T=maxDelta_t, $
                              /TALK
 
+           IF have_perp THEN BEGIN
+
+              interp = origInterp
+              FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
+                                {time:je_perp.x,comp1:je_perp.y}, $
+                                RESULT=je_perp_interp, $
+                                INTERP=interp, $
+                                SPLINE=spline, $
+                                DELT_T=maxDelta_t, $
+                                /TALK
+
+              interp = origInterp
+              FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
+                                {time:ji_perp.x,comp1:ji_perp.y}, $
+                                RESULT=ji_perp_interp, $
+                                INTERP=interp, $
+                                SPLINE=spline, $
+                                DELT_T=maxDelta_t, $
+                                /TALK
+
+           ENDIF
+
+
            IF N_ELEMENTS(magCurrent) GT 0 THEN BEGIN
 
               interp = origInterp
@@ -1528,6 +1552,28 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
                           SPLINE=spline, $
                           DELT_T=maxDelta_t, $
                           /TALK
+
+        IF have_perp THEN BEGIN
+
+           interp = origInterp
+           FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
+                             {time:je_perp.x,comp1:je_perp.y}, $
+                             RESULT=je_perp_interp, $
+                             INTERP=interp, $
+                             SPLINE=spline, $
+                             DELT_T=maxDelta_t, $
+                             /TALK
+
+           interp = origInterp
+           FA_FIELDS_COMBINE,{time:even_TS,comp1:even_TS}, $
+                             {time:ji_perp.x,comp1:ji_perp.y}, $
+                             RESULT=ji_perp_interp, $
+                             INTERP=interp, $
+                             SPLINE=spline, $
+                             DELT_T=maxDelta_t, $
+                             /TALK
+
+        ENDIF
 
         IF N_ELEMENTS(magCurrent) GT 0 THEN BEGIN
 
@@ -1906,6 +1952,13 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
         Ji_z_improv = Ji_z_improv[good_i]
         Je_z_improv = Je_z_improv[good_i]
 
+        IF have_perp THEN BEGIN
+
+           je_perp_interp = je_perp_interp[good_i]
+           ji_perp_interp = ji_perp_interp[good_i]
+
+        ENDIF
+        
         Bx = Bx[good_i]
         By = By[good_i]
         Bz = Bz[good_i]
@@ -1928,16 +1981,49 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
 
         ENDIF
 
-        ;;Sorry, Jx and Jy
-        Jx = MAKE_ARRAY(T,VALUE=0.) * jFactor
-        Jy = MAKE_ARRAY(T,VALUE=0.) * jFactor
-        Jz = (Ji_z_improv + Je_z_improv) * jFactor
+        ;; have_perp = 0
+        IF have_perp THEN BEGIN
+
+           GET_FA_FAC_VECTORS,Tarr, $
+                              ORBSTRUCT=orbStruct, $
+                              /TIME_ARRAY, $
+                              FAC=fac, $
+                              VEL_FAC=facv, $
+                              DESPUN_SAXIS_SPLANE=spin
+           
+           jx_e  = spin.plane.nMAG * je_perp_interp
+           jx_i  = spin.plane.nMAG * ji_perp_interp
+
+           jy_e  = spin.plane.eMAG * je_perp_interp
+           jy_i  = spin.plane.eMAG * ji_perp_interp
+
+           Jx    = jx_i      
+           Jy    = jy_i      
+
+           all_perp = 1
+           IF KEYWORD_SET(all_perp) THEN BEGIN
+              Jx += jx_e
+              Jy += jy_e
+           ENDIF 
+
+           Jx *= jFactor
+           Jy *= jFactor
+
+        ENDIF ELSE BEGIN
+
+           ;;Sorry, Jx and Jy
+           Jx = MAKE_ARRAY(T,VALUE=0.) * jFactor
+           Jy = MAKE_ARRAY(T,VALUE=0.) * jFactor
+
+        ENDELSE
+
+        Jz    = (Ji_z_improv + Je_z_improv) * jFactor
 
      END
   ENDCASE
 
-  b_is_list         = SIZE(Bx,/TYPE) EQ 11
-  can_convert       = b_is_list ? (NDIMEN(Bx[0]) EQ 1) : NDIMEN(Bx) EQ 1
+  b_is_list   = SIZE(Bx,/TYPE) EQ 11
+  can_convert = b_is_list ? (NDIMEN(Bx[0]) EQ 1) : NDIMEN(Bx) EQ 1
   IF KEYWORD_SET(nearest_two_power) AND can_convert THEN BEGIN
 
      ;;Temporarily unpack, if need be
