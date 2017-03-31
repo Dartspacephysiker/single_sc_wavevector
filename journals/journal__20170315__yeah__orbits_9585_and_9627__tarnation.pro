@@ -117,8 +117,8 @@ PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
               interval EQ 0: BEGIN
                  ;; custom_t1 = '1999-01-27/11:32:56.5'
                  ;; custom_t2 = '1999-01-27/11:33:09.0'
-                 custom_t1 = '1999-01-27/11:32:56.0'
-                 custom_t2 = '1999-01-27/11:33:06.0'
+                 custom_t1 = '1999-01-27/11:32:51.5'
+                 custom_t2 = '1999-01-27/11:33:09.5'
               END
               interval EQ 1: BEGIN
                  custom_t1 = '1999-01-27/11:32:54.0'
@@ -159,6 +159,9 @@ PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
            ENDCASE
 
         END        
+        ;; 10837: BEGIN
+
+        ;; END
      ENDCASE
 
   ENDIF ELSE BEGIN

@@ -803,34 +803,78 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         ;;Plot spectra in second column
 
+        GET_FA_ORBIT,Tarr[0:1],/TIME_ARRAY,/NO_STORE,STRUC=struc
+        orb     = STRING(FORMAT='(I0)',(TEMPORARY(struc)).orbit[0])
+        jimSuff = '-PRE_VIII_Jimfiles.sav'
+        jimDir  = '/SPENCEdata/Research/Satellites/FAST/single_sc_wavevector/saves_output_etc/20170331/PRE_VIII_data_from_Jim/'
+        jimFile = jimDir+orb+jimSuff
+        IF FILE_TEST(jimFile) THEN BEGIN
+           
+           RESTORE,jimFile
+
+           j2LineStyle = 2      ;dotted line
+           j2LineStyle = 1      ;dashed line??
+           
+           legYNavn  = ['J!DESA!N','J!Dmag!N']
+           powTitle  = 'Power (dB)'
+
+           jSpecVar1 = esa.db
+           jSpecVar2 = mag.db
+
+           freq1     = esa.freq
+           freq2     = mag.freq
+
+           
+
+        ENDIF ELSE BEGIN
+
+           legYNavn  = ['B!Dx!N','B!Dy!N','J!Dz!N']
+           powTitle  = 'Power (fractional)'
+
+           jSpecVar1 = JSpec[*,2]
+           jSpecVar2 = magCSpec
+
+           freq1     = powFreq
+           freq2     = powFreq
+
+        ENDELSE
+
+
         ;; jYRange = [0,MAX(magCSpec)]
         ;; yLog = 1
         CASE 1 OF
-           KEYWORD_SET(football_yLog): BEGIN
+           ;; KEYWORD_SET(football_yLog): BEGIN
+           KEYWORD_SET(football_yLog) AND ~FILE_TEST(jimFile): BEGIN
 
-              powPos  = WHERE((magCSpec GT 0) AND (BSpec[*,0] GT 0) AND (BSpec[*,1] GT 0))
-              jYRange = [MIN(JSpec[powPos,2]) > (MIN(magCSpec) < MIN(BSpec[powPos,0]) < MIN(BSpec[powPos,1])), $
-                         (1 < MAX(JSpec[powPos,2])) < (MAX(magCSpec) > MAX(BSpec[powPos,0]) > MAX(BSpec[powPos,1]))]
+                 powPos  = WHERE((jSpecVar2 GT 0) AND (BSpec[*,0] GT 0) AND (BSpec[*,1] GT 0))
+                 jYRange = [MIN(JSpec[powPos,2]) > (MIN(jSpecVar2) < MIN(BSpec[powPos,0]) < MIN(BSpec[powPos,1])), $
+                            (1 < MAX(JSpec[powPos,2])) < (MAX(jSpecVar2) > MAX(BSpec[powPos,0]) > MAX(BSpec[powPos,1]))]
 
               currency = (MAX(ALOG10(jYRange))-MIN(ALOG10(jYRange)))+MIN(ALOG10(jYRange))
 
            END
            ELSE: BEGIN
 
-              powPos  = WHERE(powFreq GT 0)
-              jYRange = [0,MAX(JSpec[powPos,2]) < (MAX(magCSpec) > MAX(BSpec[powPos,0]) > MAX(BSpec[powPos,1]))]
+              IF FILE_TEST(jimFile) THEN BEGIN
+
+                 powPos  = WHERE((jSpecVar2 GT -1D2) AND (jSpecVar1 GT -1D2))
+                 jYRange = [MIN([jSpecVar2,jSpecVar1]),MAX([jSpecVar2,jSpecVar1])]
+
+              ENDIF ELSE BEGIN
+
+                 powPos  = WHERE(powFreq GT 0)
+                 jYRange = [0,MAX(JSpec[powPos,2]) < (MAX(jSpecVar2) > MAX(BSpec[powPos,0]) > MAX(BSpec[powPos,1]))]
+
+              ENDELSE
 
               currency = (MAX(jYRange)-MIN(jYRange))+MIN(jYRange)
-
+                 
            END
         ENDCASE
 
-        jSpecVar1 = JSpec[*,2]
-        jSpecVar2 = magCSpec
-
-        PLOT,powFreq,jSpecVar1, $
+        PLOT,freq1,jSpecVar1, $
              ;; XTITLE='t', $
-             YTITLE='Power (fractional)' , $
+             YTITLE=powTitle, $
              XRANGE=page1__freqRange, $
              YRANGE=jYRange, $
              XSTYLE=1, $
@@ -851,22 +895,28 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
              /NOERASE, $
              /NODATA
 
-        OPLOT,powFreq,BSpec[*,0], $
-              COLOR=bxCol
-
-        OPLOT,powFreq,BSpec[*,1], $
-              COLOR=byCol
-
-        OPLOT,powFreq,jSpecVar1
+        IF FILE_TEST(jimFile) THEN BEGIN
 
         ;;Plot mag current spec?
-        ;; jLineStyle = 2 ;dotted line
-        ;; jLineStyle = 1 ;dashed line??
-        ;; ;; OPLOT,freq[inds],JSpecNorm[inds], $
-        ;; OPLOT,powFreq,jSpecVar2, $
-        ;;       LINESTYLE=jLineStyle, $
-        ;;       COLOR=jMagSpecCol;; , $
-              ;; MAX_VALUE=MAX(magCSpec)
+        OPLOT,freq2,jSpecVar2, $
+              LINESTYLE=jLineStyle, $
+              ;; COLOR=jMagSpecCol;; , $
+              COLOR=byCol;; , $
+              MAX_VALUE=MAX(jSpecVar2)
+
+        ENDIF ELSE BEGIN
+
+           OPLOT,powFreq,BSpec[*,0], $
+                 COLOR=bxCol
+
+           OPLOT,powFreq,BSpec[*,1], $
+                 COLOR=byCol
+
+        ENDELSE
+
+        OPLOT,freq1,jSpecVar1, $
+              COLOR=(FILE_TEST(jimFile) ? bxCol : !NULL)
+
 
         legXSymPos1 = 0.73*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
         legXSymPos2 = 0.78*((MAX(powFreq)-MIN(powFreq))+MIN(powFreq))
@@ -895,18 +945,20 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
 
         ENDELSE
 
-        XYOUTS,legXPos1,legYPos[0],'B!Dx!N',CHARSIZE=cs
+        XYOUTS,legXPos1,legYPos[0],legYNavn[0],CHARSIZE=cs
         PLOTS,legXSymPos1,legYSymPos[0],COLOR=bxCol
         PLOTS,legXSymPos2,legYSymPos[0],COLOR=bxCol,/CONTINUE
 
-        XYOUTS,legXPos1,legYPos[1],'B!Dy!N',CHARSIZE=cs
+        XYOUTS,legXPos1,legYPos[1],legYNavn[1],CHARSIZE=cs
         PLOTS,legXSymPos1,legYSymPos[1],COLOR=byCol
         PLOTS,legXSymPos2,legYSymPos[1],COLOR=byCol,/CONTINUE
 
-        XYOUTS,legXPos1,legYPos[2],'J!Dz!N',CHARSIZE=cs
-        PLOTS,legXSymPos1,legYSymPos[2]
-        PLOTS,legXSymPos2,legYSymPos[2],/CONTINUE
-
+        IF N_ELEMENTS(legYNavn) EQ 3 THEN BEGIN
+           XYOUTS,legXPos1,legYPos[2],legYNavn[2],CHARSIZE=cs
+           PLOTS,legXSymPos1,legYSymPos[2]
+           PLOTS,legXSymPos2,legYSymPos[2],/CONTINUE
+        ENDIF
+        
      END
      ELSE: BEGIN
 

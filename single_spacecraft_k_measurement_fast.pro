@@ -370,8 +370,18 @@ PRO PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
                   COLOR='Black', $
                   LINESTYLE=obsSty, $
                   /OVERPLOT)
+  plot3    = PLOT(time,Jx, $
+                  NAME='Obs x', $
+                  COLOR='Gray', $
+                  LINESTYLE='--', $
+                  /OVERPLOT)
+  plot4    = PLOT(time,Jy, $
+                  NAME='Obs y', $
+                  COLOR='Gray', $
+                  LINESTYLE='-:', $
+                  /OVERPLOT)
 
-  legend   = LEGEND(TARGET=[plotX,plotY,plotZ,plot1,plot2])
+  legend   = LEGEND(TARGET=[plotX,plotY,plotZ,plot1,plot2,plot3,plot4])
 
   ;; STOP
 
@@ -1997,10 +2007,12 @@ FUNCTION CHUNK_SAVE_FILE,T,TArr,Bx,By,Bz,Jx,Jy,Jz, $
            jy_e  = spin.plane.eMAG * je_perp_interp
            jy_i  = spin.plane.eMAG * ji_perp_interp
 
-           Jx    = jx_i      
-           Jy    = jy_i      
+           ;; Jx    = jx_i*(-1.)
+           ;; Jy    = jy_i*(-1.)
+           Jx    = jx_i
+           Jy    = jy_i
 
-           all_perp = 0
+           all_perp = 1
            IF KEYWORD_SET(all_perp) THEN BEGIN
               Jx += jx_e
               Jy += jy_e
