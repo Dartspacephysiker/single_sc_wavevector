@@ -3,10 +3,10 @@ PRO JOURNAL__20170331__KINETIC_ALF__PREDICTED_LPERP
 
   COMPILE_OPT IDL2,STRICTARRSUBS
 
-  ;; l_par    = 1D3 * 1000.D ;m
-  l_perp   = 1D  * 1000.D ;m
-  n     = 30          ;cm^-3
-  omega    = 1 * 2.D * !PI
+  l_par    = 2D3 * 1000.D ;m
+  ;; l_perp   = 1D  * 1000.D ;m
+  n        = 25          ;cm^-3
+  omega    = 1.3 * 2.D * !PI
   altitude = 3160               ;km
   mlt      = 12.5
 
