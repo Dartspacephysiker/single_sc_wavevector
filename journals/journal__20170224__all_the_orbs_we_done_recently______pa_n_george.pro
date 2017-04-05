@@ -71,6 +71,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
    PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
    REMOVE_EPS=remove_eps, $
    NO_PLOTS=no_plots, $
+   SHOW_PREDICTED_J=show_predicted_J, $
    BONUS_SUFF=bonus_suff, $
    EXTRA_SUFFIX=extra_suffix, $
    DOUBLE_CALC=double_calc, $
@@ -218,6 +219,7 @@ PRO JOURNAL__20170224__ALL_THE_ORBS_WE_DONE_RECENTLY______PA_N_GEORGE, $
      PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
      REMOVE_EPS=remove_eps, $
      NO_PLOTS=no_plots, $
+     SHOW_PREDICTED_J=show_predicted_J, $
      BONUS_SUFF=bonus_suff, $
      EXTRA_SUFFIX=extra_suffix, $
      DOUBLE_CALC=double_calc, $
