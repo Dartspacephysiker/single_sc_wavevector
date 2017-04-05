@@ -48,6 +48,7 @@ PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
    FOOTBALL_NO_MAGERR=football_no_magErr, $
    TO_PDF=to_pdf, $
    REMOVE_EPS=remove_eps, $
+   SHOW_PREDICTED_J=show_predicted_J, $
    NO_PLOTS=no_plots, $
    PTSHIFT=ptShift, $
    SHIFT_UNIVERSAL_OFFSET=univOffset, $
@@ -187,7 +188,7 @@ PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
         football_col2Title = STRING(FORMAT='("Orbit ",I0)',orbit)
 
         IF N_ELEMENTS(interval) GT 0 THEN BEGIN
-           football_col2Title += STRING(FORMAT='(" (itvl ",I0,")")',interval)
+           ;; football_col2Title += STRING(FORMAT='(" (itvl ",I0,")")',interval)
         ENDIF ELSE BEGIN
            ;; football_col2Title += "(original)"
         ENDELSE
@@ -219,6 +220,7 @@ PRO JOURNAL__20170315__YEAH__ORBITS_9585_AND_9627__TARNATION, $
      TO_PDF=to_pdf, $
      REMOVE_EPS=remove_eps, $
      NO_PLOTS=no_plots, $
+     SHOW_PREDICTED_J=show_predicted_J, $
      /USE_LOWRES_TIME_SERIES, $
      DATE=date, $
      PUBLICATION_SETTINGS=pubSettings, $

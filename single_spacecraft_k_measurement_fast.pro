@@ -172,6 +172,7 @@ END
 
 PRO PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
               IN_TIME=time, $
+              SHOW_PREDICTED_J=show_predicted_J, $
               OUT_JPREDICTED=JPred, $
               OUT_MAGERR=magErr, $
               OUT_ERRANGLE=errAngle, $
@@ -324,64 +325,134 @@ PRO PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
      END
   ENDCASE
 
-  ;; phaseErr[WHERE(phaseErr LT 0,/NULL)] += 2.D*!PI
-  ;; phaseErr[WHERE(phaseErr LT (-!PI),/NULL)] += 2.D*!PI
-  ;; phaseErr[WHERE(phaseErr GT ( !PI),/NULL)] -= 2.D*!PI  
-  phaseErr = NORMALIZE_ANGLE(phaseErr,-!PI,!PI)
-  ;; PRINT,MIN((ABS(phaseErr[2,*]))[WHERE(ABS(phaseErr[2,*]) GT 0)])*180.D/!PI
-  PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
+  ;; show_predicted_J = 1
+  show_obs_perp_J_stuff = 0
+  show_inv_FFT_obs_J    = 0
+  IF KEYWORD_SET(show_predicted_J) THEN BEGIN
 
-  JPredX   = FFT(REFORM(JPred[0,*]),1)/unitFactors.J
-  JPredY   = FFT(REFORM(JPred[1,*]),1)/unitFactors.J
-  JPredZ   = FFT(REFORM(JPred[2,*]),1)/unitFactors.J
-  Jinv_t   = FFT(             Jz_om,1)/unitFactors.J
+     plotX = OBJ_NEW()
+     plotY = OBJ_NEW()
+     plotZ = OBJ_NEW()
+     plot1 = OBJ_NEW()
+     plot2 = OBJ_NEW()
+     plot3 = OBJ_NEW()
+     plot4 = OBJ_NEW()
 
-  predSty  = '-'
-  obsSty   = '-'
-  obsInvSty = '-:'
-  plotX    = PLOT(time,REVERSE(JPredX), $
-                  NAME='J!Dx,Pred!N (FFT!U-1!N)', $
-                  XTITLE='Time', $
-                  YTITLE='Current ($\mu$A/m!U2!N)', $
-                  COLOR='Brown', $
-                  LINESTYLE=predSty)
-  plotY    = PLOT(time,REVERSE(JPredY), $
-                  NAME='J!Dy,Pred!N (FFT!U-1!N)', $
-                  XTITLE='Time', $
-                  YTITLE='Current ($\mu$A/m!U2!N)', $
-                  COLOR='Orange', $
-                  LINESTYLE=predSty, $
-                  /OVERPLOT)
-  plotZ    = PLOT(time,REVERSE(JPredZ), $
-                  NAME='J!Dz,Pred!N (FFT!U-1!N)', $
-                  XTITLE='Time', $
-                  YTITLE='Current ($\mu$A/m!U2!N)', $
-                  COLOR='Red', $
-                  LINESTYLE=predSty, $
-                  /OVERPLOT)
+     ;; phaseErr[WHERE(phaseErr LT 0,/NULL)] += 2.D*!PI
+     ;; phaseErr[WHERE(phaseErr LT (-!PI),/NULL)] += 2.D*!PI
+     ;; phaseErr[WHERE(phaseErr GT ( !PI),/NULL)] -= 2.D*!PI  
+     phaseErr = NORMALIZE_ANGLE(phaseErr,-!PI,!PI)
+     ;; PRINT,MIN((ABS(phaseErr[2,*]))[WHERE(ABS(phaseErr[2,*]) GT 0)])*180.D/!PI
+     PRINT,FORMAT='(A0,T15,A0,T30,A0)',"","",""
 
-  plot1    = PLOT(time,Jinv_t, $
-                  NAME='Obs (FFT!U-1!N)', $
-                  /OVERPLOT, $
-                  COLOR='Blue', $
-                  LINESTYLE=obsInvSty)
-  plot2    = PLOT(time,Jz, $
-                  NAME='Obs (Actual)', $
-                  COLOR='Black', $
-                  LINESTYLE=obsSty, $
-                  /OVERPLOT)
-  plot3    = PLOT(time,Jx, $
-                  NAME='Obs x', $
-                  COLOR='Gray', $
-                  LINESTYLE='--', $
-                  /OVERPLOT)
-  plot4    = PLOT(time,Jy, $
-                  NAME='Obs y', $
-                  COLOR='Gray', $
-                  LINESTYLE='-:', $
-                  /OVERPLOT)
+     tPlot    = time-time[0]
 
-  legend   = LEGEND(TARGET=[plotX,plotY,plotZ,plot1,plot2,plot3,plot4])
+     JPredX   = FFT(REFORM(JPred[0,*]),1)/unitFactors.J
+     JPredY   = FFT(REFORM(JPred[1,*]),1)/unitFactors.J
+     JPredZ   = FFT(REFORM(JPred[2,*]),1)/unitFactors.J
+
+     IF KEYWORD_SET(show_inv_FFT_obs_J) THEN BEGIN
+        Jinv_t   = FFT(             Jz_om,1)/unitFactors.J
+     ENDIF
+
+     predSty  = ['-:',':','__']
+     obsSty   = '-'
+
+     predCol  = ['Blue','Purple','Red']
+     predThick = [1.0,1.0,1.0]*1.4
+     ;; obsInvSty = '-:'
+
+     zLineTransp = 0
+
+     ;; FFTInvStr = ' (FFT!U-1!N)'
+     FFTInvStr = ''
+
+     targArr  = !NULL
+     
+     window   = WINDOW(DIMENSIONS=[1000,800])
+
+     ;;Observedssss
+     plot2    = PLOT(tPlot,Jz, $
+                     TITLE='Orbit 9585', $
+                     NAME='J!Dz,Obs!N', $
+                     XTITLE='Time since ' + TIME_TO_STR(time[0],/MS) + ' (s)', $
+                     YTITLE='Current ($\mu$A/m!U2!N)', $
+                     COLOR='Black', $
+                     XSTYLE=1, $
+                     LINESTYLE=obsSty, $
+                     /CURRENT, $
+                     FONT_SIZE=20) ;; , $
+                     ;; /OVERPLOT)
+     targArr  = [targArr,plot2]
+
+     IF KEYWORD_SET(show_inv_FFT_obs_J) THEN BEGIN
+
+        targArr = [targArr, plot1]
+        plot1    = PLOT(time,Jinv_t, $
+                        NAME='Obs' + FFTInvStr, $
+                        /OVERPLOT, $
+                        COLOR='Blue', $
+                        LINESTYLE=obsInvSty)
+
+     ENDIF
+
+     ;;Predictedssss
+     ;; plotX    = PLOT(tPlot,REVERSE(JPredX), $
+     ;;                 NAME='J!Dx,Pred!N' + FFTInvStr, $
+     ;;                 COLOR=predCol[0], $
+     ;;                 LINESTYLE=predSty[0], $
+     ;;                 THICK=predThick[0], $
+     ;;                 /OVERPLOT)
+     ;; targArr  = [targArr,plotX]
+
+     ;; plotY    = PLOT(tPlot,REVERSE(JPredY), $
+     ;;                 NAME='J!Dy,Pred!N' + FFTInvStr, $
+     ;;                 ;; XTITLE='Time', $
+     ;;                 ;; YTITLE='Current ($\mu$A/m!U2!N)', $
+     ;;                 COLOR=predCol[1], $
+     ;;                 LINESTYLE=predSty[1], $
+     ;;                 THICK=predThick[1], $
+     ;;                 /OVERPLOT)
+     ;; targArr  = [targArr,plotY]
+
+     plotZ    = PLOT(tPlot,REVERSE(JPredZ), $
+                     NAME='J!Dz,Pred!N' + FFTInvStr, $
+                     ;; XTITLE='Time', $
+                     ;; YTITLE='Current ($\mu$A/m!U2!N)', $
+                     COLOR=predCol[2], $
+                     LINESTYLE=predSty[2], $
+                     THICK=predThick[2], $
+                     /OVERPLOT)
+     targArr  = [targArr,plotZ]
+
+     plot0    = PLOT(tPlot,JPredZ*0.0D, $
+                     COLOR='Gray', $
+                     TRANSPARENCY=zLineTransp, $
+                     /OVERPLOT)
+
+     ;; targArr  = [plotX,plotY,plotZ,plot1,plot2]
+     targArr  = REVERSE(targArr)
+
+     IF KEYWORD_SET(show_obs_perp_J_stuff) THEN BEGIN
+
+        plot3    = PLOT(tPlot,Jx, $
+                        NAME='Obs x', $
+                        COLOR='Gray', $
+                        LINESTYLE='--', $
+                        /OVERPLOT)
+        plot4    = PLOT(tPlot,Jy, $
+                        NAME='Obs y', $
+                        COLOR='Gray', $
+                        LINESTYLE='-:', $
+                        /OVERPLOT)
+
+        targArr = [targArr,plot3,plot4]
+
+     ENDIF
+
+     legend   = LEGEND(TARGET=targArr,POSITION=[0.8,0.8],/NORMAL,FONT_SIZE=20)
+
+  ENDIF
 
   ;; STOP
 
@@ -389,6 +460,7 @@ END
 
 PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      freq,kx,ky,kz,kP, $
+                     TIME_ARR=TArr, $
                      SPERIOD=sPeriod, $
                      UNITFACTORS=unitFactors, $
                      PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
@@ -396,6 +468,7 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                      HANNING=hanning, $
                      EFIELD=EField, $
                      ODDNESS_CHECK=oddness_check, $
+                     SHOW_PREDICTED_J=show_predicted_J, $
                      OUT_NORM=norm, $
                      OUT_AVGJXB=avgJxBtotal, $
                      OUT_JPREDICTED=JPred, $
@@ -518,7 +591,9 @@ PRO BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
   predict_current = 1
   IF KEYWORD_SET(predict_current) THEN BEGIN
      PREDICT_J,freq,ikx,iky,ikz,Bx,By,Bz,Jx,Jy,Jz,unitFactors, $
-               IN_TIME=FINDGEN(T)*sPeriod, $
+               ;; IN_TIME=FINDGEN(T)*sPeriod, $
+               IN_TIME=TArr, $
+               SHOW_PREDICTED_J=show_predicted_J, $
                OUT_JPREDICTED=JPred, $
                OUT_MAGERR=magErr, $
                OUT_ERRANGLE=errAngle, $
@@ -2229,6 +2304,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
    TO_PDF=to_pdf, $
    PDF_TRANSPARENCY_LEVEL=pdf_transparency, $
    REMOVE_EPS=remove_eps, $
+   SHOW_PREDICTED_J=show_predicted_J, $
    NO_PLOTS=no_plots, $
    BONUS_SUFF=bonus_suff, $
    EXTRA_SUFFIX=extra_suffix, $
@@ -2726,6 +2802,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                           BELLAN_2016__BRO,nTmp,JxTmp[tmpI],JyTmp[tmpI],JzTmp[tmpI], $
                                            BxTmp[tmpI],ByTmp[tmpI],BzTmp[tmpI], $
                                            freq,kx,ky,kz,kP, $
+                                           TIME_ARR=TArr, $
                                            SPERIOD=sPeriod, $
                                            UNITFACTORS=unitFactors, $
                                            PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
@@ -2733,6 +2810,7 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                                            HANNING=hanning, $
                                            EFIELD=EField, $
                                            ODDNESS_CHECK=oddness_check, $
+                                           SHOW_PREDICTED_J=show_predicted_J, $
                                            OUT_NORM=norm, $
                                            OUT_AVGJXB=avgJxBtotal, $
                                            OUT_JPREDICTED=JPred, $
@@ -2912,12 +2990,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
                              1.D/(TArr[1]-TArr[0])
                        BELLAN_2016__BRO,nTmp,Jx[tmpI],Jy[tmpI],Jz[tmpI],Bx[tmpI],By[tmpI],Bz[tmpI], $
                                         freq,kx,ky,kz,kP, $
+                                        TIME_ARR=TArr, $
                                         SPERIOD=sPeriod, $
                                         UNITFACTORS=unitFactors, $
                                         PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                                         DOUBLE_CALC=double_calc, $
                                         HANNING=hanning, $
                                         EFIELD=EField, $
+                                        SHOW_PREDICTED_J=show_predicted_J, $
                                         ODDNESS_CHECK=oddness_check, $
                                         OUT_NORM=norm, $
                                         OUT_AVGJXB=avgJxBtotal, $
@@ -3006,12 +3086,14 @@ PRO SINGLE_SPACECRAFT_K_MEASUREMENT_FAST, $
 
                  BELLAN_2016__BRO,T,Jx,Jy,Jz,Bx,By,Bz, $
                                   freq,kx,ky,kz,kP, $
+                                  TIME_ARR=TArr, $
                                   SPERIOD=sPeriod, $
                                   UNITFACTORS=unitFactors, $
                                   PLOT_KPERP_MAGNITUDE_FOR_KZ=plot_kperp_magnitude_for_kz, $
                                   DOUBLE_CALC=double_calc, $
                                   HANNING=hanning, $
                                   EFIELD=EField, $
+                                  SHOW_PREDICTED_J=show_predicted_J, $
                                   ODDNESS_CHECK=oddness_check, $
                                   OUT_NORM=norm, $
                                   OUT_AVGJXB=avgJxBtotal, $

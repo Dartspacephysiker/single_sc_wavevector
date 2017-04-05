@@ -889,7 +889,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
              ;; XTICKNAME=freqBlankTickName, $
              CHARSIZE=cs, $
              XTICKFORMAT='(A1)', $
-             YTICKFORMAT=KEYWORD_SET(football_yLog) ? 'exponentlabel' : !NULL, $
+             YTICKFORMAT=(KEYWORD_SET(football_yLog) OR FILE_TEST(jimFile)) ? 'exponentlabel' : !NULL, $
              SYMSIZE=symSize, $
              POSITION=posSpec, $
              /NOERASE, $
@@ -937,7 +937,7 @@ PRO PLOT_SINGLE_SPACECRAFT_K_MEASUREMENT, $
 
         ENDIF ELSE BEGIN
 
-           spaceFrac   = 0.13
+           spaceFrac   = (FILE_TEST(jimFile) ? 0.25 : 0.13)
            distVec     = REVERSE(INDGEN(3)*spaceFrac - spaceFrac + 1)
 
            legYSymPos  = 0.93*( distVec * currency )

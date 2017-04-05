@@ -5,7 +5,7 @@ PRO JOURNAL__20170331__KINETIC_ALF__PREDICTED_LPERP
 
   l_par    = 2D3 * 1000.D ;m
   ;; l_perp   = 1D  * 1000.D ;m
-  n        = 25          ;cm^-3
+  n        = 30
   omega    = 1.3 * 2.D * !PI
   altitude = 3160               ;km
   mlt      = 12.5
